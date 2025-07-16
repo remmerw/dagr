@@ -1,5 +1,7 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.PeerId
+
 
 /**
  * Assembles QUIC packets for a given encryption level, based on "send requests" that are previously queued.
@@ -13,15 +15,10 @@ internal class PacketAssembler internal constructor(
     private var packetNumberGenerator = 0L // no concurrency
 
 
-    /**
-     * Assembles a QUIC packet for the encryption level handled by this instance.
-     *
-     * @param scid can be null when encryption level is 1-rtt; but not for the other levels; can be empty array though
-     */
     suspend fun assemble(
         remainingCwndSize: Int,
         availablePacketSize: Int,
-        scid: Number?,
+        peerId: PeerId,
         dcid: Number?
     ): Packet? {
 
@@ -99,7 +96,7 @@ internal class PacketAssembler internal constructor(
         } else {
             addPadding(level, dcidLength, frames)
             packet = createPacket(
-                level, packetNumber, scid, dcid, frames
+                level, peerId, packetNumber, dcid, frames
             )
         }
         return packet
@@ -127,15 +124,11 @@ internal class PacketAssembler internal constructor(
     }
 
     private fun createPacket(
-        level: Level, packetNumber: Long,
-        scid: Number?, dcid: Number?, frames: List<Frame>
+        level: Level, peerId: PeerId, packetNumber: Long, dcid: Number?, frames: List<Frame>
     ): Packet {
         return when (level) {
             Level.App -> PacketService.createAppPackage(frames, packetNumber, dcid!!)
-            Level.INIT -> PacketService.createInitPackage(
-                frames,
-                packetNumber, scid!!, dcid!!
-            )
+            Level.INIT -> PacketService.createInitPackage(peerId, frames, packetNumber)
         }
     }
 

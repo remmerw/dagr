@@ -6,7 +6,7 @@ import kotlinx.io.Buffer
 internal data class AlpnResponder(
     val stream: Stream,
     val responder: Responder,
-    val streamState: Libp2pState
+    val streamState: State
 ) : StreamHandler {
     override suspend fun data(data: Buffer) {
         try {

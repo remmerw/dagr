@@ -19,6 +19,7 @@ import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
+    private val peerId: PeerId,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val responder: Responder
@@ -711,7 +712,7 @@ abstract class Connection(
     }
 
     private suspend fun assemblePackets(): List<Packet> {
-        val scid = activeScid()
+
         val dcid = activeDcid()
         val dcidLength = lengthNumber(dcid)
 
@@ -727,7 +728,7 @@ abstract class Connection(
 
                 val item = assembler.assemble(
                     remaining,
-                    Settings.MAX_PACKAGE_SIZE - size, scid, dcid
+                    Settings.MAX_PACKAGE_SIZE - size, peerId, dcid
                 )
 
                 if (item != null) {

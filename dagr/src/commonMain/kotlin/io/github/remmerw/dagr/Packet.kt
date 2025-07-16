@@ -1,9 +1,7 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
-
-val UNDEFINED_TOKEN: ByteArray = byteArrayOf(0x00.toByte())
 
 internal interface Packet {
     fun packetNumber(): Long
@@ -42,18 +40,16 @@ internal interface Packet {
         }
 
 
-    data class InitPacket(
-        val dcid: Number, val scid: Number,
-        val frames: List<Frame>, val packetNumber: Long
-    ) : Packet {
+    data class InitPacket(val peerId: PeerId, val frames: List<Frame>, val packetNumber: Long) :
+        Packet {
 
 
         override fun generatePacketBytes(): Buffer {
-            val frameHeader = generateFrameHeaderInvariant()
             val frameBytes = PacketService.generatePayloadBytes(frames)
 
             val buffer = Buffer()
-            buffer.write(frameHeader)
+            buffer.writeByte(0.toByte())
+            buffer.write(peerId.hash)
             buffer.writeLong(packetNumber)
             buffer.write(frameBytes)
             return buffer
@@ -74,55 +70,16 @@ internal interface Packet {
         override fun estimateLength(): Int {
             val payloadLength = framesLength()
             return (1
-                    + 4
-                    + 1 + lengthNumber(dcid)
-                    + 1 + Int.SIZE_BYTES
+                    + peerId.hash.size
+                    + Long.SIZE_BYTES
                     + (if (payloadLength + 1 > 63) 2 else 1)
                     + 1 // packet number length: will usually be just 1, actual value cannot be
                     // computed until packet number is known
                     + payloadLength // https://tools.ietf.org/html/draft-ietf-quic-tls-27#section-5.4.2
                     // "The ciphersuites defined in [TLS13] - (...) - have 16-byte expansions..."
-                    + 16)
+                    )
         }
 
-        private fun generateFrameHeaderInvariant(): ByteArray {
-            // https://www.rfc-editor.org/rfc/rfc9000.html#name-long-header-packets
-            // "Long Header Packet {
-            //    Header Form (1) = 1,
-            //    Fixed Bit (1) = 1,
-            //    Long Packet Type (2),
-            //    Type-Specific Bits (4),"
-            //    Version (32),
-            //    Destination Connection ID Length (8),
-            //    Destination Connection ID (0..160),
-            //    Source Connection ID Length (8),
-            //    Source Connection ID (0..160),
-            //    Type-Specific Payload (..),
-            //  }
-
-            val dcidLength = lengthNumber(dcid)
-
-            // Packet payloadType and packet number length
-
-            val capacity = 1 + +1 + dcidLength +
-                    1 + Int.SIZE_BYTES
-            val buffer = Buffer()
-
-            // DCID Len
-            buffer.writeByte(dcidLength.toByte())
-            // Destination connection id
-            if (dcid is Long) {
-                buffer.writeLong(dcid)
-            } else {
-                buffer.writeInt(dcid.toInt())
-            }
-            // SCID Len
-            buffer.writeByte(Int.SIZE_BYTES.toByte())
-            // Source connection id
-            buffer.writeInt(scid.toInt())
-            require(buffer.size.toInt() == capacity)
-            return buffer.readByteArray()
-        }
     }
 
 
@@ -173,17 +130,6 @@ internal interface Packet {
 
         }
 
-        private fun getFlags(): Byte {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-17#section-17.3
-            // "|0|1|S|R|R|K|P P|"
-            // "Spin Bit (S):  The sixth bit (0x20) of byte 0 is the Latency Spin
-            //      Bit, set as described in [SPIN]."
-            // "Reserved Bits (R):  The next two bits (those with a mask of 0x18) of
-            //      byte 0 are reserved. (...) The value included prior to protection MUST be set to 0. "
-            var flags: Byte = 0x40 // 0100 0000
-            flags = PacketService.encodePacketNumberLength(flags, packetNumber)
-            return flags
-        }
     }
 }
 

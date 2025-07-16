@@ -19,16 +19,17 @@ import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
-class ClientConnection internal constructor(
+class DagrClient internal constructor(
 
     private val selectorManager: SelectorManager,
+    peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     responder: Responder,
     private val connector: Connector
-) : Connection(remotePeerId, remoteAddress, responder) {
+) : Connection(peerId, remotePeerId, remoteAddress, responder) {
     private val scope = CoroutineScope(Dispatchers.IO)
-    private val handshakeDone = Semaphore(1, 1)
+    private val initializeDone = Semaphore(1, 1)
 
     private val scidRegistry = ScidRegistry()
     private val dcidRegistry: DcidRegistry
@@ -52,32 +53,31 @@ class ClientConnection internal constructor(
 
         this.dcidRegistry = DcidRegistry(originalDcid)
 
-
-
-
     }
 
 
     suspend fun connect(timeout: Int) {
 
         try {
-            startHandshake()
+            startInitialize()
         } catch (throwable: Throwable) {
-            abortHandshake()
+            abortInitialize()
             throw Exception("Error : " + throwable.message)
         }
 
         try {
             withTimeout(timeout * 1000L) {
-                handshakeDone.acquire()
+
+                initializeDone.acquire()
+
                 if (state() != State.Connected) {
-                    abortHandshake()
+                    abortInitialize()
                     throw Exception("Handshake error state is " + state())
                 }
-                connector.addConnection(this@ClientConnection)
+                connector.addConnection(this@DagrClient)
             }
         } catch (throwable: Throwable) {
-            abortHandshake()
+            abortInitialize()
             throw throwable
         }
     }
@@ -89,8 +89,7 @@ class ClientConnection internal constructor(
         }
     }
 
-    private suspend fun startHandshake() {
-
+    private suspend fun startInitialize() {
 
         socket = aSocket(selectorManager).udp().bind(
             InetSocketAddress("::", 0)
@@ -103,11 +102,11 @@ class ClientConnection internal constructor(
             runRequester()
         }
 
-
+        insertRequest(Level.INIT, PING) // todo other frame
     }
 
 
-    private suspend fun abortHandshake() {
+    private suspend fun abortInitialize() {
         state(State.Failed)
         clearRequests()
         terminate()
@@ -303,11 +302,9 @@ class ClientConnection internal constructor(
         connector.removeConnection(this)
 
         try {
-            handshakeDone.release()
+            initializeDone.release()
         } catch (_: Throwable) {
         }
-
-
 
         try {
             socket?.isClosed?.let {
@@ -397,4 +394,18 @@ class ClientConnection internal constructor(
     }
 
 
+}
+
+fun newDagrClient(
+    localPeerId: PeerId,
+    remotePeerId: PeerId,
+    remoteAddress: InetSocketAddress,
+    responder: Responder
+): DagrClient {
+    val selectorManager = SelectorManager(Dispatchers.IO)
+    val connector = Connector()
+    return DagrClient(
+        selectorManager, localPeerId,
+        remotePeerId, remoteAddress, responder, connector
+    )
 }

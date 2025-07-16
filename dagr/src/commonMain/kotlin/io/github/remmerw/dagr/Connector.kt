@@ -4,26 +4,26 @@ import io.ktor.util.collections.ConcurrentSet
 
 
 class Connector() {
-    private val connections: MutableSet<ClientConnection> = ConcurrentSet()
+    private val connections: MutableSet<DagrClient> = ConcurrentSet()
 
 
-    fun connections(): Set<ClientConnection> {
+    fun connections(): Set<DagrClient> {
         return connections.toSet()
     }
 
     suspend fun shutdown() {
-        connections.forEach { connection: ClientConnection -> connection.close() }
+        connections.forEach { connection: DagrClient -> connection.close() }
         connections.clear()
 
     }
 
-    fun addConnection(connection: ClientConnection) {
+    fun addConnection(connection: DagrClient) {
         require(connection.isConnected) { "Connection not connected" }
         connections.add(connection)
 
     }
 
-    fun removeConnection(connection: ClientConnection) {
+    fun removeConnection(connection: DagrClient) {
         connections.remove(connection)
     }
 }

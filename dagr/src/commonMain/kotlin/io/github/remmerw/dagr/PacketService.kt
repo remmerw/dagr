@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
@@ -16,10 +17,11 @@ internal object PacketService {
     }
 
     fun createInitPackage(
+        peerId: PeerId,
         frames: List<Frame>,
-        packetNumber: Long, scid: Number, dcid: Number
+        packetNumber: Long
     ): Packet.InitPacket {
-        return Packet.InitPacket(dcid, scid, frames, packetNumber)
+        return Packet.InitPacket(peerId, frames, packetNumber)
     }
 
 
