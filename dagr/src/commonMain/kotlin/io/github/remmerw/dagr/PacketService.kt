@@ -8,18 +8,18 @@ internal object PacketService {
     /**
      * Constructs a short header packet for sending (client role).
      */
-    fun createShortHeader(
+    fun createAppPackage(
         version: Int, frames: List<Frame>,
         packetNumber: Long, dcid: Number
-    ): Packet.ShortHeaderPacket {
-        return Packet.ShortHeaderPacket(version, dcid, frames, packetNumber)
+    ): Packet.AppPacket {
+        return Packet.AppPacket(version, dcid, frames, packetNumber)
     }
 
-    fun createHandshake(
+    fun createInitPackage(
         version: Int, frames: List<Frame>,
         packetNumber: Long, scid: Number, dcid: Number
-    ): Packet.HandshakePacket {
-        return Packet.HandshakePacket(version, dcid, scid, frames, packetNumber)
+    ): Packet.InitPacket {
+        return Packet.InitPacket(version, dcid, scid, frames, packetNumber)
     }
 
 

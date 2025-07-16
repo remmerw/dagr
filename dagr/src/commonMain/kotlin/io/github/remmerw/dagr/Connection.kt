@@ -187,7 +187,7 @@ abstract class Connection(
 
         val packetHeader = when (level) {
 
-            Level.Handshake -> PacketParser.parseHandshakePackageHeader(
+            Level.INIT -> PacketParser.parseHandshakePackageHeader(
                 reader, dcid, flags, posFlags, version(), lpn
             )
 

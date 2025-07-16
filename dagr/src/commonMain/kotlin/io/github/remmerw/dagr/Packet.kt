@@ -42,7 +42,7 @@ internal interface Packet {
         }
 
 
-    data class HandshakePacket(
+    data class InitPacket(
         val version: Int, val dcid: Number, val scid: Number,
         val frames: List<Frame>, val packetNumber: Long
     ) : Packet {
@@ -70,7 +70,7 @@ internal interface Packet {
         }
 
         override fun level(): Level {
-            return Level.Handshake
+            return Level.INIT
         }
 
         override fun frames(): List<Frame> {
@@ -139,7 +139,7 @@ internal interface Packet {
     }
 
 
-    data class ShortHeaderPacket(
+    data class AppPacket(
         val version: Int, val dcid: Number, val frames: List<Frame>,
         val packetNumber: Long
     ) : Packet {

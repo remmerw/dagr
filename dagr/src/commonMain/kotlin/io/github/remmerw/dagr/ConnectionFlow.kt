@@ -138,7 +138,7 @@ open class ConnectionFlow(version: Int) {
             ackGenerators[level.ordinal] = AckGenerator()
         }
 
-        discardedLevels[Level.Handshake.ordinal] = false
+        discardedLevels[Level.INIT.ordinal] = false
         discardedLevels[Level.App.ordinal] = false
 
 

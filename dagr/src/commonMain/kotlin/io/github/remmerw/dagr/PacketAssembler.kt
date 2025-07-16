@@ -133,8 +133,8 @@ internal class PacketAssembler internal constructor(
         scid: Number?, dcid: Number?, frames: List<Frame>
     ): Packet {
         return when (level) {
-            Level.App -> PacketService.createShortHeader(version, frames, packetNumber, dcid!!)
-            Level.Handshake -> PacketService.createHandshake(
+            Level.App -> PacketService.createAppPackage(version, frames, packetNumber, dcid!!)
+            Level.INIT -> PacketService.createInitPackage(
                 version, frames,
                 packetNumber, scid!!, dcid!!
             )
@@ -177,7 +177,7 @@ internal class PacketAssembler internal constructor(
                 frames, additionalPayload
             )
 
-            Level.Handshake -> estimateHandshakePacketLength(
+            Level.INIT -> estimateHandshakePacketLength(
                 dcidLength, frames, additionalPayload
             )
         }

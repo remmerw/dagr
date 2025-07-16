@@ -86,7 +86,7 @@ internal object PacketParser {
             debug("Retry packet is intentionally not supported")
             return null
         } else if ((flags.toInt() and 0xf0) == 0xe0) {  // 1110 0000
-            return Level.Handshake
+            return Level.INIT
         } else if ((flags.toInt() and 0xf0) == 0xd0) {  // 1101 0000
             // 0-RTT Protected
             // "It is used to carry "early"
@@ -153,7 +153,7 @@ internal object PacketParser {
                 return reader.getInt()
             }
 
-            Level.Handshake -> {
+            Level.INIT -> {
                 val dstConnIdLength = reader.getByte().toInt()
                 // https://tools.ietf.org/html/draft-ietf-quic-transport-27#section-17.2
                 // "In QUIC version 1, this value MUST NOT exceed 20.  Endpoints that receive a version 1
@@ -193,7 +193,7 @@ internal object PacketParser {
 
         return parsePacketNumberAndPayload(
             reader,
-            Level.Handshake, version, flags, posFlags,
+            Level.INIT, version, flags, posFlags,
             length, largestPacketNumber, dcid, scid
         )
     }

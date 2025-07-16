@@ -155,7 +155,7 @@ class ClientConnection internal constructor(
 
     override suspend fun process(packetHeader: PacketHeader): Boolean {
         when (packetHeader.level) {
-            Level.Handshake -> {
+            Level.INIT -> {
                 return processFrames(packetHeader)
             }
 
@@ -179,7 +179,7 @@ class ClientConnection internal constructor(
         ) { "Handshake state cannot be set to Confirmed" }
 
 
-        discard(Level.Handshake)
+        discard(Level.INIT)
 
 
     }
@@ -381,28 +381,28 @@ class ClientConnection internal constructor(
     private suspend fun validateAndProcess(remoteTransportParameters: TransportParameters) {
         if (remoteTransportParameters.maxUdpPayloadSize < 1200) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
             return
         }
         if (remoteTransportParameters.ackDelayExponent > 20) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
             return
         }
         if (remoteTransportParameters.maxAckDelay > 16384) { // 16384 = 2^14 ()
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
             return
         }
         if (remoteTransportParameters.activeConnectionIdLimit < 2) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
             return
@@ -418,7 +418,7 @@ class ClientConnection internal constructor(
             remoteTransportParameters.originalDcid == null
         ) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
             return
@@ -432,7 +432,7 @@ class ClientConnection internal constructor(
         // corresponding Destination or Source Connection ID fields of Initial packets."
         if (initialDcid() != remoteTransportParameters.initialScid) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
             )
             return
@@ -440,7 +440,7 @@ class ClientConnection internal constructor(
 
         if (originalDcid != remoteTransportParameters.originalDcid) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
             )
             return
@@ -455,7 +455,7 @@ class ClientConnection internal constructor(
                 //  match, the client MUST close the connection with a version negotiation error. "
 
                 immediateCloseWithError(
-                    Level.Handshake,
+                    Level.INIT,
                     TransportError(TransportError.Code.VERSION_NEGOTIATION_ERROR)
                 )
                 return
@@ -487,7 +487,7 @@ class ClientConnection internal constructor(
 
         if (remoteTransportParameters.retrySourceConnectionId != null) {
             immediateCloseWithError(
-                Level.Handshake,
+                Level.INIT,
                 TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
             )
         }
