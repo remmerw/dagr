@@ -29,7 +29,6 @@ class ClientConnection internal constructor(
 ) : Connection(remotePeerId, remoteAddress, responder) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val handshakeDone = Semaphore(1, 1)
-    private val transportParams: TransportParameters
 
     private val scidRegistry = ScidRegistry()
     private val dcidRegistry: DcidRegistry
@@ -55,10 +54,6 @@ class ClientConnection internal constructor(
 
 
 
-        this.transportParams = TransportParameters.createClient(
-            initialScid,
-            Settings.ACTIVE_CONNECTION_ID_LIMIT
-        )
 
     }
 
@@ -368,108 +363,6 @@ class ClientConnection internal constructor(
 
     private suspend fun process(data: ByteArray) {
         nextPacket(Reader(data, data.size))
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun validateAndProcess(remoteTransportParameters: TransportParameters) {
-        if (remoteTransportParameters.maxUdpPayloadSize < 1200) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-            return
-        }
-        if (remoteTransportParameters.ackDelayExponent > 20) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-            return
-        }
-        if (remoteTransportParameters.maxAckDelay > 16384) { // 16384 = 2^14 ()
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-            return
-        }
-        if (remoteTransportParameters.activeConnectionIdLimit < 2) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-            return
-        }
-
-
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-29#section-7.3
-        // "An endpoint MUST treat absence of the initial_source_connection_id
-        //   transport parameter from either endpoint or absence of the
-        //   original_destination_connection_id transport parameter from the
-        //   server as a connection error of payloadType TRANSPORT_PARAMETER_ERROR."
-        if (remoteTransportParameters.initialScid == null ||
-            remoteTransportParameters.originalDcid == null
-        ) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-            return
-        }
-
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-29#section-7.3
-        // "An endpoint MUST treat the following as a connection error of payloadType
-        // TRANSPORT_PARAMETER_ERROR or PROTOCOL_VIOLATION:
-        // a mismatch between values received from a peer in these transport parameters and the
-        // value sent in the
-        // corresponding Destination or Source Connection ID fields of Initial packets."
-        if (initialDcid() != remoteTransportParameters.initialScid) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-            )
-            return
-        }
-
-        if (originalDcid != remoteTransportParameters.originalDcid) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-            )
-            return
-        }
-
-
-
-        remoteDelayScale.store(remoteTransportParameters.ackDelayScale)
-
-
-        init(
-            remoteTransportParameters.initialMaxData.toLong(),
-            remoteTransportParameters.initialMaxStreamDataBidiLocal.toLong(),
-            remoteTransportParameters.initialMaxStreamDataBidiRemote.toLong(),
-            remoteTransportParameters.initialMaxStreamDataUni.toLong()
-        )
-
-
-        initialMaxStreamsBidi(remoteTransportParameters.initialMaxStreamsBidi.toLong())
-        initialMaxStreamsUni(remoteTransportParameters.initialMaxStreamsUni.toLong())
-
-        remoteMaxAckDelay = remoteTransportParameters.maxAckDelay
-        remoteCidLimit(remoteTransportParameters.activeConnectionIdLimit)
-
-        determineIdleTimeout(
-            transportParams.maxIdleTimeout.toLong(),
-            remoteTransportParameters.maxIdleTimeout.toLong()
-        )
-
-
-        if (remoteTransportParameters.retrySourceConnectionId != null) {
-            immediateCloseWithError(
-                Level.INIT,
-                TransportError(TransportError.Code.TRANSPORT_PARAMETER_ERROR)
-            )
-        }
     }
 
 
