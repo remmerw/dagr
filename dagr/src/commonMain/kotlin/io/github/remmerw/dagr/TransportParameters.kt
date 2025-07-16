@@ -35,7 +35,6 @@ internal class TransportParameters( // The server's preferred address is used to
     //      treat violation of these requirements as a connection error of
     //      payloadType TRANSPORT_PARAMETER_ERROR.
     @Suppress("unused") val preferredAddress: PreferredAddress?,
-    val versionInformation: VersionInformation?,  // original_destination_connection_id (0x00):  The value of the
     // Destination Connection ID field from the first Initial packet sent
     // by the client; see Section 7.3.  This transport parameter is only
     // sent by a server.
@@ -170,38 +169,13 @@ internal class TransportParameters( // The server's preferred address is used to
     )
 
 
-    internal data class VersionInformation(
-        val chosenVersion: Int,
-        val otherVersions: IntArray
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other == null || this::class != other::class) return false
-
-            other as VersionInformation
-
-            if (chosenVersion != other.chosenVersion) return false
-            if (!otherVersions.contentEquals(other.otherVersions)) return false
-
-            return true
-        }
-
-
-        override fun hashCode(): Int {
-            var result = chosenVersion
-            result = 31 * result + otherVersions.contentHashCode()
-            return result
-        }
-    }
-
     companion object {
         fun createClient(
             initialScid: Number?,
-            activeConnectionIdLimit: Int,
-            versionInformation: VersionInformation?
+            activeConnectionIdLimit: Int
         ): TransportParameters {
             return TransportParameters(
-                null, versionInformation,
+                null,
                 null, Settings.MAX_IDLE_TIMEOUT,
                 Settings.INITIAL_MAX_DATA,
                 Settings.INITIAL_MAX_STREAM_DATA,

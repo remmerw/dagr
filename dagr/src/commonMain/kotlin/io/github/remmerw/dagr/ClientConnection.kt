@@ -20,13 +20,13 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
 class ClientConnection internal constructor(
-    version: Int,
+
     private val selectorManager: SelectorManager,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     responder: Responder,
     private val connector: Connector
-) : Connection(version, remotePeerId, remoteAddress, responder) {
+) : Connection(remotePeerId, remoteAddress, responder) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val handshakeDone = Semaphore(1, 1)
     private val transportParams: TransportParameters
@@ -54,17 +54,10 @@ class ClientConnection internal constructor(
         this.dcidRegistry = DcidRegistry(originalDcid)
 
 
-        var versionInformation: TransportParameters.VersionInformation? = null
-        if (Version.isV2(version)) {
-            val otherVersions = intArrayOf(Version.V2, Version.V1)
-            versionInformation = TransportParameters.VersionInformation(
-                Version.V2, otherVersions
-            )
-        }
 
         this.transportParams = TransportParameters.createClient(
             initialScid,
-            Settings.ACTIVE_CONNECTION_ID_LIMIT, versionInformation
+            Settings.ACTIVE_CONNECTION_ID_LIMIT
         )
 
     }
@@ -447,20 +440,6 @@ class ClientConnection internal constructor(
         }
 
 
-        val versionInformation = remoteTransportParameters.versionInformation
-        if (versionInformation != null) {
-            if (versionInformation.chosenVersion != version()) {
-                // https://www.ietf.org/archive/id/draft-ietf-quic-version-negotiation-08.html
-                // "clients MUST validate that the server's Chosen Version is equal to the negotiated version; if they do not
-                //  match, the client MUST close the connection with a version negotiation error. "
-
-                immediateCloseWithError(
-                    Level.INIT,
-                    TransportError(TransportError.Code.VERSION_NEGOTIATION_ERROR)
-                )
-                return
-            }
-        }
 
         remoteDelayScale.store(remoteTransportParameters.ackDelayScale)
 

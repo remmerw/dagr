@@ -2,7 +2,6 @@ package io.github.remmerw.dagr
 
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
-import io.ktor.network.sockets.Datagram
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
 import io.ktor.network.sockets.isClosed
@@ -15,7 +14,7 @@ import kotlinx.io.Source
 
 class Dagr() {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-    private val connections : MutableMap<Long, Connection> = ConcurrentMap()
+    private val connections: MutableMap<Long, Connection> = ConcurrentMap()
 
     private var socket: BoundDatagramSocket? = null
     suspend fun startup() {
@@ -62,31 +61,32 @@ class Dagr() {
         }
     }
 
-    private fun process(source: Source){
+    private fun process(source: Source) {
         val type = source.readByte()
-        when(type){
+        when (type) {
             0.toByte() -> { // 0 INIT
                 processInitPackage(source)
             }
+
             1.toByte() -> { // 1 APP
                 processAppPackage(source)
             }
         }
     }
 
-    private fun processInitPackage(source: Source){
+    private fun processInitPackage(source: Source) {
 
     }
 
-    private fun processAppPackage(source: Source){
+    private fun processAppPackage(source: Source) {
         val dcid = source.readLong()
-        val connection =  connections[dcid]
-        if(connection != null){
+        val connection = connections[dcid]
+        if (connection != null) {
             // todo connection.process()
         }
     }
 
-    fun shutdown(){
+    fun shutdown() {
 
         try {
             socket?.isClosed?.let {
@@ -107,7 +107,7 @@ class Dagr() {
     }
 }
 
-suspend fun newDagr(port:Int) : Dagr {
+suspend fun newDagr(port: Int): Dagr {
     val dagr = Dagr()
 
     dagr.startup()

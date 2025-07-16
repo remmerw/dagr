@@ -9,17 +9,17 @@ internal object PacketService {
      * Constructs a short header packet for sending (client role).
      */
     fun createAppPackage(
-        version: Int, frames: List<Frame>,
+        frames: List<Frame>,
         packetNumber: Long, dcid: Number
     ): Packet.AppPacket {
-        return Packet.AppPacket(version, dcid, frames, packetNumber)
+        return Packet.AppPacket(dcid, frames, packetNumber)
     }
 
     fun createInitPackage(
-        version: Int, frames: List<Frame>,
+        frames: List<Frame>,
         packetNumber: Long, scid: Number, dcid: Number
     ): Packet.InitPacket {
-        return Packet.InitPacket(version, dcid, scid, frames, packetNumber)
+        return Packet.InitPacket(dcid, scid, frames, packetNumber)
     }
 
 

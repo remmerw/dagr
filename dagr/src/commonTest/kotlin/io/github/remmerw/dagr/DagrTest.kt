@@ -8,9 +8,12 @@ class DagrTest {
 
     @Test
     fun testDagr() : Unit = runBlocking(Dispatchers.IO) {
-        val dagr = newDagr(4444)
+        val server = newDagr(4444)
 
+        val client = newDagr(0)
+        //client.connect()
 
-        dagr.shutdown()
+        client.shutdown()
+        server.shutdown()
     }
 }

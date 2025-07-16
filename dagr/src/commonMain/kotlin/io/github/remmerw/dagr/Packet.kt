@@ -43,15 +43,9 @@ internal interface Packet {
 
 
     data class InitPacket(
-        val version: Int, val dcid: Number, val scid: Number,
+        val dcid: Number, val scid: Number,
         val frames: List<Frame>, val packetNumber: Long
     ) : Packet {
-        private val packetType: Byte
-            get() = if (Version.isV2(version)) {
-                Settings.HANDSHAKE_V2_TYPE.toByte()
-            } else {
-                Settings.HANDSHAKE_V1_TYPE.toByte()
-            }
 
 
         override fun generatePacketBytes(): Buffer {
@@ -109,18 +103,11 @@ internal interface Packet {
             val dcidLength = lengthNumber(dcid)
 
             // Packet payloadType and packet number length
-            val flags = PacketService.encodePacketNumberLength(
-                (192 or
-                        (packetType.toInt() shl 4)).toByte(), packetNumber
-            )
 
-            val version = Version.toBytes(version)
-            val capacity = 1 + version.size + 1 + dcidLength +
+            val capacity = 1 + +1 + dcidLength +
                     1 + Int.SIZE_BYTES
             val buffer = Buffer()
-            buffer.writeByte(flags)
-            // Version
-            buffer.write(version)
+
             // DCID Len
             buffer.writeByte(dcidLength.toByte())
             // Destination connection id
@@ -139,10 +126,8 @@ internal interface Packet {
     }
 
 
-    data class AppPacket(
-        val version: Int, val dcid: Number, val frames: List<Frame>,
-        val packetNumber: Long
-    ) : Packet {
+    data class AppPacket(val dcid: Number, val frames: List<Frame>, val packetNumber: Long) :
+        Packet {
         override fun packetNumber(): Long {
             return packetNumber
         }

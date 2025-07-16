@@ -19,11 +19,10 @@ import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
-    private val version: Int,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val responder: Responder
-) : ConnectionStreams(version) {
+) : ConnectionStreams() {
     protected var socket: BoundDatagramSocket? = null
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -134,7 +133,7 @@ abstract class Connection(
 
         val posFlags = reader.position()
         val flags = reader.getByte()
-        val level = PacketParser.parseLevel(reader, flags, version()) ?: return
+        val level = PacketParser.parseLevel(reader, flags) ?: return
         val dcid = PacketParser.dcid(reader, level) ?: return
         parsePackets(reader, level, dcid, flags, posFlags)
     }
@@ -166,14 +165,6 @@ abstract class Connection(
         level: Level, dcid: Number,
         flags: Byte, posFlags: Int
     ): PacketHeader? {
-        if (PacketParser.invalidFixBit(flags)) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-27#section-17.2
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-27#section-17.3
-            // "Fixed Bit:  The next bit (0x40) of byte 0 is set to 1.  Packets
-            // containing a zero value for this bit are not valid packets in this
-            // version and MUST be discarded."
-            return null
-        }
 
         // check if the level is not discarded (level can be null, to avoid expensive
         // exception handling
@@ -187,12 +178,12 @@ abstract class Connection(
 
         val packetHeader = when (level) {
 
-            Level.INIT -> PacketParser.parseHandshakePackageHeader(
-                reader, dcid, flags, posFlags, version(), lpn
+            Level.INIT -> PacketParser.parseInitPackageHeader(
+                reader, dcid, flags, posFlags, lpn
             )
 
             Level.App -> PacketParser.parseShortPacketHeader(
-                reader, dcid, flags, posFlags, version(), lpn
+                reader, dcid, flags, posFlags, lpn
             )
         }
 
@@ -559,10 +550,6 @@ abstract class Connection(
         immediateCloseWithError(Level.App, TransportError(TransportError.Code.NO_ERROR))
     }
 
-
-    fun version(): Int {
-        return version
-    }
 
     /**
      * Returns the connection ID of this connection. During handshake, this is a fixed ID, that is

@@ -6,18 +6,6 @@ import kotlin.math.min
 
 internal object PacketParser {
 
-    private fun getInitialPacketType(version: Int): Byte {
-        return if (Version.isV2(version)) {
-            Settings.INITIAL_V2_TYPE.toByte()
-        } else {
-            Settings.INITIAL_V1_TYPE.toByte()
-        }
-    }
-
-    private fun checkInitialPacketType(version: Int, type: Int) {
-        check(type == getInitialPacketType(version).toInt())
-    }
-
 
     private fun parseToken(buffer: Reader) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-16#section-17.5:
@@ -45,10 +33,10 @@ internal object PacketParser {
         return (flags.toInt() and 0x40) != 0x40
     }
 
-    fun parseLevel(reader: Reader, flags: Byte, version: Int): Level? {
+    fun parseLevel(reader: Reader, flags: Byte): Level? {
         if ((flags.toInt() and 0x80) == 0x80) {
             // Long header packet
-            return parseLongHeaderLevel(reader, flags, version)
+            return parseLongHeaderLevel(reader, flags)
         } else {
             // Short header packet
             if ((flags.toInt() and 0xc0) == 0x40) {
@@ -58,26 +46,11 @@ internal object PacketParser {
         return null
     }
 
-    private fun parseLongHeaderLevel(reader: Reader, flags: Byte, version: Int): Level? {
+    private fun parseLongHeaderLevel(reader: Reader, flags: Byte): Level? {
         if (reader.remaining() < 4) { // 4 bits required here
             return null
         }
 
-        val versionId = reader.getInt() // 4 bits
-
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-16#section-17.4:
-        // "A Version Negotiation packet ... will appear to be a packet using the long header, but
-        //  will be identified as a Version Negotiation packet based on the
-        //  Version field having a value of 0."
-        if (versionId == 0) {
-            return null
-        }
-
-        if (versionId != version) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-27#section-5.2
-            // "... packets are discarded if they indicate a different protocol version than that of the connection..."
-            return null
-        }
 
         // https://tools.ietf.org/html/draft-ietf-quic-transport-17#section-17.5
         // "An Initial packet uses long headers with a payloadType value of 0x0."
@@ -117,32 +90,17 @@ internal object PacketParser {
 
     fun parseShortPacketHeader(
         reader: Reader, dcid: Number, flags: Byte,
-        posFlags: Int, version: Int,
+        posFlags: Int,
         largestPacketNumber: Long
     ): PacketHeader? {
         return parsePacketNumberAndPayload(
             reader,
-            Level.App, version, flags, posFlags,
+            Level.App, flags, posFlags,
             reader.remaining(),
             largestPacketNumber, dcid, null
         )
     }
 
-
-    private fun getHandshakePacketType(version: Int): Byte {
-        return if (Version.isV2(version)) {
-            Settings.HANDSHAKE_V2_TYPE.toByte()
-        } else {
-            Settings.HANDSHAKE_V1_TYPE.toByte()
-        }
-    }
-
-    private fun checkHandshakePacketType(version: Int, type: Int) {
-        check(type == getHandshakePacketType(version).toInt()) {
-            "Programming error: this method shouldn't " +
-                    "have been called if packet is not Initial"
-        }
-    }
 
     fun dcid(reader: Reader, level: Level): Number? {
         when (level) {
@@ -175,15 +133,15 @@ internal object PacketParser {
         }
     }
 
-    fun parseHandshakePackageHeader(
+    fun parseInitPackageHeader(
         reader: Reader,
         dcid: Number,
         flags: Byte,
         posFlags: Int,
-        version: Int,
+
         largestPacketNumber: Long
     ): PacketHeader? {
-        checkHandshakePacketType(version, (flags.toInt() and 0x30) shr 4)
+
 
         val scid = scid(reader) ?: return null
 
@@ -193,7 +151,7 @@ internal object PacketParser {
 
         return parsePacketNumberAndPayload(
             reader,
-            Level.INIT, version, flags, posFlags,
+            Level.INIT, flags, posFlags,
             length, largestPacketNumber, dcid, scid
         )
     }
@@ -214,7 +172,6 @@ internal object PacketParser {
     private fun parsePacketNumberAndPayload(
         reader: Reader,
         level: Level,
-        version: Int,
         flags: Byte, posFlags: Int,
         remainingLength: Int,
         largestPacketNumber: Long,
@@ -341,7 +298,7 @@ internal object PacketParser {
             val frameBytes = reader.getByteArray(encryptedPayloadLength)
 
 
-            return PacketHeader(level, version, dcid, scid, frameBytes, packetNumber)
+            return PacketHeader(level, dcid, scid, frameBytes, packetNumber)
         } catch (throwable: Throwable) {
             debug(throwable)
             throw throwable

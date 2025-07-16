@@ -68,7 +68,7 @@ import kotlin.time.TimeSource
  * ack eliciting packets in flight, but is not sure whether the peer has validated the client address.
  */
 
-open class ConnectionFlow(version: Int) {
+open class ConnectionFlow() {
     private val sendRequestQueues = arrayOfNulls<SendRequestQueue>(Level.LENGTH)
     private val packetAssemblers = arrayOfNulls<PacketAssembler>(Level.LENGTH)
     private val ackGenerators = arrayOfNulls<AckGenerator>(Level.LENGTH)
@@ -145,7 +145,7 @@ open class ConnectionFlow(version: Int) {
         for (level in Level.levels()) {
             val levelIndex = level.ordinal
             packetAssemblers[levelIndex] = PacketAssembler(
-                version, level,
+                level,
                 sendRequestQueues[levelIndex]!!, ackGenerators[levelIndex]!!
             )
         }

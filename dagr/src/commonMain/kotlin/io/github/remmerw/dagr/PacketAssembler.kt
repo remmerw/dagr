@@ -6,7 +6,6 @@ package io.github.remmerw.dagr
  * These send requests either contain a frame, or can produce a frame to be sent.
  */
 internal class PacketAssembler internal constructor(
-    private val version: Int,
     private val level: Level,
     private val sendRequestQueue: SendRequestQueue,
     private val ackGenerator: AckGenerator
@@ -100,7 +99,6 @@ internal class PacketAssembler internal constructor(
         } else {
             addPadding(level, dcidLength, frames)
             packet = createPacket(
-                version,
                 level, packetNumber, scid, dcid, frames
             )
         }
@@ -129,13 +127,13 @@ internal class PacketAssembler internal constructor(
     }
 
     private fun createPacket(
-        version: Int, level: Level, packetNumber: Long,
+        level: Level, packetNumber: Long,
         scid: Number?, dcid: Number?, frames: List<Frame>
     ): Packet {
         return when (level) {
-            Level.App -> PacketService.createAppPackage(version, frames, packetNumber, dcid!!)
+            Level.App -> PacketService.createAppPackage(frames, packetNumber, dcid!!)
             Level.INIT -> PacketService.createInitPackage(
-                version, frames,
+                frames,
                 packetNumber, scid!!, dcid!!
             )
         }

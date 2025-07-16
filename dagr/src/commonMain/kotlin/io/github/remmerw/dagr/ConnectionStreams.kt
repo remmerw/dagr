@@ -8,8 +8,8 @@ import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
 
-open class ConnectionStreams(version: Int) :
-    ConnectionFlow(version) {
+open class ConnectionStreams() :
+    ConnectionFlow() {
     private val streams: MutableMap<Int, Stream> = mutableMapOf()
     private val mutex = Mutex()
 
