@@ -315,7 +315,6 @@ class Stream(
                     val streamFrame = createStreamFrame(
                         streamId, currentOffset, dataToSend, finalFrame
                     )
-                    println("crate stream frame " + streamId)
 
                     currentOffset += maxBytesToSend
 
