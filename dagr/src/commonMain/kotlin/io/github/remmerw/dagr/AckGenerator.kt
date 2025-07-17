@@ -28,7 +28,7 @@ internal class AckGenerator {
         val acknowlegdeSince = newPacketsToAcknowlegdeSince
         if (acknowlegdeSince != null) {
             // precondition that new packages have arrived
-            if (level == Level.App) {
+            if (level == Level.APP) {
                 // https://tools.ietf.org/html/draft-ietf-quic-transport-29#section-13.2.2
                 // "A receiver SHOULD send an ACK frame after receiving at least two
                 // ack-eliciting packets."
@@ -72,7 +72,7 @@ internal class AckGenerator {
                 newPacketsToAcknowlegdeSince = TimeSource.Monotonic.markNow()
             }
 
-            if (level == Level.App) {
+            if (level == Level.APP) {
                 acksNotSend.incrementAndFetch()
             }
         }

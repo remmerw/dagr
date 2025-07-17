@@ -168,14 +168,14 @@ open class ConnectionStreams() :
         ) {
             maxOpenStreamIdUni.fetchAndAdd(4)
             if (!maxOpenStreamsUniUpdateQueued.exchange(true)) {
-                sendRequestQueue(Level.App).appendRequest(createMaxStreamsUpdateUni())
+                sendRequestQueue(Level.APP).appendRequest(createMaxStreamsUpdateUni())
             }
         } else if (isBidi(streamId) && maxOpenStreamIdBidi.load() +
             4 < absoluteBidirectionalStreamIdLimit.load()
         ) {
             maxOpenStreamIdBidi.fetchAndAdd(4)
             if (!maxOpenStreamsBidiUpdateQueued.exchange(true)) {
-                sendRequestQueue(Level.App).appendRequest(createMaxStreamsUpdateBidi())
+                sendRequestQueue(Level.APP).appendRequest(createMaxStreamsUpdateBidi())
             }
         }
     }

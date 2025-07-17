@@ -84,9 +84,9 @@ internal interface FrameReceived {
      */
 
     @Suppress("ArrayInDataClass")
-    data class NewConnectionIdFrame(
-        val sequenceNr: Int, val retirePriorTo: Int, val connectionId: Number,
-        val statelessResetToken: ByteArray
+    data class VerifyFrame(
+        val token: ByteArray,
+        val signature: ByteArray
     ) : FrameReceived
 
     /**
@@ -100,20 +100,6 @@ internal interface FrameReceived {
 
     data class PaddingFrame(val length: Int) : FrameReceived
 
-    /**
-     * Represents a path challenge frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-path_challenge-frames)
-     */
-    @Suppress("ArrayInDataClass")
-    data class PathChallengeFrame(val data: ByteArray) : FrameReceived
-
-    /**
-     * Represents a path response frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-path_response-frames)
-     */
-
-    @Suppress("ArrayInDataClass")
-    data class PathResponseFrame(val data: ByteArray) : FrameReceived
 
     /**
      * Represents a ping frame.
@@ -130,12 +116,6 @@ internal interface FrameReceived {
     data class ResetStreamFrame(val streamId: Int, val errorCode: Long, val finalSize: Long) :
         FrameReceived
 
-    /**
-     * Represents a retire connection id frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-retire_connection_id-frames)
-     */
-
-    data class RetireConnectionIdFrame(val sequenceNumber: Int) : FrameReceived
 
     /**
      * Represents a stop sending frame.
@@ -344,18 +324,11 @@ internal interface FrameReceived {
         }
 
 
-        fun parseNewConnectionIdFrame(buffer: Buffer): NewConnectionIdFrame {
-            val sequenceNr = parseInt(buffer)
-            val retirePriorTo = parseInt(buffer)
-            val length = buffer.readByte().toInt()
-            if (length != Int.SIZE_BYTES) {
-                error("not supported length of connection id")
-            }
-            val cid = buffer.readInt()
-
-            val statelessResetToken = buffer.readByteArray(16)
-
-            return NewConnectionIdFrame(sequenceNr, retirePriorTo, cid, statelessResetToken)
+        fun parseVerifyFrame(buffer: Buffer): VerifyFrame {
+            val token = buffer.readByteArray(Settings.TOKEN_SIZE)
+            val signatureSize = buffer.readByte()
+            val signature = buffer.readByteArray(signatureSize.toInt())
+            return VerifyFrame(token, signature)
         }
 
 
@@ -379,28 +352,12 @@ internal interface FrameReceived {
             return PaddingFrame(length)
         }
 
-        fun parsePathChallengeFrame(buffer: Buffer): PathChallengeFrame {
-            val data = buffer.readByteArray(8)
-            return PathChallengeFrame(data)
-        }
-
-        fun parsePathResponseFrame(buffer: Buffer): PathResponseFrame {
-            val data = buffer.readByteArray(8)
-            return PathResponseFrame(data)
-        }
-
 
         fun parseResetStreamFrame(buffer: Buffer): ResetStreamFrame {
             val streamId = parseInt(buffer)
             val errorCode = parseLong(buffer)
             val finalSize = parseLong(buffer)
             return ResetStreamFrame(streamId, errorCode, finalSize)
-        }
-
-
-        fun parseRetireConnectionIdFrame(buffer: Buffer): RetireConnectionIdFrame {
-            val sequenceNr = parseInt(buffer)
-            return RetireConnectionIdFrame(sequenceNr)
         }
 
 

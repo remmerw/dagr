@@ -40,13 +40,16 @@ internal interface Packet {
         }
 
 
-    data class InitPacket(val peerId: PeerId, val frames: List<Frame>, val packetNumber: Long) :
+    data class InitPacket(
+        val peerId: PeerId,
+        val packetNumber: Long,
+        val frames: List<Frame>
+    ) :
         Packet {
 
 
         override fun generatePacketBytes(): Buffer {
             val frameBytes = PacketService.generatePayloadBytes(frames)
-
             val buffer = Buffer()
             buffer.writeByte(0.toByte())
             buffer.write(peerId.hash)
@@ -69,28 +72,20 @@ internal interface Packet {
 
         override fun estimateLength(): Int {
             val payloadLength = framesLength()
-            return (1
-                    + peerId.hash.size
-                    + Long.SIZE_BYTES
-                    + (if (payloadLength + 1 > 63) 2 else 1)
-                    + 1 // packet number length: will usually be just 1, actual value cannot be
-                    // computed until packet number is known
-                    + payloadLength // https://tools.ietf.org/html/draft-ietf-quic-tls-27#section-5.4.2
-                    // "The ciphersuites defined in [TLS13] - (...) - have 16-byte expansions..."
-                    )
+            return (1 + peerId.hash.size + Long.SIZE_BYTES + payloadLength)
         }
 
     }
 
 
-    data class AppPacket(val dcid: Number, val frames: List<Frame>, val packetNumber: Long) :
+    data class AppPacket(val packetNumber: Long, val frames: List<Frame>) :
         Packet {
         override fun packetNumber(): Long {
             return packetNumber
         }
 
         override fun level(): Level {
-            return Level.App
+            return Level.APP
         }
 
         override fun frames(): List<Frame> {
@@ -99,31 +94,14 @@ internal interface Packet {
 
         override fun estimateLength(): Int {
             val payloadLength = framesLength()
-            return (1
-                    + lengthNumber(dcid)
-                    + 1 // packet number length: will usually be just 1, actual value cannot be
-                    // computed until packet number is known
-                    + payloadLength // https://tools.ietf.org/html/draft-ietf-quic-tls-27#section-5.4.2
-                    // "The ciphersuites defined in [TLS13] - (...) - have 16-byte expansions..."
-                    + 16)
+            return (1 + Long.SIZE_BYTES + payloadLength)
         }
 
         override fun generatePacketBytes(): Buffer {
 
-            val dcidLength = lengthNumber(dcid)
-
-            val capacity = dcidLength + Long.SIZE_BYTES
+            // todo optimize
             val additionalData = Buffer()
-
-            if (dcid is Long) {
-                additionalData.writeLong(dcid)
-            } else {
-                additionalData.writeInt(dcid.toInt())
-            }
             additionalData.writeLong(packetNumber)
-
-            require(additionalData.size.toInt() == capacity)
-
             val frameBytes = PacketService.generatePayloadBytes(frames)
             additionalData.write(frameBytes)
             return additionalData

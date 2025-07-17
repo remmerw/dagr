@@ -122,11 +122,10 @@ internal enum class HandshakeState {
 
 internal enum class FrameType {
     AckFrame, StreamFrame, ConnectionCloseFrame,
-    DataBlockedFrame, StreamDataBlockedFrame, HandshakeDoneFrame,
-    MaxDataFrame, PingFrame, PaddingFrame, NewTokenFrame,
+    DataBlockedFrame, StreamDataBlockedFrame,
+    MaxDataFrame, PingFrame, PaddingFrame,
     ResetStreamFrame, MaxStreamDataFrame, MaxStreamsFrame,
-    NewConnectionIdFrame, PathChallengeFrame, PathResponseFrame,
-    RetireConnectionIdFrame, StopSendingFrame, StreamsBlockedFrame
+    VerifyFrame, StopSendingFrame, StreamsBlockedFrame
 }
 
 @Suppress("RedundantSuppression", "unused")

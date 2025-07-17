@@ -18,8 +18,7 @@ internal class PacketAssembler internal constructor(
     suspend fun assemble(
         remainingCwndSize: Int,
         availablePacketSize: Int,
-        peerId: PeerId,
-        dcid: Number?
+        peerId: PeerId
     ): Packet? {
 
         // Packet can be 3 bytes larger than estimated size because of unknown packet number length.
@@ -28,17 +27,15 @@ internal class PacketAssembler internal constructor(
 
         val packetNumber = packetNumberGenerator++
 
-        val dcidLength = lengthNumber(dcid)
 
         // Check for an explicit ack, i.e. an ack on ack-eliciting packet that cannot be delayed
         if (ackGenerator.mustSendAck(level)) {
             val ackFrame = ackGenerator.generateAck(
                 packetNumber
             ) { length: Int ->
-                estimateLength(
-                    level, dcidLength,
-                    frames, length
-                ) <= availablePacketSize
+                (estimateLength(
+                    level, frames
+                ) + length) <= availablePacketSize
             }
 
             // https://tools.ietf.org/html/draft-ietf-quic-transport-29#section-13.2
@@ -61,10 +58,7 @@ internal class PacketAssembler internal constructor(
 
         if (sendRequestQueue.hasRequests()) {
             // Must create packet here, to have an initial estimate of packet header overhead
-            var estimatedSize = estimateLength(
-                level,
-                dcidLength, frames, 1000
-            ) - 1000 // Estimate length if large
+            var estimatedSize = estimateLength(level, frames)
 
             // frame would have been added; this will give upper limit of packet overhead.
             while (estimatedSize < available) {
@@ -94,41 +88,23 @@ internal class PacketAssembler internal constructor(
             packetNumberGenerator--
             packet = null
         } else {
-            addPadding(level, dcidLength, frames)
             packet = createPacket(
-                level, peerId, packetNumber, dcid, frames
+                level, peerId, packetNumber, frames
             )
         }
         return packet
     }
 
 
-    private fun addPadding(level: Level, dcidLength: Int, frames: MutableList<Frame>) {
-        if (hasPathChallengeOrResponse(frames)) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-8.2.1
-            // "An endpoint MUST expand datagrams that contain a PATH_CHALLENGE frame to at least the smallest allowed
-            //  maximum datagram size of 1200 bytes."
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-8.2.2
-            // "An endpoint MUST expand datagrams that contain a PATH_RESPONSE frame to at least the smallest allowed
-            // maximum datagram size of 1200 bytes."
-
-
-            val requiredPadding = 1200 - estimateLength(
-                level,
-                dcidLength, frames, 0
-            )
-            if (requiredPadding > 0) {
-                frames.add(createPaddingFrame(requiredPadding))
-            }
-        }
-    }
-
     private fun createPacket(
-        level: Level, peerId: PeerId, packetNumber: Long, dcid: Number?, frames: List<Frame>
+        level: Level,
+        peerId: PeerId,
+        packetNumber: Long,
+        frames: List<Frame>
     ): Packet {
         return when (level) {
-            Level.App -> PacketService.createAppPackage(frames, packetNumber, dcid!!)
-            Level.INIT -> PacketService.createInitPackage(peerId, frames, packetNumber)
+            Level.APP -> PacketService.createAppPackage(frames, packetNumber)
+            Level.INIT -> PacketService.createInitPackage(peerId, packetNumber, frames)
         }
     }
 
@@ -140,71 +116,29 @@ internal class PacketAssembler internal constructor(
         return sum
     }
 
-    private fun hasPathChallengeOrResponse(frames: List<Frame>): Boolean {
-        for ((frameType) in frames) {
-            if (frameType == FrameType.PathResponseFrame
-                || frameType == FrameType.PathChallengeFrame
-            ) {
-                return true
-            }
-        }
-        return false
-    }
 
-    /**
-     * Estimates what the length of this packet will be after it has been encrypted. The returned length must be
-     * less then or equal the actual length after encryption. Length estimates are used when preparing packets for
-     * sending, where certain limits must be met (e.g. congestion control, max datagram size, ...).
-     *
-     * @param additionalPayload when not 0, estimate the length if this amount of additional (frame) bytes were added.
-     */
     private fun estimateLength(
-        level: Level, dcidLength: Int,
-        frames: List<Frame>, additionalPayload: Int
+        level: Level, frames: List<Frame>
     ): Int {
         return when (level) {
-            Level.App -> estimateShortHeaderPacketLength(
-                dcidLength,
-                frames, additionalPayload
-            )
+            Level.APP -> estimateAppPacketLength(frames)
 
-            Level.INIT -> estimateHandshakePacketLength(
-                dcidLength, frames, additionalPayload
-            )
+            Level.INIT -> estimateInitPacketLength(frames)
         }
     }
 
-    private fun estimateShortHeaderPacketLength(
-        dcidLength: Int,
-        frames: List<Frame>,
-        additionalPayload: Int
+    private fun estimateAppPacketLength(
+        frames: List<Frame>
     ): Int {
-        val payloadLength = framesLength(frames) + additionalPayload
-        return (1
-                + dcidLength
-                + 1 // packet number length: will usually be just 1, actual value
-                // cannot be computed until packet number is known
-                + payloadLength // https://tools.ietf.org/html/draft-ietf-quic-tls-27#section-5.4.2
-                // "The ciphersuites defined in [TLS13] - (...) - have 16-byte expansions..."
-                + 16)
+        val payloadLength = framesLength(frames)
+        return (1 + Long.SIZE_BYTES + payloadLength)
     }
 
-    private fun estimateHandshakePacketLength(
-        dcidLength: Int,
-        frames: List<Frame>,
-        additionalPayload: Int
+    private fun estimateInitPacketLength(
+        frames: List<Frame>
     ): Int {
-        val payloadLength = framesLength(frames) + additionalPayload
-        return (1
-                + 4
-                + 1 + dcidLength
-                + 1 + Int.SIZE_BYTES // scid
-                + (if (payloadLength + 1 > 63) 2 else 1)
-                + 1 // packet number length: will usually be just 1, actual value cannot be
-                // computed until packet number is known
-                + payloadLength // https://tools.ietf.org/html/draft-ietf-quic-tls-27#section-5.4.2
-                // "The ciphersuites defined in [TLS13] - (...) - have 16-byte expansions..."
-                + 16)
+        val payloadLength = framesLength(frames)
+        return (1 + 32 + Long.SIZE_BYTES + payloadLength) // 32 is peerId
     }
 
 }

@@ -11,17 +11,17 @@ internal object PacketService {
      */
     fun createAppPackage(
         frames: List<Frame>,
-        packetNumber: Long, dcid: Number
+        packetNumber: Long,
     ): Packet.AppPacket {
-        return Packet.AppPacket(dcid, frames, packetNumber)
+        return Packet.AppPacket(packetNumber, frames)
     }
 
     fun createInitPackage(
         peerId: PeerId,
-        frames: List<Frame>,
-        packetNumber: Long
+        packetNumber: Long,
+        frames: List<Frame>
     ): Packet.InitPacket {
-        return Packet.InitPacket(peerId, frames, packetNumber)
+        return Packet.InitPacket(peerId, packetNumber, frames)
     }
 
 

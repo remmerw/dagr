@@ -2,16 +2,13 @@ package io.github.remmerw.dagr
 
 
 internal data class PacketHeader(
-    val level: Level, val dcid: Number, val scid: Int?,
-    val framesBytes: ByteArray, val packetNumber: Long,
+    val level: Level, val framesBytes: ByteArray, val packetNumber: Long,
 ) {
 
 
     override fun hashCode(): Int {
         var result = level.hashCode()
 
-        result = 31 * result + dcid.hashCode()
-        result = 31 * result + (scid ?: 0)
         result = 31 * result + framesBytes.contentHashCode()
         result = 31 * result + packetNumber.hashCode()
         return result
@@ -23,11 +20,9 @@ internal data class PacketHeader(
 
         other as PacketHeader
 
-
-        if (scid != other.scid) return false
         if (packetNumber != other.packetNumber) return false
         if (level != other.level) return false
-        if (dcid != other.dcid) return false
+
         if (!framesBytes.contentEquals(other.framesBytes)) return false
 
         return true

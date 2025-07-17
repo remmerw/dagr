@@ -43,7 +43,7 @@ class Stream(
     private val terminate = AtomicBoolean(false)
 
     private val streamHandler: StreamHandler
-    private val sendRequestQueue = connection.sendRequestQueue(Level.App)
+    private val sendRequestQueue = connection.sendRequestQueue(Level.APP)
     private val requestFinish = Semaphore(1, 1)
 
     // meaning that no more bytes can be written by caller.

@@ -40,7 +40,7 @@ internal object PacketParser {
         } else {
             // Short header packet
             if ((flags.toInt() and 0xc0) == 0x40) {
-                return Level.App
+                return Level.APP
             }
         }
         return null
@@ -95,7 +95,7 @@ internal object PacketParser {
     ): PacketHeader? {
         return parsePacketNumberAndPayload(
             reader,
-            Level.App, flags, posFlags,
+            Level.APP, flags, posFlags,
             reader.remaining(),
             largestPacketNumber, dcid, null
         )
@@ -104,7 +104,7 @@ internal object PacketParser {
 
     fun dcid(reader: Reader, level: Level): Number? {
         when (level) {
-            Level.App -> {
+            Level.APP -> {
                 if (reader.remaining() < Int.SIZE_BYTES) {
                     return null
                 }
@@ -298,7 +298,7 @@ internal object PacketParser {
             val frameBytes = reader.getByteArray(encryptedPayloadLength)
 
 
-            return PacketHeader(level, dcid, scid, frameBytes, packetNumber)
+            return PacketHeader(level, frameBytes, packetNumber)
         } catch (throwable: Throwable) {
             debug(throwable)
             throw throwable

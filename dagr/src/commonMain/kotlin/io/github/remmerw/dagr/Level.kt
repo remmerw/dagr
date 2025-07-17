@@ -2,7 +2,7 @@ package io.github.remmerw.dagr
 
 
 internal enum class Level {
-    INIT, App;
+    INIT, APP;
 
     companion object {
         const val LENGTH: Int = 2

@@ -3,8 +3,6 @@ package io.github.remmerw.dagr
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
-import kotlin.random.Random
-
 // https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions
 // https://tools.ietf.org/html/draft-ietf-quic-recovery-33#section-2
 // "All frames other than ACK, PADDING, and CONNECTION_CLOSE are considered ack-eliciting."
@@ -243,21 +241,6 @@ internal fun createPaddingFrame(length: Int): Frame {
 }
 
 /**
- * Represents a new token frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-new_token-frames)
- */
-@Suppress("unused")
-internal fun createNewTokenFrame(token: ByteArray): Frame {
-    val length = 1 + bytesNeeded(token.size.toLong()) + token.size
-    val buffer = Buffer()
-    buffer.writeByte(0x07.toByte())
-    encode(token.size, buffer)
-    buffer.write(token)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.NewTokenFrame, buffer.readByteArray())
-}
-
-/**
  * Represents a reset stream frame.
  * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-reset_stream-frames)
  */
@@ -310,64 +293,19 @@ internal fun createMaxStreamsFrame(
     return Frame(FrameType.MaxStreamsFrame, buffer.readByteArray())
 }
 
-/**
- * Represents a new connection id frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-new_connection_id-frames)
- */
-internal fun createNewConnectionIdFrame(sequenceNr: Int, retirePriorTo: Int, cid: Int): Frame {
-    val statelessResetToken = ByteArray(16)
-    Random.nextBytes(statelessResetToken)
+internal fun createVerifyFrame(token: ByteArray, signature: ByteArray): Frame {
+    require(token.size == Settings.TOKEN_SIZE) { "Invalid token size" }
+    require(signature.size <= Byte.MAX_VALUE) { "Invalid size of signature" }
+    println("Signature size " + signature.size)
 
-    val length = (1 + bytesNeeded(sequenceNr.toLong())
-            + bytesNeeded(retirePriorTo.toLong())
-            + 1 + Int.SIZE_BYTES + 16)
     val buffer = Buffer()
-
     buffer.writeByte(0x18.toByte())
-    encode(sequenceNr, buffer)
-    encode(retirePriorTo, buffer)
-    buffer.writeByte(Int.SIZE_BYTES.toByte())
-    buffer.writeInt(cid)
-    buffer.write(statelessResetToken)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.NewConnectionIdFrame, buffer.readByteArray())
+    buffer.write(token)
+    buffer.writeByte(signature.size.toByte())
+    buffer.write(signature)
+    return Frame(FrameType.VerifyFrame, buffer.readByteArray())
 }
 
-/**
- * Represents a path challenge frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-path_challenge-frames)
- */
-@Suppress("unused")
-internal fun createPathChallengeFrame(data: ByteArray): Frame {
-    val buffer = Buffer()
-    buffer.writeByte(0x1a.toByte())
-    buffer.write(data)
-    return Frame(FrameType.PathChallengeFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a path response frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-path_response-frames)
- */
-internal fun createPathResponseFrame(data: ByteArray): Frame {
-    val buffer = Buffer()
-    buffer.writeByte(0x1b.toByte())
-    buffer.write(data)
-    return Frame(FrameType.PathResponseFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a retire connection id frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-retire_connection_id-frames)
- */
-internal fun createRetireConnectionsIdFrame(sequenceNumber: Int): Frame {
-    val length = 1 + bytesNeeded(sequenceNumber.toLong())
-    val buffer = Buffer()
-    buffer.writeByte(0x19.toByte())
-    encode(sequenceNumber, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.RetireConnectionIdFrame, buffer.readByteArray())
-}
 
 /**
  * Represents a stop sending frame.

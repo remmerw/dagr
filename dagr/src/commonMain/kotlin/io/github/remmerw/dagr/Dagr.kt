@@ -8,16 +8,19 @@ import io.ktor.network.sockets.aSocket
 import io.ktor.network.sockets.isClosed
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
+import kotlin.random.Random
 
 class Dagr(val peerId: PeerId, val responder: Responder) {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-    private val connections: MutableMap<PeerId, Connection> = ConcurrentMap()
-
+    private val scope = CoroutineScope(Dispatchers.IO)
+    private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
+    private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private var socket: BoundDatagramSocket? = null
 
     suspend fun startup(port: Int) {
@@ -25,7 +28,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
             InetSocketAddress("::", port)
         )
 
-        selectorManager.launch {
+        scope.launch {
             runReceiver()
         }
 
@@ -70,7 +73,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
         }
     }
 
-    private fun process(source: Source, remoteAddress: InetSocketAddress) {
+    private suspend fun process(source: Source, remoteAddress: InetSocketAddress) {
         val type = source.readByte()
         when (type) {
             0.toByte() -> { // 0 INIT
@@ -83,62 +86,67 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
         }
     }
 
-    private fun processInitPackage(source: Source, remoteAddress: InetSocketAddress) {
+    private suspend fun processInitPackage(source: Source, remoteAddress: InetSocketAddress) {
         val id = source.readByteArray(32) // 32 hash Size of PeerId
         val remotePeerId = PeerId(id)
         val packetNumber = source.readLong()
         println("Packer Number $packetNumber")
         println("PeerId " + id.toHexString())
-        val connection = object : Connection(peerId, remotePeerId, remoteAddress, responder) {
-            override suspend fun process(packetHeader: PacketHeader): Boolean {
-                TODO("Not yet implemented")
-            }
+        val connection = object : Connection(remotePeerId, remoteAddress, responder) {
 
-            override suspend fun handshakeDone() {
-                TODO("Not yet implemented")
-            }
 
-            override suspend fun process(
-                retireConnectionIdFrame: FrameReceived.RetireConnectionIdFrame,
-                dcid: Number
-            ) {
-                TODO("Not yet implemented")
-            }
+            override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
+                println("verifyFrame")
 
-            override suspend fun process(newConnectionIdFrame: FrameReceived.NewConnectionIdFrame) {
-                TODO("Not yet implemented")
+                val remoteToken = verifyFrame.token
+                val remoteSignature = verifyFrame.signature
+                println("Remote token " + remoteToken.toHexString())
+                println("Remote signature " + remoteSignature.toHexString())
+
+                val signature = byteArrayOf() // todo signature
+                sendVerifyFrame(Level.APP, token, signature)
             }
 
             override fun scheduleTerminate(pto: Int) {
                 TODO("Not yet implemented")
             }
 
-            override fun activeScid(): Number {
-                TODO("Not yet implemented")
+            override fun activeToken(): ByteArray {
+                return token
             }
 
-            override fun activeDcid(): Number {
-                TODO("Not yet implemented")
+            override fun activePeerId(): PeerId {
+                return peerId
             }
 
         }
-        connections.put(remotePeerId, connection)
-        // todo eval frames connection
-    }
 
-    private fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
 
-        val id = source.readByteArray(32) // 32 hash Size of PeerId
-        val remotePeerId = PeerId(id)
-        val connection = connections[remotePeerId]
-        if (connection != null) {
-            if (connection.remoteAddress() != remoteAddress) {
-                debug("Address of the remote connection has changed")
-                connections.remove(remotePeerId)
-                return
+        if (!connections.contains(remoteAddress)) {
+            connections.put(remoteAddress, connection)
+
+            scope.launch {
+                connection.runRequester()
             }
 
-            // todo connection.process()
+            connection.process(
+                PacketHeader(Level.INIT, source.readByteArray(), packetNumber)
+            )
+        }
+
+
+    }
+
+    private suspend fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
+
+        val connection = connections[remoteAddress]
+        if (connection != null) {
+
+            val packetNumber = source.readLong()
+            println("Packer Number $packetNumber")
+            connection.process(
+                PacketHeader(Level.APP, source.readByteArray(), packetNumber)
+            )
         }
     }
 

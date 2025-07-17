@@ -19,7 +19,6 @@ import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
-    private val peerId: PeerId,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val responder: Responder
@@ -68,6 +67,12 @@ abstract class Connection(
         this.flowControlIncrement = flowControlMax / 10
     }
 
+
+    internal suspend fun sendVerifyFrame(level: Level, token: ByteArray, signature: ByteArray) {
+        insertRequest(level, createVerifyFrame(token, signature))
+    }
+
+
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
     }
@@ -89,7 +94,7 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                addRequest(Level.App, PING)
+                addRequest(Level.APP, PING)
                 lastPing = TimeSource.Monotonic.markNow()
             }
         }
@@ -114,7 +119,7 @@ abstract class Connection(
     suspend fun updateConnectionFlowControl(size: Int) {
         flowControlMax += size.toLong()
         if (flowControlMax - flowControlLastAdvertised > flowControlIncrement) {
-            addRequest(Level.App, createMaxDataFrame(flowControlMax))
+            addRequest(Level.APP, createMaxDataFrame(flowControlMax))
             flowControlLastAdvertised = flowControlMax
         }
     }
@@ -183,7 +188,7 @@ abstract class Connection(
                 reader, dcid, flags, posFlags, lpn
             )
 
-            Level.App -> PacketParser.parseShortPacketHeader(
+            Level.APP -> PacketParser.parseShortPacketHeader(
                 reader, dcid, flags, posFlags, lpn
             )
         }
@@ -296,29 +301,11 @@ abstract class Connection(
                 }
 
                 0x18 -> {
+                    debug("parseVerifyFrame")
                     isAckEliciting = true
-                    process(FrameReceived.parseNewConnectionIdFrame(buffer))
+                    process(FrameReceived.parseVerifyFrame(buffer))
                 }
 
-                0x19 -> {
-                    isAckEliciting = true
-                    process(
-                        FrameReceived.parseRetireConnectionIdFrame(buffer),
-                        packetHeader.dcid
-                    )
-                }
-
-                0x1a -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parsePathChallengeFrame(buffer))
-                }
-
-                0x1b -> {
-                    isAckEliciting = true
-                    debug("parsePathResponseFrame")
-                    FrameReceived.parsePathResponseFrame(buffer)
-                    // type will be supported someday in the future
-                }
 
                 0x1c, 0x1d ->  // isAckEliciting is false;
                     process(
@@ -327,10 +314,6 @@ abstract class Connection(
                         ), packetHeader.level
                     )
 
-                0x1e -> {
-                    isAckEliciting = true
-                    handshakeDone()
-                }
 
                 else -> {
                     if ((frameType >= 0x08) && (frameType <= 0x0f)) {
@@ -350,10 +333,18 @@ abstract class Connection(
     }
 
 
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-path_challenge-frames
-    // "The recipient of this frame MUST generate a PATH_RESPONSE frame (...) containing the same
-    // Data value."
-    internal abstract suspend fun process(packetHeader: PacketHeader): Boolean
+    internal suspend fun process(packetHeader: PacketHeader): Boolean {
+        return when (packetHeader.level) {
+            Level.INIT -> {
+                processFrames(packetHeader)
+            }
+
+            Level.APP -> {
+
+                processFrames(packetHeader)
+            }
+        }
+    }
 
 
     internal suspend fun processPacket(packetHeader: PacketHeader) {
@@ -391,29 +382,15 @@ abstract class Connection(
 
     }
 
-    internal abstract suspend fun handshakeDone()
-
-    internal abstract suspend fun process(
-        retireConnectionIdFrame: FrameReceived.RetireConnectionIdFrame,
-        dcid: Number
-    )
-
-    internal abstract suspend fun process(newConnectionIdFrame: FrameReceived.NewConnectionIdFrame)
+    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyFrame)
 
 
     private suspend fun process(maxStreamDataFrame: FrameReceived.MaxStreamDataFrame) {
         try {
             processMaxStreamDataFrame(maxStreamDataFrame)
         } catch (transportError: TransportError) {
-            immediateCloseWithError(Level.App, transportError)
+            immediateCloseWithError(Level.APP, transportError)
         }
-    }
-
-
-    private suspend fun process(pathChallengeFrame: FrameReceived.PathChallengeFrame) {
-        // https://www.rfc-editor.org/rfc/rfc9000.html#name-retransmission-of-informati
-        // "Responses to path validation using PATH_RESPONSE frames are sent just once."
-        addRequest(Level.App, createPathResponseFrame(pathChallengeFrame.data))
     }
 
 
@@ -421,7 +398,7 @@ abstract class Connection(
         try {
             processStreamFrame(this, streamFrame)
         } catch (transportError: TransportError) {
-            immediateCloseWithError(Level.App, transportError)
+            immediateCloseWithError(Level.APP, transportError)
         }
     }
 
@@ -548,33 +525,12 @@ abstract class Connection(
 
     suspend fun close() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        immediateCloseWithError(Level.App, TransportError(TransportError.Code.NO_ERROR))
+        immediateCloseWithError(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }
 
 
-    /**
-     * Returns the connection ID of this connection. During handshake, this is a fixed ID, that is
-     * generated by this
-     * endpoint. After handshaking, this is one of the active connection ID's; if there are
-     * multiple active connection
-     * ID's, which one is returned is not determined (but this method should always return the
-     * same until it is not
-     * active anymore). Note that after handshaking, the connection ID (of this endpoint) is not
-     * used for sending
-     * packets (short header packets only contain the destination connection ID), only for
-     * routing received packets.
-     */
-    internal abstract fun activeScid(): Number
-
-    /**
-     * Returns the current peer connection ID, i.e. the connection ID this endpoint uses as
-     * destination connection id when sending packets. During handshake this is
-     * a fixed ID generated by the peer (except for the first Initial packets send by the client).
-     * After handshaking, there can be multiple active connection ID's supplied by the peer; which
-     * one is current (thus, is being used when sending packets) is determined by the implementation.
-     */
-    internal abstract fun activeDcid(): Number
-
+    internal abstract fun activeToken(): ByteArray
+    internal abstract fun activePeerId(): PeerId
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun setIdleTimeout(idleTimeoutInMillis: Long) {
@@ -713,13 +669,13 @@ abstract class Connection(
 
     private suspend fun assemblePackets(): List<Packet> {
 
-        val dcid = activeDcid()
-        val dcidLength = lengthNumber(dcid)
+        val peerId = activePeerId()
+
 
         val packets: MutableList<Packet> = arrayListOf()
         var size = 0
 
-        val minPacketSize = Long.SIZE_BYTES + dcidLength // Computed for short header packet
+        val minPacketSize = Long.SIZE_BYTES + 1 // Computed for short header packet
         var remaining = min(remainingCwnd().toInt(), Settings.MAX_PACKAGE_SIZE)
 
         for (level in Level.levels()) {
@@ -728,7 +684,7 @@ abstract class Connection(
 
                 val item = assembler.assemble(
                     remaining,
-                    Settings.MAX_PACKAGE_SIZE - size, peerId, dcid
+                    Settings.MAX_PACKAGE_SIZE - size, peerId
                 )
 
                 if (item != null) {

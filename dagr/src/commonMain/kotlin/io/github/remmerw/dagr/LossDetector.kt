@@ -139,13 +139,13 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         for (frame in frames) {
             when (frame.frameType) {
                 FrameType.MaxStreamsFrame, FrameType.MaxStreamDataFrame, FrameType.StopSendingFrame,
-                FrameType.ResetStreamFrame, FrameType.RetireConnectionIdFrame, FrameType.StreamFrame,
-                FrameType.MaxDataFrame, FrameType.HandshakeDoneFrame -> connectionFlow.insertRequest(
+                FrameType.ResetStreamFrame, FrameType.StreamFrame,
+                FrameType.MaxDataFrame -> connectionFlow.insertRequest(
                     packetStatus.packet.level(),
                     frame
                 )
 
-                FrameType.NewConnectionIdFrame,
+                FrameType.VerifyFrame,
                 FrameType.DataBlockedFrame,
                 FrameType.StreamDataBlockedFrame -> connectionFlow.addRequest(
                     packetStatus.packet.level(),

@@ -139,7 +139,7 @@ open class ConnectionFlow() {
         }
 
         discardedLevels[Level.INIT.ordinal] = false
-        discardedLevels[Level.App.ordinal] = false
+        discardedLevels[Level.APP.ordinal] = false
 
 
         for (level in Level.levels()) {
