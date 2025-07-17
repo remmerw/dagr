@@ -1,7 +1,6 @@
 package io.github.remmerw.dagr
 
 
-// https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-20.1
 internal class TransportError(errorCode: Code) : Exception(errorCode.name) {
     private val errorCode = errorCode.value().toLong()
 
@@ -43,12 +42,7 @@ internal class TransportError(errorCode: Code) : Exception(errorCode.name) {
 
         AEAD_LIMIT_REACHED(0xf),
 
-        NO_VIABLE_PATH(0x10),
-
-        CRYPTO_ERROR(0x100),
-
-        // https://www.ietf.org/archive/id/draft-ietf-quic-version-negotiation-08.html#iana-error
-        VERSION_NEGOTIATION_ERROR(0x53F8); // !! When this document is approved, it will request permanent allocation of a codepoint in the 0-63 range to replace the provisional codepoint described above.
+        NO_VIABLE_PATH(0x10);
 
 
         private val value = value.toShort()

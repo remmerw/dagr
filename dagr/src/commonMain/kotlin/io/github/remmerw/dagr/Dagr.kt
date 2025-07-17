@@ -11,7 +11,10 @@ import io.ktor.network.sockets.aSocket
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
@@ -19,8 +22,9 @@ import kotlin.random.Random
 
 class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
+    private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
+    private val scope = CoroutineScope(Dispatchers.IO)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private var socket: BoundDatagramSocket? = null
 
@@ -29,7 +33,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             InetSocketAddress("::", port)
         )
 
-        selectorManager.launch {
+        scope.launch {
             runReceiver()
         }
 
@@ -39,22 +43,17 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         return socket!!.localAddress as InetSocketAddress
     }
 
-    private suspend fun runReceiver() {
-        try {
-            while (true) {
-                val receivedPacket = socket!!.receive()
-                try {
-
-                    process(
-                        receivedPacket.packet,
-                        receivedPacket.address as InetSocketAddress
-                    )
-                } catch (throwable: Throwable) {
-                    debug(throwable)
-                }
+    private suspend fun runReceiver(): Unit = coroutineScope {
+        while (isActive) {
+            val receivedPacket = socket!!.receive()
+            try {
+                process(
+                    receivedPacket.packet,
+                    receivedPacket.address as InetSocketAddress
+                )
+            } catch (throwable: Throwable) {
+                debug(throwable)
             }
-        } finally {
-            shutdown()
         }
     }
 
@@ -98,7 +97,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         } catch (throwable: Throwable) {
                             debug("Verification failed " + throwable.message)
 
-                            immediateCloseWithError(
+                            scheduledClose(
                                 Level.APP,
                                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
                             )
@@ -118,9 +117,11 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             connections.put(remoteAddress, connection)
 
-            selectorManager.launch {
+            val job = scope.launch {
                 connection.runRequester()
             }
+            jobs.put(remoteAddress, job)
+
 
             connection.processPacket(
                 PacketHeader(Level.INIT, source.readByteArray(), packetNumber)
@@ -152,17 +153,22 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
 
         try {
-            socket?.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-
-        try {
             selectorManager.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
 
+        try {
+            scope.cancel()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
+        try {
+            socket?.close()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
 
 
     }
@@ -173,6 +179,12 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
     override fun terminate(connection: Connection) {
         connections.remove(connection.remoteAddress())
+        val job = jobs.remove(connection.remoteAddress())
+        try {
+            job?.cancel()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
     }
 }
 

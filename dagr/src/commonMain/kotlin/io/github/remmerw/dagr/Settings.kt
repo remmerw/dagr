@@ -91,7 +91,7 @@ internal object Settings {
     const val INITIAL_MAX_STREAM_DATA: Long = 524288
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
         1200 // all other remote libp2p clients have same value // TODO make sure datagram size
-    const val MAX_IDLE_TIMEOUT: Int = 20000
+    const val MAX_IDLE_TIMEOUT: Int = 30000
     const val PING_INTERVAL: Int = 5000
 
     // https://www.rfc-editor.org/rfc/rfc9000.html#name-handshake-packet

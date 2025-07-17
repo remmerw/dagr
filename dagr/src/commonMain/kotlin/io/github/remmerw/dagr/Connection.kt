@@ -4,13 +4,13 @@ import io.github.remmerw.borr.PeerId
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.Datagram
 import io.ktor.network.sockets.InetSocketAddress
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.io.Buffer
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
 import kotlin.time.TimeSource
@@ -23,26 +23,19 @@ abstract class Connection(
     private val terminate: Terminate
 ) : ConnectionStreams() {
 
-    @OptIn(ExperimentalAtomicApi::class)
-    protected val remoteDelayScale = AtomicInt(Settings.ACK_DELAY_SCALE)
     private val largestPacketNumber = LongArray(Level.LENGTH)
     private val closeFramesSendRateLimiter = RateLimiter()
     private val flowControlIncrement: Long // no concurrency
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private val idleTimeout = AtomicLong(Settings.MAX_IDLE_TIMEOUT.toLong())
 
     @Volatile
-    private var lastIdleAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
+    private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val enableKeepAlive = AtomicBoolean(false)
 
     @Volatile
     private var lastPing = TimeSource.Monotonic.markNow()
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val enabledIdle = AtomicBoolean(false)
 
     @OptIn(ExperimentalAtomicApi::class)
     private val idleCounter = AtomicInt(0)
@@ -161,7 +154,7 @@ abstract class Connection(
                     process(
                         FrameReceived.parseAckFrame(
                             frameType, buffer,
-                            remoteDelayScale.load()
+                            Settings.ACK_DELAY_SCALE
                         ), packetHeader.level
                     )
 
@@ -307,7 +300,7 @@ abstract class Connection(
         try {
             processMaxStreamDataFrame(maxStreamDataFrame)
         } catch (transportError: TransportError) {
-            immediateCloseWithError(Level.APP, transportError)
+            scheduledClose(Level.APP, transportError)
         }
     }
 
@@ -316,12 +309,12 @@ abstract class Connection(
         try {
             processStreamFrame(this, streamFrame)
         } catch (transportError: TransportError) {
-            immediateCloseWithError(Level.APP, transportError)
+            scheduledClose(Level.APP, transportError)
         }
     }
 
 
-    internal suspend fun immediateCloseWithError(level: Level, transportError: TransportError) {
+    internal suspend fun scheduledClose(level: Level, transportError: TransportError) {
         if (state.closingOrDraining()) {
             debug("Immediate close ignored because already closing")
             return
@@ -329,8 +322,6 @@ abstract class Connection(
 
         disableKeepAlive()
 
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        // "An endpoint sends a CONNECTION_CLOSE frame (Section 19.19) to terminate the connection immediately."
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
         addRequest(level, createConnectionCloseFrame(transportError))
 
@@ -403,7 +394,7 @@ abstract class Connection(
     }
 
 
-    open suspend fun terminate() {
+    internal open suspend fun terminate() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         // "Once its closing or draining state ends, an endpoint SHOULD discard all
         // connection state."
@@ -414,7 +405,7 @@ abstract class Connection(
 
     suspend fun close() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        immediateCloseWithError(Level.APP, TransportError(TransportError.Code.NO_ERROR))
+        scheduledClose(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }
 
     suspend fun scheduleTerminate(pto: Int) {
@@ -424,83 +415,64 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun checkIdle() {
-        if (enabledIdle.load()) {
+        if (lastAction.elapsedNow().inWholeMilliseconds >
+            Settings.MAX_IDLE_TIMEOUT.toLong()
+        ) {
 
-            if (lastIdleAction.elapsedNow().inWholeMilliseconds > idleTimeout.load()) {
-                enabledIdle.store(false)
+            // just tor prevent that another close is scheduled
+            lastAction = TimeSource.Monotonic.markNow()
 
-                // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.1
-                // "If a max_idle_timeout is specified by either peer (...), the connection is silently
-                // closed and its state is
-                //  discarded when it remains idle for longer than the minimum of both
-                //  peers max_idle_timeout values."
-                debug("Idle timeout: silently closing connection $remoteAddress")
+            debug("Idle timeout: silently closing connection $remoteAddress")
 
-                clearRequests()
-                terminate()
-            }
+            scheduledClose(
+                Level.APP, TransportError(
+                    TransportError.Code.NO_ERROR
+                )
+            )
+
         }
     }
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun packetIdleProcessed() {
-        if (enabledIdle.load()) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-            // "An endpoint restarts its idle timer when a packet from its peer is received
-            // and processed successfully."
-            lastIdleAction = TimeSource.Monotonic.markNow()
-        }
+        // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
+        // "An endpoint restarts its idle timer when a packet from its peer is received
+        // and processed successfully."
+        lastAction = TimeSource.Monotonic.markNow()
+
     }
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun packetIdleSent(packet: Packet, sendTime: TimeSource.Monotonic.ValueTimeMark) {
-        if (enabledIdle.load()) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-            // "An endpoint also restarts its idle timer when sending an ack-eliciting packet
-            // if no other ack-eliciting packets have been sent since last receiving and
-            // processing a packet. "
-            if (isAckEliciting(packet)) {
-                lastIdleAction = sendTime
-            }
+        // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
+        // "An endpoint also restarts its idle timer when sending an ack-eliciting packet
+        // if no other ack-eliciting packets have been sent since last receiving and
+        // processing a packet. "
+        if (isAckEliciting(packet)) {
+            lastAction = sendTime
         }
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun runRequester() {
-        try {
-            // Determine whether this loop must be ended _before_ composing packets, to avoid
-            // race conditions with
-            // items being queued just after the packet assembler (for that level) has executed.
-            while (true) {
-                lossDetection()
-                sendIfAny()
+    suspend fun runRequester(): Unit = coroutineScope {
+        // Determine whether this loop must be ended _before_ composing packets, to avoid
+        // race conditions with
+        // items being queued just after the packet assembler (for that level) has executed.
+        while (isActive) {
+            lossDetection()
+            sendIfAny()
 
-                keepAlive() // only happens when enabled
-                checkIdle() // only happens when enabled
+            keepAlive() // only happens when enabled
+            checkIdle() // only happens when enabled
 
-                val time = min(
-                    (Settings.MAX_ACK_DELAY * (idleCounter.load() + 1)),
-                    1000
-                ).toLong() // time is max 1s
-                delay(time)
-            }
-        } catch (_: CancellationException) {
-            // ignore exception
-        } catch (_: Throwable) {
-            abortConnection()
+            val time = min(
+                (Settings.MAX_ACK_DELAY * (idleCounter.load() + 1)),
+                1000
+            ).toLong() // time is max 1s
+            delay(time)
         }
     }
 
-    /**
-     * Abort connection due to a fatal error in this client.
-     * No message is sent to peer; just inform client it's all over.
-     *
-     */
-    private suspend fun abortConnection() {
-        state(State.Failed)
-        clearRequests()
-        terminate()
-    }
 
     private suspend fun sendIfAny() {
         var items: List<Packet>
@@ -575,8 +547,7 @@ abstract class Connection(
         Connected,
         Closing,
         Draining,
-        Closed,
-        Failed;
+        Closed;
 
         fun closingOrDraining(): Boolean {
             return this == Closing || this == Draining

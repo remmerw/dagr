@@ -40,12 +40,13 @@ class TimeoutTest {
         assertEquals(connector.connections().first().remotePeerId(), serverPeerId)
         assertEquals(server.connections().first().remotePeerId(), clientPeerId)
 
-        delay(30000)
+        delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
         // now it should be no connections
 
         assertEquals(server.connections().size, 0)
         assertEquals(connector.connections().size, 0)
 
+        delay(5000)
 
         connection.close()
         server.shutdown()

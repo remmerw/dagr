@@ -8,7 +8,11 @@ import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
@@ -18,7 +22,6 @@ import kotlin.random.Random
 
 class DagrClient internal constructor(
     private val socket: BoundDatagramSocket,
-    private val selectorManager: SelectorManager,
     private val keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
@@ -27,6 +30,7 @@ class DagrClient internal constructor(
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     suspend fun connect(timeout: Int) {
 
@@ -57,10 +61,11 @@ class DagrClient internal constructor(
 
     private suspend fun startInitialize() {
 
-        selectorManager.launch {
+        scope.launch {
             runReceiver()
         }
-        selectorManager.launch {
+
+        scope.launch {
             runRequester()
         }
 
@@ -70,7 +75,7 @@ class DagrClient internal constructor(
 
 
     private suspend fun abortInitialize() {
-        state(State.Failed)
+        state(State.Closing)
         clearRequests()
         terminate()
     }
@@ -92,8 +97,7 @@ class DagrClient internal constructor(
         } catch (throwable: Throwable) {
             debug("Verification failed " + throwable.message)
 
-            // todo remove from connector
-            immediateCloseWithError(
+            scheduledClose(
                 Level.APP,
                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
             )
@@ -110,44 +114,40 @@ class DagrClient internal constructor(
         }
 
         try {
-            socket.close()
+            scope.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
 
         try {
-            selectorManager.close()
+            socket.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
     }
 
-    private suspend fun runReceiver() {
-        try {
-            while (true) {
-                val receivedPacket = socket.receive()
-                try {
-                    val source = receivedPacket.packet
+    private suspend fun runReceiver(): Unit = coroutineScope {
+        while (isActive) {
+            val receivedPacket = socket.receive()
+            try {
+                val source = receivedPacket.packet
 
-                    val type = source.readByte()
-                    if (type == 1.toByte()) {
-                        // only APP packages allowed
-                        val packetNumber = source.readLong()
+                val type = source.readByte()
+                if (type == 1.toByte()) {
+                    // only APP packages allowed
+                    val packetNumber = source.readLong()
 
-                        processPacket(
-                            PacketHeader(Level.APP, source.readByteArray(), packetNumber)
-                        )
-                    } else {
-                        debug("Probably hole punch detected $type")
-                    }
-
-                } catch (throwable: Throwable) {
-                    debug(throwable)
+                    processPacket(
+                        PacketHeader(Level.APP, source.readByteArray(), packetNumber)
+                    )
+                } else {
+                    debug("Probably hole punch detected $type")
                 }
+            } catch (throwable: Throwable) {
+                debug(throwable)
             }
-        } finally {
-            terminate()
         }
+
     }
 
 
@@ -171,9 +171,7 @@ suspend fun newDagrClient(
     val socket = aSocket(selectorManager).udp().bind(
         InetSocketAddress("::", 0)
     )
-    return DagrClient(
-        socket, selectorManager, keys, remotePeerId, remoteAddress, connector
-    )
+    return DagrClient(socket, keys, remotePeerId, remoteAddress, connector)
 }
 
 
