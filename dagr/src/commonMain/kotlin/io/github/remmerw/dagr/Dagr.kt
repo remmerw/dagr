@@ -93,7 +93,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
         println("Packer Number $packetNumber")
         println("PeerId " + id.toHexString())
         if (!connections.contains(remoteAddress)) {
-            val connection = object : Connection(remotePeerId, remoteAddress, responder) {
+            val connection = object : Connection(socket!!, remotePeerId, remoteAddress, responder) {
 
 
                 override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
@@ -107,6 +107,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
 
                     val signature = byteArrayOf() // todo signature
 
+                    state(State.Connected)
                     discard(Level.INIT)
 
                     sendVerifyFrame(Level.APP, token, signature)
@@ -136,7 +137,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
                 connection.runRequester()
             }
 
-            connection.process(
+            connection.processPacket(
                 PacketHeader(Level.INIT, source.readByteArray(), packetNumber)
             )
         }
@@ -151,7 +152,7 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
 
             val packetNumber = source.readLong()
             println("Packer Number $packetNumber")
-            connection.process(
+            connection.processPacket(
                 PacketHeader(Level.APP, source.readByteArray(), packetNumber)
             )
         }

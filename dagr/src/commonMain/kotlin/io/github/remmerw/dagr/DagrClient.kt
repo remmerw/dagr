@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.PeerId
 import io.ktor.network.selector.SelectorManager
+import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
 import io.ktor.network.sockets.isClosed
@@ -20,14 +21,14 @@ import kotlin.random.Random
 
 
 class DagrClient internal constructor(
-
+    private val socket: BoundDatagramSocket,
     private val selectorManager: SelectorManager,
     private val peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     responder: Responder,
     private val connector: Connector
-) : Connection(remotePeerId, remoteAddress, responder) {
+) : Connection(socket, remotePeerId, remoteAddress, responder) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
@@ -76,10 +77,6 @@ class DagrClient internal constructor(
 
     private suspend fun startInitialize() {
 
-        socket = aSocket(selectorManager).udp().bind(
-            InetSocketAddress("::", 3333) // todo port
-        )
-
         scope.launch {
             runReceiver()
         }
@@ -103,7 +100,7 @@ class DagrClient internal constructor(
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun handshakeDone() {
 
-
+        state(State.Connected)
         discard(Level.INIT)
 
         initializeDone.release()
@@ -161,7 +158,7 @@ class DagrClient internal constructor(
     private suspend fun runReceiver() {
         try {
             while (true) {
-                val receivedPacket = socket!!.receive()
+                val receivedPacket = socket.receive()
                 try {
                     println("DagrClient runReceiver")
                     val source = receivedPacket.packet
@@ -171,7 +168,7 @@ class DagrClient internal constructor(
                         // only APP packages allowed
                         val packetNumber = source.readLong()
 
-                        process(
+                        processPacket(
                             PacketHeader(Level.APP, source.readByteArray(), packetNumber)
                         )
                     } else {
@@ -185,7 +182,7 @@ class DagrClient internal constructor(
         } catch (_: CancellationException) {
             // ignore exception
         } catch (throwable: Throwable) {
-            socket?.isClosed?.let {
+            socket.isClosed.let {
                 if (!it) {
                     debug(throwable)
                 }
@@ -234,7 +231,7 @@ class DagrClient internal constructor(
 
 }
 
-fun newDagrClient(
+suspend fun newDagrClient(
     localPeerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
@@ -242,8 +239,10 @@ fun newDagrClient(
 ): DagrClient {
     val selectorManager = SelectorManager(Dispatchers.IO)
     val connector = Connector()
-
+    val socket = aSocket(selectorManager).udp().bind(
+        InetSocketAddress("::", 3333) // todo port
+    )
     return DagrClient(
-        selectorManager, localPeerId, remotePeerId, remoteAddress, responder, connector
+        socket, selectorManager, localPeerId, remotePeerId, remoteAddress, responder, connector
     )
 }

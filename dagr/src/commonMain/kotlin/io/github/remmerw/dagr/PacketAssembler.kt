@@ -103,7 +103,7 @@ internal class PacketAssembler internal constructor(
         frames: List<Frame>
     ): Packet {
         return when (level) {
-            Level.APP -> PacketService.createAppPackage(frames, packetNumber)
+            Level.APP -> PacketService.createAppPackage(packetNumber, frames)
             Level.INIT -> PacketService.createInitPackage(peerId, packetNumber, frames)
         }
     }

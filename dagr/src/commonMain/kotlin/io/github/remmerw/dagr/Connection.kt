@@ -18,12 +18,11 @@ import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
+    private val socket: BoundDatagramSocket,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val responder: Responder
 ) : ConnectionStreams() {
-    protected var socket: BoundDatagramSocket? = null
-
 
     @OptIn(ExperimentalAtomicApi::class)
     protected val remoteDelayScale = AtomicInt(Settings.ACK_DELAY_SCALE)
@@ -329,7 +328,7 @@ abstract class Connection(
     }
 
 
-    internal suspend fun process(packetHeader: PacketHeader): Boolean {
+    private suspend fun process(packetHeader: PacketHeader): Boolean {
         return when (packetHeader.level) {
             Level.INIT -> {
                 processFrames(packetHeader)

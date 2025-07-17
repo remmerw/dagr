@@ -5,17 +5,8 @@ import kotlinx.io.Buffer
 
 internal interface Packet {
     fun packetNumber(): Long
-
     fun level(): Level
-
     fun frames(): List<Frame>
-
-    /**
-     * Estimates what the length of this packet will be after it has been encrypted.
-     * The returned length must be less then or equal the actual length after encryption.
-     * Length estimates are used when preparing packets for sending, where certain limits must
-     * be met (e.g. congestion control, max datagram size, ...).
-     */
     fun estimateLength(): Int
 
     fun framesLength(): Int {
@@ -29,7 +20,6 @@ internal interface Packet {
     fun generatePacketBytes(): Buffer
 
     val isAckOnly: Boolean
-        // https://tools.ietf.org/html/draft-ietf-quic-recovery-33#section-2
         get() {
             for ((frameType) in frames()) {
                 if (frameType != FrameType.AckFrame) {
@@ -98,13 +88,12 @@ internal interface Packet {
         }
 
         override fun generatePacketBytes(): Buffer {
-
-            // todo optimize
-            val additionalData = Buffer()
-            additionalData.writeLong(packetNumber)
-            val frameBytes = PacketService.generatePayloadBytes(frames)
-            additionalData.write(frameBytes)
-            return additionalData
+            val buffer = Buffer()
+            buffer.writeByte(1.toByte())
+            buffer.writeLong(packetNumber)
+            val frameBytes = PacketService.generatePayloadBytes(frames)  // todo optimize
+            buffer.write(frameBytes)
+            return buffer
 
         }
 

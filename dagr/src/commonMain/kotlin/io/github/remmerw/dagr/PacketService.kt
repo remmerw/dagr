@@ -10,8 +10,8 @@ internal object PacketService {
      * Constructs a short header packet for sending (client role).
      */
     fun createAppPackage(
-        frames: List<Frame>,
         packetNumber: Long,
+        frames: List<Frame>,
     ): Packet.AppPacket {
         return Packet.AppPacket(packetNumber, frames)
     }
