@@ -145,7 +145,7 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
                     frame
                 )
 
-                FrameType.VerifyFrame,
+                FrameType.VerifyResponseFrame, FrameType.VerifyRequestFrame,
                 FrameType.DataBlockedFrame,
                 FrameType.StreamDataBlockedFrame -> connectionFlow.addRequest(
                     packetStatus.packet.level(),

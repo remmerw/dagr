@@ -84,8 +84,13 @@ internal interface FrameReceived {
      */
 
     @Suppress("ArrayInDataClass")
-    data class VerifyFrame(
-        val token: ByteArray,
+    data class VerifyRequestFrame(
+        val token: ByteArray
+    ) : FrameReceived
+
+
+    @Suppress("ArrayInDataClass")
+    data class VerifyResponseFrame(
         val signature: ByteArray
     ) : FrameReceived
 
@@ -324,12 +329,15 @@ internal interface FrameReceived {
         }
 
 
-        fun parseVerifyFrame(buffer: Buffer): VerifyFrame {
+        fun parseVerifyRequestFrame(buffer: Buffer): VerifyRequestFrame {
             val token = buffer.readByteArray(Settings.TOKEN_SIZE)
-            val signature = buffer.readByteArray(Settings.SIGNATURE_SIZE)
-            return VerifyFrame(token, signature)
+            return VerifyRequestFrame(token)
         }
 
+        fun parseVerifyResponseFrame(buffer: Buffer): VerifyResponseFrame {
+            val signature = buffer.readByteArray(Settings.SIGNATURE_SIZE)
+            return VerifyResponseFrame(signature)
+        }
 
         fun parseNewTokenFrame(buffer: Buffer) {
             val tokenLength = parseInt(buffer)

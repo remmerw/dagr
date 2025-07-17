@@ -281,15 +281,20 @@ internal fun createMaxStreamsFrame(
     return Frame(FrameType.MaxStreamsFrame, buffer.readByteArray())
 }
 
-internal fun createVerifyFrame(token: ByteArray, signature: ByteArray): Frame {
+internal fun createVerifyRequestFrame(token: ByteArray): Frame {
     require(token.size == Settings.TOKEN_SIZE) { "Invalid token size" }
-    require(signature.size == Settings.SIGNATURE_SIZE) { "Invalid size of signature" }
-
     val buffer = Buffer()
     buffer.writeByte(0x18.toByte())
     buffer.write(token)
+    return Frame(FrameType.VerifyRequestFrame, buffer.readByteArray())
+}
+
+internal fun createVerifyResponseFrame(signature: ByteArray): Frame {
+    require(signature.size == Settings.SIGNATURE_SIZE) { "Invalid size of signature" }
+    val buffer = Buffer()
+    buffer.writeByte(0x19.toByte())
     buffer.write(signature)
-    return Frame(FrameType.VerifyFrame, buffer.readByteArray())
+    return Frame(FrameType.VerifyResponseFrame, buffer.readByteArray())
 }
 
 

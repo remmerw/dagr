@@ -4,7 +4,6 @@ import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -32,8 +31,9 @@ class CloseStreamTest {
         val remoteAddress = server.address()
         val connector = Connector()
         val clientKeys = generateKeys()
+        val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress, connector)
+        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
         connection.connect(1)
 
 

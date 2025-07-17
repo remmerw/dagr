@@ -12,6 +12,7 @@ internal enum class FrameType {
     DataBlockedFrame, StreamDataBlockedFrame,
     MaxDataFrame, PingFrame, PaddingFrame,
     ResetStreamFrame, MaxStreamDataFrame, MaxStreamsFrame,
-    VerifyFrame, StopSendingFrame, StreamsBlockedFrame
+    VerifyRequestFrame, VerifyResponseFrame,
+    StopSendingFrame, StreamsBlockedFrame
 }
 

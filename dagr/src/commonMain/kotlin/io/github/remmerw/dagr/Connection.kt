@@ -51,12 +51,6 @@ abstract class Connection(
         this.flowControlIncrement = flowControlMax / 10
     }
 
-
-    internal suspend fun sendVerifyFrame(level: Level, token: ByteArray, signature: ByteArray) {
-        insertRequest(level, createVerifyFrame(token, signature))
-    }
-
-
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
     }
@@ -211,9 +205,13 @@ abstract class Connection(
 
                 0x18 -> {
                     isAckEliciting = true
-                    process(FrameReceived.parseVerifyFrame(buffer))
+                    process(FrameReceived.parseVerifyRequestFrame(buffer))
                 }
 
+                0x19 -> {
+                    isAckEliciting = true
+                    process(FrameReceived.parseVerifyResponseFrame(buffer))
+                }
 
                 0x1c, 0x1d ->  // isAckEliciting is false;
                     process(
@@ -293,8 +291,8 @@ abstract class Connection(
         }
     }
 
-    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyFrame)
-
+    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame)
+    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame)
 
     private suspend fun process(maxStreamDataFrame: FrameReceived.MaxStreamDataFrame) {
         try {

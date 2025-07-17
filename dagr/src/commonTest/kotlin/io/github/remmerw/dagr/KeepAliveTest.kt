@@ -31,7 +31,7 @@ class KeepAliveTest {
         val clientKeys = generateKeys()
         val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress, connector)
+        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
         connection.connect(1)
         connection.enableKeepAlive()
 

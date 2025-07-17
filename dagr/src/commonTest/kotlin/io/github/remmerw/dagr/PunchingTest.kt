@@ -29,8 +29,9 @@ class PunchingTest {
         val remoteAddress = server.address()
         val connector = Connector()
         val clientKeys = generateKeys()
+        val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress, connector)
+        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
         connection.connect(1)
 
         val clientAddress = connection.address()

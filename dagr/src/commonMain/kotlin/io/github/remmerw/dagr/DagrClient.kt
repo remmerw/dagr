@@ -1,8 +1,6 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.Keys
 import io.github.remmerw.borr.PeerId
-import io.github.remmerw.borr.sign
 import io.github.remmerw.borr.verify
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
@@ -23,11 +21,11 @@ import kotlin.random.Random
 class DagrClient internal constructor(
     private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
-    private val keys: Keys,
+    peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     private val connector: Connector
-) : Connection(socket, keys.peerId, remotePeerId, remoteAddress, connector) {
+) : Connection(socket, peerId, remotePeerId, remoteAddress, connector) {
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
@@ -70,8 +68,7 @@ class DagrClient internal constructor(
             runRequester()
         }
 
-        val signature = sign(keys, token)
-        sendVerifyFrame(Level.INIT, token, signature)
+        insertRequest(Level.INIT, createVerifyRequestFrame(token))
     }
 
 
@@ -81,15 +78,18 @@ class DagrClient internal constructor(
         terminate()
     }
 
+    override suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame) {
+        // not yet supported (maybe in the future)
+    }
 
-    override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
+
+    override suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame) {
 
 
-        val remoteToken = verifyFrame.token
         val remoteSignature = verifyFrame.signature
 
         try {
-            verify(remotePeerId(), remoteToken, remoteSignature)
+            verify(remotePeerId(), token, remoteSignature)
 
             state(State.Connected)
             discard(Level.INIT)
@@ -173,7 +173,7 @@ class DagrClient internal constructor(
 }
 
 suspend fun newDagrClient(
-    keys: Keys,
+    peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     connector: Connector
@@ -183,8 +183,7 @@ suspend fun newDagrClient(
         InetSocketAddress("::", 0)
     )
     return DagrClient(
-        selectorManager,
-        socket, keys, remotePeerId, remoteAddress, connector
+        selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
     )
 }
 
