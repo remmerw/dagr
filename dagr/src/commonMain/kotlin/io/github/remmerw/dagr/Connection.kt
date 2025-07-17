@@ -391,6 +391,7 @@ abstract class Connection(
 
     private suspend fun process(streamFrame: FrameReceived.StreamFrame) {
         try {
+            println("Process stream frame " + streamFrame.streamId)
             processStreamFrame(this, streamFrame)
         } catch (transportError: TransportError) {
             immediateCloseWithError(Level.APP, transportError)
@@ -642,7 +643,6 @@ abstract class Connection(
             val size = buffer.size
 
             val datagram = Datagram(buffer, remoteAddress)
-
 
             val timeSent = TimeSource.Monotonic.markNow()
             socket.send(datagram)

@@ -44,6 +44,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             while (true) {
                 val receivedPacket = socket!!.receive()
                 try {
+
                     process(
                         receivedPacket.packet,
                         receivedPacket.address as InetSocketAddress
@@ -125,11 +126,12 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
     private suspend fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
 
+
         val connection = connections[remoteAddress]
         if (connection != null) {
 
             val packetNumber = source.readLong()
-
+            println("Dagr processAppPackage")
             connection.processPacket(
                 PacketHeader(Level.APP, source.readByteArray(), packetNumber)
             )

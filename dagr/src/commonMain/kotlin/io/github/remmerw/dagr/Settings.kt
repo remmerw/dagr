@@ -97,11 +97,11 @@ internal object Settings {
         1452 // all other remote libp2p clients have same value
     const val MAX_STREAMS_BIDI: Int = 256 // all other remote libp2p clients have same value
     const val MAX_STREAMS_UNI: Int = 5 // all other remote libp2p clients have same value
-    const val INITIAL_MAX_DATA: Int = 786432 // all other remote libp2p clients have same value
-    const val INITIAL_MAX_STREAM_DATA: Int =
+    const val INITIAL_MAX_DATA: Long = 786432 // all other remote libp2p clients have same value
+    const val INITIAL_MAX_STREAM_DATA: Long =
         524288 // all other remote libp2p clients have same value
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
-        1200 // all other remote libp2p clients have same value
+        1200 // all other remote libp2p clients have same value // TODO make sure datagram size
     const val MAX_IDLE_TIMEOUT: Int = 30000 // all remote libp2p clients have value 30000
     const val PING_INTERVAL: Int = 5000 // MAX_IDLE_TIMEOUT / 2
 

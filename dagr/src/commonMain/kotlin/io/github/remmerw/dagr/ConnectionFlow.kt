@@ -103,24 +103,24 @@ open class ConnectionFlow() {
 
     // The maximum amount of data that can be sent (to the peer) on the connection as a whole
     @Volatile
-    private var maxDataAllowed = 0L
+    private var maxDataAllowed = Settings.INITIAL_MAX_DATA
 
     // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-18.2
     // "initial_max_stream_data_bidi_local (0x0005):  This parameter is an integer value specifying the initial flow control limit for
     //  locally-initiated bidirectional streams.
     @Volatile
-    private var initialMaxStreamDataBidiLocal = 0L
+    private var initialMaxStreamDataBidiLocal = Settings.INITIAL_MAX_STREAM_DATA
 
     // "initial_max_stream_data_bidi_remote (0x0006):  This parameter is an integer value specifying the initial flow control limit for peer-
     //  initiated bidirectional streams. "
     @Volatile
-    var initialMaxStreamDataBidiRemote: Long = 0L
+    var initialMaxStreamDataBidiRemote = Settings.INITIAL_MAX_STREAM_DATA
         private set
 
     // "initial_max_stream_data_uni (0x0007):  This parameter is an integer value specifying the initial flow control limit for unidirectional
     //  streams."
     @Volatile
-    private var initialMaxStreamDataUni = 0L
+    private var initialMaxStreamDataUni = Settings.INITIAL_MAX_STREAM_DATA
 
     @Volatile
     private var slowStartThreshold = Long.MAX_VALUE
@@ -168,7 +168,7 @@ open class ConnectionFlow() {
         return packetAssemblers[level.ordinal]!!
     }
 
-    internal suspend fun packetSent(
+    internal fun packetSent(
         packet: Packet,
         size: Int,
         timeSent: TimeSource.Monotonic.ValueTimeMark
@@ -240,16 +240,6 @@ open class ConnectionFlow() {
     val pto: Int
         get() = getSmoothedRtt() + 4 * getRttVar() + remoteMaxAckDelay
 
-
-    fun init(
-        initialMaxData: Long, initialMaxStreamDataBidiLocal: Long,
-        initialMaxStreamDataBidiRemote: Long, initialMaxStreamDataUni: Long
-    ) {
-        this.initialMaxStreamDataBidiLocal = initialMaxStreamDataBidiLocal
-        this.initialMaxStreamDataBidiRemote = initialMaxStreamDataBidiRemote
-        this.initialMaxStreamDataUni = initialMaxStreamDataUni
-        this.maxDataAllowed = initialMaxData
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     fun addMaxDataAssigned(proposedStreamIncrement: Long) {
