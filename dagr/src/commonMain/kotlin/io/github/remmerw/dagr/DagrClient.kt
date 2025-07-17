@@ -115,7 +115,7 @@ class DagrClient internal constructor(
         }
 
         try {
-            selectorManager.cancel()
+            selectorManager.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
