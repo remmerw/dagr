@@ -31,17 +31,10 @@ class DagrClient internal constructor(
     remoteAddress: InetSocketAddress,
     responder: Responder,
     private val connector: Connector
-) : Connection(socket, remotePeerId, remoteAddress, responder) {
-    private val scope = CoroutineScope(Dispatchers.IO)
+) : Connection(socket, remotePeerId, remoteAddress, responder, connector) {
+
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
-
-    /**
-     * The maximum numbers of connection IDs this endpoint can use; determined by the TP
-     * supplied by the peer
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private val remoteCidLimit = AtomicInt(Settings.ACTIVE_CONNECTION_ID_LIMIT)
 
 
     suspend fun connect(timeout: Int) {
@@ -50,7 +43,6 @@ class DagrClient internal constructor(
             startInitialize()
         } catch (throwable: Throwable) {
             abortInitialize()
-            throwable.printStackTrace()
             throw Exception("Error : " + throwable.message)
         }
 
@@ -72,7 +64,7 @@ class DagrClient internal constructor(
     }
 
     override fun scheduleTerminate(pto: Int) {
-        scope.launch {
+        selectorManager.launch {
             delay(pto.toLong())
             terminate()
         }
@@ -80,10 +72,10 @@ class DagrClient internal constructor(
 
     private suspend fun startInitialize() {
 
-        scope.launch {
+        selectorManager.launch {
             runReceiver()
         }
-        scope.launch {
+        selectorManager.launch {
             runRequester()
         }
 
@@ -122,19 +114,11 @@ class DagrClient internal constructor(
                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
             )
         }
-
-
     }
-
-
-    /**
-     * Generate, register and send a new connection ID (that identifies this endpoint).
-     */
 
 
     override suspend fun terminate() {
         super.terminate()
-        connector.removeConnection(this)
 
         try {
             initializeDone.release()
@@ -148,7 +132,7 @@ class DagrClient internal constructor(
         }
 
         try {
-            scope.cancel()
+            selectorManager.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -178,46 +162,10 @@ class DagrClient internal constructor(
                     debug(throwable)
                 }
             }
-        } catch (_: CancellationException) {
-            // ignore exception
-        } catch (throwable: Throwable) {
-            socket.isClosed.let {
-                if (!it) {
-                    debug(throwable)
-                }
-            }
-        } finally {
-            try {
-                socket?.isClosed?.let {
-                    if (!it) {
-                        socket!!.close()
-                    }
-                }
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
+        }  finally {
+            terminate()
         }
     }
-
-
-    private suspend fun process(data: ByteArray) {
-        nextPacket(Reader(data, data.size))
-    }
-
-
-    /**
-     * Register the active connection ID limit of the peer (as received by this endpoint as TP active_connection_id_limit)
-     * and determine the maximum number of peer connection ID's this endpoint is willing to maintain.
-     * "This is an integer value specifying the maximum number of connection IDs from the peer that an endpoint is
-     * willing to store.", so it puts an upper bound to the number of connection IDs this endpoint can generate.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun remoteCidLimit(remoteCidLimit: Int) {
-        // https://www.rfc-editor.org/rfc/rfc9000.html#name-issuing-connection-ids
-        // "An endpoint MUST NOT provide more connection IDs than the peer's limit."
-        this.remoteCidLimit.store(remoteCidLimit)
-    }
-
 
     override fun activeToken(): ByteArray {
         return token
@@ -227,19 +175,18 @@ class DagrClient internal constructor(
         return keys.peerId
     }
 
-
 }
 
 suspend fun newDagrClient(
     keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
+    connector: Connector,
     responder: Responder
 ): DagrClient {
     val selectorManager = SelectorManager(Dispatchers.IO)
-    val connector = Connector()
     val socket = aSocket(selectorManager).udp().bind(
-        InetSocketAddress("::", 3333) // todo port
+        InetSocketAddress("::", 0)
     )
     return DagrClient(
         socket, selectorManager, keys, remotePeerId, remoteAddress, responder, connector

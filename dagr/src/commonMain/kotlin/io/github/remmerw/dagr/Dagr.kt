@@ -8,18 +8,17 @@ import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
-import io.ktor.network.sockets.isClosed
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import kotlin.random.Random
 
-class Dagr(val keys: Keys, val responder: Responder) {
+class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
@@ -43,10 +42,9 @@ class Dagr(val keys: Keys, val responder: Responder) {
 
     private suspend fun runReceiver() {
         try {
-            while (selectorManager.isActive) {
+            while (true) {
                 val receivedPacket = socket!!.receive()
                 try {
-                    println("Data received !!!")
                     process(
                         receivedPacket.packet,
                         receivedPacket.address as InetSocketAddress
@@ -55,24 +53,8 @@ class Dagr(val keys: Keys, val responder: Responder) {
                     debug(throwable)
                 }
             }
-        } catch (_: CancellationException) {
-            // ignore exception
-        } catch (throwable: Throwable) {
-            socket?.isClosed?.let {
-                if (!it) {
-                    debug(throwable)
-                }
-            }
         } finally {
-            try {
-                socket?.isClosed?.let {
-                    if (!it) {
-                        socket!!.close()
-                    }
-                }
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
+            shutdown()
         }
     }
 
@@ -96,50 +78,50 @@ class Dagr(val keys: Keys, val responder: Responder) {
         println("Packer Number $packetNumber")
         println("PeerId " + id.toHexString())
         if (!connections.contains(remoteAddress)) {
-            val connection = object : Connection(socket!!, remotePeerId, remoteAddress, responder) {
+            val connection =
+                object : Connection(socket!!, remotePeerId, remoteAddress, responder, this) {
 
 
-                override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
-                    println("verifyFrame")
+                    override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
+                        println("verifyFrame")
 
-                    val remoteToken = verifyFrame.token
-                    val remoteSignature = verifyFrame.signature
-                    println("Remote token " + remoteToken.toHexString())
-                    println("Remote signature " + remoteSignature.toHexString())
-                    try {
-                        verify(remotePeerId, remoteToken, remoteSignature)
+                        val remoteToken = verifyFrame.token
+                        val remoteSignature = verifyFrame.signature
+                        println("Remote token " + remoteToken.toHexString())
+                        println("Remote signature " + remoteSignature.toHexString())
+                        try {
+                            verify(remotePeerId, remoteToken, remoteSignature)
 
-                        state(State.Connected)
-                        discard(Level.INIT)
+                            state(State.Connected)
+                            discard(Level.INIT)
 
-                        val signature = sign(keys, token)
-                        sendVerifyFrame(Level.APP, token, signature)
-                    } catch (throwable: Throwable) {
-                        debug("Verification failed " + throwable.message)
+                            val signature = sign(keys, token)
+                            sendVerifyFrame(Level.APP, token, signature)
+                        } catch (throwable: Throwable) {
+                            debug("Verification failed " + throwable.message)
 
-                        // todo remove from connections
-                        immediateCloseWithError(
-                            Level.APP,
-                            TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-                        )
+                            immediateCloseWithError(
+                                Level.APP,
+                                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
+                            )
+                        }
+
+
                     }
 
+                    override fun scheduleTerminate(pto: Int) {
+                        TODO("Not yet implemented")
+                    }
+
+                    override fun activeToken(): ByteArray {
+                        return token
+                    }
+
+                    override fun activePeerId(): PeerId {
+                        return keys.peerId
+                    }
 
                 }
-
-                override fun scheduleTerminate(pto: Int) {
-                    TODO("Not yet implemented")
-                }
-
-                override fun activeToken(): ByteArray {
-                    return token
-                }
-
-                override fun activePeerId(): PeerId {
-                    return keys.peerId
-                }
-
-            }
 
             connections.put(remoteAddress, connection)
 
@@ -166,22 +148,18 @@ class Dagr(val keys: Keys, val responder: Responder) {
         }
     }
 
-    fun shutdown() {
+    suspend fun shutdown() {
 
         try {
-            connections.forEach { dcid, connection ->
-                // todo connection.close()
+            connections.values.forEach { connection ->
+                connection.close()
             }
         } catch (throwable: Throwable) {
             debug(throwable)
         }
 
         try {
-            socket?.isClosed?.let {
-                if (!it) {
-                    socket!!.close()
-                }
-            }
+            socket?.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -192,6 +170,16 @@ class Dagr(val keys: Keys, val responder: Responder) {
             debug(throwable)
         }
 
+        try {
+            scope.cancel()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
+    }
+
+    override fun terminate(connection: Connection) {
+        connections.remove(connection.remoteAddress())
     }
 }
 

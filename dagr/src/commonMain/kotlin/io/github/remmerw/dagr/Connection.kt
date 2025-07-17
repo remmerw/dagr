@@ -21,7 +21,8 @@ abstract class Connection(
     private val socket: BoundDatagramSocket,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
-    private val responder: Responder
+    private val responder: Responder,
+    private val terminate: Terminate
 ) : ConnectionStreams() {
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -515,6 +516,7 @@ abstract class Connection(
         // "Once its closing or draining state ends, an endpoint SHOULD discard all
         // connection state."
         super.cleanup()
+        terminate.terminate(this)
         state(State.Closed)
     }
 

@@ -2,28 +2,30 @@ package io.github.remmerw.dagr
 
 import io.ktor.util.collections.ConcurrentSet
 
+interface Terminate {
+    fun terminate(connection: Connection)
+}
+class Connector() : Terminate {
+    private val connections: MutableSet<Connection> = ConcurrentSet()
 
-class Connector() {
-    private val connections: MutableSet<DagrClient> = ConcurrentSet()
 
-
-    fun connections(): Set<DagrClient> {
+    fun connections(): Set<Connection> {
         return connections.toSet()
     }
 
     suspend fun shutdown() {
-        connections.forEach { connection: DagrClient -> connection.close() }
+        connections.forEach { connection: Connection -> connection.close() }
         connections.clear()
 
     }
 
-    fun addConnection(connection: DagrClient) {
+    fun addConnection(connection: Connection) {
         require(connection.isConnected) { "Connection not connected" }
         connections.add(connection)
 
     }
 
-    fun removeConnection(connection: DagrClient) {
+    override fun terminate(connection: Connection) {
         connections.remove(connection)
     }
 }

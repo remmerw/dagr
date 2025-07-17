@@ -28,11 +28,11 @@ class DagrTest {
 
         )
         val remoteAddress = server.address()
-
+        val connector = Connector()
         val clientKeys = generateKeys()
 
-        val client = newDagrClient(clientKeys,
-            serverPeerId, remoteAddress, Responder( object : Handler {
+        val client = newDagrClient(clientKeys, serverPeerId, remoteAddress,
+            connector, Responder( object : Handler {
                 override suspend fun data(
                     stream: Stream,
                     data: ByteArray
