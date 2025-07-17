@@ -9,7 +9,6 @@ import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
 import io.ktor.util.collections.ConcurrentMap
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -75,20 +74,15 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         val id = source.readByteArray(32) // 32 hash Size of PeerId
         val remotePeerId = PeerId(id)
         val packetNumber = source.readLong()
-        println("Packer Number $packetNumber")
-        println("PeerId " + id.toHexString())
+
         if (!connections.contains(remoteAddress)) {
             val connection =
                 object : Connection(socket!!, remotePeerId, remoteAddress, responder, this) {
 
 
                     override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
-                        println("verifyFrame")
-
                         val remoteToken = verifyFrame.token
                         val remoteSignature = verifyFrame.signature
-                        println("Remote token " + remoteToken.toHexString())
-                        println("Remote signature " + remoteSignature.toHexString())
                         try {
                             verify(remotePeerId, remoteToken, remoteSignature)
 
@@ -105,12 +99,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
                             )
                         }
-
-
-                    }
-
-                    override fun scheduleTerminate(pto: Int) {
-                        TODO("Not yet implemented")
                     }
 
                     override fun activeToken(): ByteArray {

@@ -5,6 +5,7 @@ import io.ktor.util.collections.ConcurrentSet
 interface Terminate {
     fun terminate(connection: Connection)
 }
+
 class Connector() : Terminate {
     private val connections: MutableSet<Connection> = ConcurrentSet()
 

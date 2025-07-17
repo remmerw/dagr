@@ -8,18 +8,11 @@ import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
-import io.ktor.network.sockets.isClosed
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.readByteArray
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.random.Random
 
 
@@ -63,12 +56,6 @@ class DagrClient internal constructor(
         }
     }
 
-    override fun scheduleTerminate(pto: Int) {
-        selectorManager.launch {
-            delay(pto.toLong())
-            terminate()
-        }
-    }
 
     private suspend fun startInitialize() {
 
@@ -162,7 +149,7 @@ class DagrClient internal constructor(
                     debug(throwable)
                 }
             }
-        }  finally {
+        } finally {
             terminate()
         }
     }

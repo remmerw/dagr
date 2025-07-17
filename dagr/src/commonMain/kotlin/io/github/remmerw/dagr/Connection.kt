@@ -454,8 +454,6 @@ abstract class Connection(
 
     }
 
-    abstract fun scheduleTerminate(pto: Int)
-
     private suspend fun handlePacketInClosingState(level: Level) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "An endpoint MAY enter the draining state from the closing state if it receives
@@ -498,7 +496,7 @@ abstract class Connection(
         }
     }
 
-    private fun drain() {
+    private suspend fun drain() {
         state(State.Draining)
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         // "The closing and draining connection states exist to ensure that connections close
@@ -525,6 +523,10 @@ abstract class Connection(
         immediateCloseWithError(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }
 
+    suspend fun scheduleTerminate(pto: Int) {
+        delay(pto.toLong())
+        terminate()
+    }
 
     internal abstract fun activeToken(): ByteArray
     internal abstract fun activePeerId(): PeerId
