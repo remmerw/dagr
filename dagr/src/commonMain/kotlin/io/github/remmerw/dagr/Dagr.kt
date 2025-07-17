@@ -9,7 +9,6 @@ import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
 import io.ktor.util.collections.ConcurrentMap
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -24,7 +23,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
-    private val scope = CoroutineScope(Dispatchers.IO)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private var socket: BoundDatagramSocket? = null
 
@@ -33,7 +31,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             InetSocketAddress("::", port)
         )
 
-        scope.launch {
+        selectorManager.launch {
             runReceiver()
         }
 
@@ -117,7 +115,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             connections.put(remoteAddress, connection)
 
-            val job = scope.launch {
+            val job = selectorManager.launch {
                 connection.runRequester()
             }
             jobs.put(remoteAddress, job)
@@ -159,7 +157,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
 
         try {
-            scope.cancel()
+            selectorManager.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
