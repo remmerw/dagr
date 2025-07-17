@@ -43,7 +43,6 @@ class DagrTest {
 
         val stream = createStream(connection)
 
-
         val buffer = Buffer()
         buffer.write(clientText.encodeToByteArray())
         val response = stream.request(300, buffer) // todo time
