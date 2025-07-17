@@ -4,7 +4,6 @@ import io.github.remmerw.borr.PeerId
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.Datagram
 import io.ktor.network.sockets.InetSocketAddress
-import io.ktor.network.sockets.isClosed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.io.Buffer
@@ -13,7 +12,6 @@ import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.time.TimeSource
 
@@ -425,17 +423,6 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun setIdleTimeout(idleTimeoutInMillis: Long) {
-        if (!enabledIdle.exchange(true)) {
-            lastIdleAction = TimeSource.Monotonic.markNow()
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-            // To avoid excessively small idle timeout periods, endpoints MUST increase
-            // the idle timeout period to be at least three times the current Probe Timeout (PTO)
-            idleTimeout.store(max(idleTimeoutInMillis, (3L * pto)))
-        }
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
     private suspend fun checkIdle() {
         if (enabledIdle.load()) {
 
@@ -500,11 +487,7 @@ abstract class Connection(
         } catch (_: CancellationException) {
             // ignore exception
         } catch (_: Throwable) {
-            socket?.isClosed?.let {
-                if (!it) {
-                    abortConnection()
-                }
-            }
+            abortConnection()
         }
     }
 

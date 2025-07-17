@@ -229,18 +229,6 @@ private fun createPingFrame(): Frame {
 }
 
 /**
- * Represents a number of consecutive padding frames.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-padding-frames)
- *
- *
- * Usually, padding will consist of multiple padding frames, each being exactly one (zero) byte. This class can
- * represent an arbitrary number of consecutive padding frames, by recording padding length.
- */
-internal fun createPaddingFrame(length: Int): Frame {
-    return Frame(FrameType.PaddingFrame, ByteArray(length))
-}
-
-/**
  * Represents a reset stream frame.
  * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-reset_stream-frames)
  */

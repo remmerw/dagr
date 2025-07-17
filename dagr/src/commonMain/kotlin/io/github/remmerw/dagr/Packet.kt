@@ -47,7 +47,7 @@ internal interface Packet {
             frames.forEach { frame ->
                 buffer.write(frame.frameBytes)
             }
-            require(buffer.size < Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
+            require(buffer.size < Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
 
             return buffer
         }
@@ -99,7 +99,7 @@ internal interface Packet {
             frames.forEach { frame ->
                 buffer.write(frame.frameBytes)
             }
-            require(buffer.size < Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
+            require(buffer.size < Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
             return buffer
 
         }

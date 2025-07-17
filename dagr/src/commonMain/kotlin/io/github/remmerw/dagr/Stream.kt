@@ -12,7 +12,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
 
 class Stream(
-    internal val connection: Connection,
+    private val connection: Connection,
     private val streamId: Int,
     private val responder: Responder?,
 ) {
@@ -23,7 +23,7 @@ class Stream(
     private val receiverMaxDataIncrement: Long
 
     private val frames: MutableList<FrameReceived.StreamFrame> = mutableListOf() // no concurrency
-    private val data = Buffer()
+    private val readingBuffer = Buffer()
 
     private val sendQueue: Buffer = Buffer()
     private val mutex = Mutex()
@@ -93,7 +93,7 @@ class Stream(
                 if (upToOffset >= processedToOffset) {
                     bytesRead += frame.length
 
-                    data.write(frame.streamData)
+                    readingBuffer.write(frame.streamData)
 
                     processedToOffset = frame.offsetLength()
 
@@ -120,7 +120,7 @@ class Stream(
                 if (responder == null) {
                     requestFinish.release()
                 } else {
-                    responder.data(this, data)
+                    responder.data(this, readingBuffer)
                 }
             }
         }
@@ -141,24 +141,24 @@ class Stream(
     }
 
 
-    val isUnidirectional: Boolean
+    internal val isUnidirectional: Boolean
         get() =// https://tools.ietf.org/html/draft-ietf-quic-transport-23#section-2.1
         // "The second least significant bit (0x2) of the stream ID distinguishes
         //   between bidirectional streams (with the bit set to 0) and
             //   unidirectional streams (with the bit set to 1)."
             (streamId and 0x0002) == 0x0002
 
-    val isClientInitiatedBidirectional: Boolean
+    internal val isClientInitiatedBidirectional: Boolean
         get() =// "Client-initiated streams have even-numbered stream IDs (with the bit set to 0)"
             (streamId and 0x0003) == 0x0000
 
-    val isServerInitiatedBidirectional: Boolean
+    internal val isServerInitiatedBidirectional: Boolean
         get() =// "server-initiated streams have odd-numbered stream IDs"
             (streamId and 0x0003) == 0x0001
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun resetStream(errorCode: Long) {
+    internal suspend fun resetStream(errorCode: Long) {
         if (!reset.exchange(true)) {
             resetErrorCode = errorCode
             sendRequestQueue.appendRequest(createResetFrame())
@@ -176,7 +176,7 @@ class Stream(
      *
      * This method is intentionally package-protected, as it should only be called by the StreamManager class.
      */
-    suspend fun terminate(errorCode: Long) {
+    internal suspend fun terminate(errorCode: Long) {
         if (errorCode > 0) {
             debug("Terminate (reset) Stream $streamId Error code $errorCode")
         }
@@ -186,7 +186,7 @@ class Stream(
 
 
     @Suppress("unused")
-    suspend fun stopLoading(errorCode: Int) {
+    internal suspend fun stopLoading(errorCode: Int) {
         // Note that QUIC specification does not define application protocol error codes.
         // By absence of an application specified error code, the arbitrary code 0 is used.
         if (!allDataReceived) {
@@ -195,11 +195,11 @@ class Stream(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun terminate() {
+    internal suspend fun terminate() {
         reset.compareAndSet(expectedValue = false, newValue = true)
         sendQueue.clear()
         streamFlowControl.unregister()
-        data.clear()
+        readingBuffer.clear()
 
         try {
             requestFinish.release()
@@ -211,8 +211,8 @@ class Stream(
     }
 
 
-    suspend fun writeOutput(isFinal: Boolean, buffer: Buffer) {
-        this.isFinal = isFinal
+    suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
+        this.isFinal = autoFlush
 
         mutex.withLock {
             sendQueue.write(buffer, buffer.size)
@@ -228,7 +228,7 @@ class Stream(
 
     // this is a blocking request with the given timeout [fin is written, no more writing data allowed]
     suspend fun request(timeout: Long, data: Buffer): Buffer {
-        writeOutput(true, data)
+        write(data)
 
         try {
             return withTimeout(timeout * 1000L) {
@@ -247,7 +247,7 @@ class Stream(
     }
 
     private fun response(): Buffer {
-        return data
+        return readingBuffer
     }
 
 

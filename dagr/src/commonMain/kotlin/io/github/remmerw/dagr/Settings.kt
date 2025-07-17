@@ -74,9 +74,6 @@ internal object Settings {
     // As it is not know (yet) whether running over IP4 or IP6, take the smallest of the two:
     const val MAX_PACKAGE_SIZE: Int = 1232
 
-    // https://tools.ietf.org/html/draft-ietf-quic-recovery-20#section-6.2
-    // "If no previous RTT is available, or if the network
-    // changes, the initial RTT SHOULD be set to 500ms"
     const val INITIAL_RTT: Int = 500
 
     const val DEFAULT_ACTIVE_CONNECTION_ID_LIMIT: Int = 2 // default init value
@@ -84,21 +81,18 @@ internal object Settings {
     const val DEFAULT_ACK_DELAY_EXPONENT: Int = 3 // default init value
     const val DEFAULT_MAX_UDP_PAYLOAD_SIZE: Int = 65527 // default init value
 
-    const val ACTIVE_CONNECTION_ID_LIMIT: Int =
-        4 // all other remote libp2p clients have same value
-    const val MAX_ACK_DELAY: Int = 26 // all other remote libp2p clients have same value
-    const val ACK_DELAY_EXPONENT: Int = 3 // all other remote libp2p clients have same value
-    const val MAX_UDP_PAYLOAD_SIZE: Int =
-        1452 // all other remote libp2p clients have same value
-    const val MAX_STREAMS_BIDI: Int = 256 // all other remote libp2p clients have same value
-    const val MAX_STREAMS_UNI: Int = 5 // all other remote libp2p clients have same value
-    const val INITIAL_MAX_DATA: Long = 786432 // all other remote libp2p clients have same value
-    const val INITIAL_MAX_STREAM_DATA: Long =
-        524288 // all other remote libp2p clients have same value
+    const val ACTIVE_CONNECTION_ID_LIMIT: Int = 4 // all other remote libp2p clients have same value
+    const val MAX_ACK_DELAY: Int = 26
+    const val ACK_DELAY_EXPONENT: Int = 3
+    const val MAX_UDP_PAYLOAD_SIZE: Int = 1452
+    const val MAX_STREAMS_BIDI: Int = 256
+    const val MAX_STREAMS_UNI: Int = 256
+    const val INITIAL_MAX_DATA: Long = 786432
+    const val INITIAL_MAX_STREAM_DATA: Long = 524288
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
         1200 // all other remote libp2p clients have same value // TODO make sure datagram size
-    const val MAX_IDLE_TIMEOUT: Int = 30000 // all remote libp2p clients have value 30000
-    const val PING_INTERVAL: Int = 5000 // MAX_IDLE_TIMEOUT / 2
+    const val MAX_IDLE_TIMEOUT: Int = 20000
+    const val PING_INTERVAL: Int = 5000
 
     // https://www.rfc-editor.org/rfc/rfc9000.html#name-handshake-packet
     // "A Handshake packet uses long headers with a payloadType value of 0x02, ..."
@@ -115,8 +109,6 @@ internal object Settings {
     // https://www.ietf.org/archive/id/draft-ietf-quic-v2-01.html#name-long-header-packet-types
     // Initial packets use a packet payloadType field of 0b01.
     const val INITIAL_V2_TYPE: Int = 1
-
-    const val MAX_PACKET_SIZE: Int = 1500
 
 
     // NOTE: this is the default value for the ack scale
