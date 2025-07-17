@@ -92,37 +92,44 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
         val packetNumber = source.readLong()
         println("Packer Number $packetNumber")
         println("PeerId " + id.toHexString())
-        val connection = object : Connection(remotePeerId, remoteAddress, responder) {
-
-
-            override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
-                println("verifyFrame")
-
-                val remoteToken = verifyFrame.token
-                val remoteSignature = verifyFrame.signature
-                println("Remote token " + remoteToken.toHexString())
-                println("Remote signature " + remoteSignature.toHexString())
-
-                val signature = byteArrayOf() // todo signature
-                sendVerifyFrame(Level.APP, token, signature)
-            }
-
-            override fun scheduleTerminate(pto: Int) {
-                TODO("Not yet implemented")
-            }
-
-            override fun activeToken(): ByteArray {
-                return token
-            }
-
-            override fun activePeerId(): PeerId {
-                return peerId
-            }
-
-        }
-
-
         if (!connections.contains(remoteAddress)) {
+            val connection = object : Connection(remotePeerId, remoteAddress, responder) {
+
+
+                override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
+                    println("verifyFrame")
+
+                    val remoteToken = verifyFrame.token
+                    val remoteSignature = verifyFrame.signature
+                    println("Remote token " + remoteToken.toHexString())
+                    println("Remote signature " + remoteSignature.toHexString())
+
+
+                    val signature = byteArrayOf() // todo signature
+
+                    discard(Level.INIT)
+
+                    sendVerifyFrame(Level.APP, token, signature)
+
+
+                }
+
+                override fun scheduleTerminate(pto: Int) {
+                    TODO("Not yet implemented")
+                }
+
+                override fun activeToken(): ByteArray {
+                    return token
+                }
+
+                override fun activePeerId(): PeerId {
+                    return peerId
+                }
+
+            }
+
+
+
             connections.put(remoteAddress, connection)
 
             scope.launch {

@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
@@ -78,7 +77,7 @@ class DagrClient internal constructor(
     private suspend fun startInitialize() {
 
         socket = aSocket(selectorManager).udp().bind(
-            InetSocketAddress("::", 0)
+            InetSocketAddress("::", 3333) // todo port
         )
 
         scope.launch {
@@ -103,15 +102,6 @@ class DagrClient internal constructor(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun handshakeDone() {
-
-        if (handshakeState.load().transitionAllowed(HandshakeState.Confirmed)) {
-            handshakeState.store(HandshakeState.Confirmed)
-        }
-        val state = handshakeState.load()
-
-        require(
-            state == HandshakeState.Confirmed
-        ) { "Handshake state cannot be set to Confirmed" }
 
 
         discard(Level.INIT)
@@ -170,16 +160,17 @@ class DagrClient internal constructor(
 
     private suspend fun runReceiver() {
         try {
-            while (selectorManager.isActive) {
+            while (true) {
                 val receivedPacket = socket!!.receive()
                 try {
+                    println("DagrClient runReceiver")
                     val source = receivedPacket.packet
 
                     val type = source.readByte()
                     if (type == 1.toByte()) {
                         // only APP packages allowed
                         val packetNumber = source.readLong()
-                        println("DagrClient runReceiver")
+
                         process(
                             PacketHeader(Level.APP, source.readByteArray(), packetNumber)
                         )

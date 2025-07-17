@@ -12,7 +12,6 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.AtomicLong
-import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.max
 import kotlin.math.min
@@ -25,9 +24,6 @@ abstract class Connection(
 ) : ConnectionStreams() {
     protected var socket: BoundDatagramSocket? = null
 
-    @OptIn(ExperimentalAtomicApi::class)
-    internal val handshakeState =
-        AtomicReference(HandshakeState.Initial)
 
     @OptIn(ExperimentalAtomicApi::class)
     protected val remoteDelayScale = AtomicInt(Settings.ACK_DELAY_SCALE)
@@ -645,9 +641,14 @@ abstract class Connection(
 
             val datagram = Datagram(buffer, remoteAddress)
 
+            println("Start remoteAddress " + remoteAddress.port + " " + packet.javaClass.simpleName)
+
             val timeSent = TimeSource.Monotonic.markNow()
             socket!!.send(datagram)
 
+
+
+            println("End remoteAddress " + remoteAddress.port + " " + packet.javaClass.simpleName)
 
             idleCounter.store(0)
             packetSent(packet, size.toInt(), timeSent)
