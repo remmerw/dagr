@@ -21,6 +21,7 @@ import kotlin.random.Random
 
 
 class DagrClient internal constructor(
+    private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
     private val keys: Keys,
     remotePeerId: PeerId,
@@ -114,6 +115,12 @@ class DagrClient internal constructor(
         }
 
         try {
+            selectorManager.cancel()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
+        try {
             scope.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
@@ -171,7 +178,10 @@ suspend fun newDagrClient(
     val socket = aSocket(selectorManager).udp().bind(
         InetSocketAddress("::", 0)
     )
-    return DagrClient(socket, keys, remotePeerId, remoteAddress, connector)
+    return DagrClient(
+        selectorManager,
+        socket, keys, remotePeerId, remoteAddress, connector
+    )
 }
 
 
