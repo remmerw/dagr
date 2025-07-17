@@ -131,7 +131,7 @@ class Stream(
                 if (responder == null) {
                     requestFinish.release()
                 } else {
-                    responder.data(this, data.readByteArray()) // todo
+                    responder.data(this, data)
                 }
             }
         }

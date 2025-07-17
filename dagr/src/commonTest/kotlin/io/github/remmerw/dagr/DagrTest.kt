@@ -19,20 +19,18 @@ class DagrTest {
 
         val serverText = "Moin"
         val clientText = "Hello World"
-        val server = newDagr( serverKeys, 4444, Responder( object : Handler {
+        val server = newDagr( serverKeys, 4444, object : Responder {
             override suspend fun data(
                 stream: Stream,
-                data: ByteArray
+                buffer: Buffer
             ) {
-
-                println("Server responding")
-                assertEquals(data.decodeToString(), clientText)
+                assertEquals(buffer.readByteArray().decodeToString(), clientText)
 
                 val buffer = Buffer()
                 buffer.write(serverText.encodeToByteArray())
                 stream.writeOutput(true, buffer)
             }
-        })
+        }
 
         )
         val remoteAddress = server.address()
@@ -44,7 +42,9 @@ class DagrTest {
 
 
         val stream = createStream(connection)
-        val buffer = Buffer();
+
+
+        val buffer = Buffer()
         buffer.write(clientText.encodeToByteArray())
         val response = stream.request(300, buffer) // todo time
 

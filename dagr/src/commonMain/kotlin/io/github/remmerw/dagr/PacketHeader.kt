@@ -4,8 +4,6 @@ package io.github.remmerw.dagr
 internal data class PacketHeader(
     val level: Level, val framesBytes: ByteArray, val packetNumber: Long,
 ) {
-
-
     override fun hashCode(): Int {
         var result = level.hashCode()
 

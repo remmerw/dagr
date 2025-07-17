@@ -1,8 +1,8 @@
 package io.github.remmerw.dagr
 
-data class Responder(val handler: Handler) {
+import kotlinx.io.Buffer
 
-    suspend fun data(stream: Stream, data: ByteArray) {
-        handler.data(stream, data)
-    }
+interface Responder {
+
+    suspend fun data(stream: Stream, buffer: Buffer)
 }

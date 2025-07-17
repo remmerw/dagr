@@ -121,75 +121,6 @@ abstract class Connection(
         return createStream(this, false)
     }
 
-    internal suspend fun nextPacket(reader: Reader) {
-        if (reader.remaining() < 2) {
-            return
-        }
-
-        val posFlags = reader.position()
-        val flags = reader.getByte()
-        val level = PacketParser.parseLevel(reader, flags) ?: return
-        val dcid = PacketParser.dcid(reader, level) ?: return
-        parsePackets(reader, level, dcid, flags, posFlags)
-    }
-
-    private suspend fun parsePackets(
-        reader: Reader,
-        level: Level, dcid: Number, flags: Byte, posFlags: Int
-    ) {
-        try {
-
-            val packetHeader = parsePacket(reader, level, dcid, flags, posFlags)
-                ?: return  // when not valid
-
-            processPacket(packetHeader)
-
-            nextPacket(reader)
-        } catch (throwable: Throwable) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.2
-            // "if decryption fails (...), the receiver (...) MUST attempt to process the
-            // remaining packets."
-            debug(throwable)
-            nextPacket(reader)
-        }
-    }
-
-
-    internal fun parsePacket(
-        reader: Reader,
-        level: Level, dcid: Number,
-        flags: Byte, posFlags: Int
-    ): PacketHeader? {
-
-        // check if the level is not discarded (level can be null, to avoid expensive
-        // exception handling
-        if (isDiscarded(level)) {
-            return null
-        }
-
-
-        val lpn = largestPacketNumber[level.ordinal]
-
-
-        val packetHeader = when (level) {
-
-            Level.INIT -> PacketParser.parseInitPackageHeader(
-                reader, dcid, flags, posFlags, lpn
-            )
-
-            Level.APP -> PacketParser.parseShortPacketHeader(
-                reader, dcid, flags, posFlags, lpn
-            )
-        }
-
-        if (packetHeader == null) {
-            return null
-        }
-
-        updateKeysAndPackageNumber(packetHeader)
-        return packetHeader
-    }
-
     private fun updateKeysAndPackageNumber(packetHeader: PacketHeader) {
         val level = packetHeader.level
         updatePackageNumber(level, packetHeader)
@@ -321,21 +252,12 @@ abstract class Connection(
     }
 
 
-    private suspend fun process(packetHeader: PacketHeader): Boolean {
-        return when (packetHeader.level) {
-            Level.INIT -> {
-                processFrames(packetHeader)
-            }
-
-            Level.APP -> {
-
-                processFrames(packetHeader)
-            }
-        }
-    }
-
-
     internal suspend fun processPacket(packetHeader: PacketHeader) {
+
+        if (isDiscarded(packetHeader.level)) {
+            return
+        }
+        updateKeysAndPackageNumber(packetHeader)
 
 
         if (!state.closingOrDraining()) {
@@ -367,7 +289,19 @@ abstract class Connection(
             //  to any incoming packet that it attributes to the connection."
             handlePacketInClosingState(packetHeader.level)
         }
+    }
 
+    private suspend fun process(packetHeader: PacketHeader): Boolean {
+        return when (packetHeader.level) {
+            Level.INIT -> {
+                processFrames(packetHeader)
+            }
+
+            Level.APP -> {
+
+                processFrames(packetHeader)
+            }
+        }
     }
 
     internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyFrame)
