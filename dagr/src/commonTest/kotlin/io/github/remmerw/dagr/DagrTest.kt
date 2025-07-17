@@ -42,6 +42,10 @@ class DagrTest {
             }) )
         client.connect(5)
 
+
+
+
+
         client.close()
         server.shutdown()
     }
