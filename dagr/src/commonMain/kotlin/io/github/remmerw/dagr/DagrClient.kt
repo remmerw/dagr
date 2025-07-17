@@ -83,8 +83,7 @@ class DagrClient internal constructor(
 
         val remoteToken = verifyFrame.token
         val remoteSignature = verifyFrame.signature
-        println("Remote token " + remoteToken.toHexString())
-        println("Remote signature " + remoteSignature.toHexString())
+
         try {
             verify(remotePeerId(), remoteToken, remoteSignature)
 
@@ -178,4 +177,17 @@ suspend fun newDagrClient(
     return DagrClient(
         socket, selectorManager, keys, remotePeerId, remoteAddress, responder, connector
     )
+}
+
+
+/*
+suspend fun createStream(connection: Connection, requester: Requester): Stream {
+    return connection.createStream({ stream: Stream ->
+        AlpnRequester(stream, requester, AlpnState(requester))
+    }, true)
+}*/
+
+
+suspend fun createStream(connection: Connection): Stream {
+    return connection.createStream({ stream: Stream -> RequestResponse(stream) }, true)
 }

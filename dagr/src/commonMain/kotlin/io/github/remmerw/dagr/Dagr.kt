@@ -129,7 +129,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         if (connection != null) {
 
             val packetNumber = source.readLong()
-            println("Packer Number $packetNumber")
+
             connection.processPacket(
                 PacketHeader(Level.APP, source.readByteArray(), packetNumber)
             )

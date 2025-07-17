@@ -326,8 +326,7 @@ internal interface FrameReceived {
 
         fun parseVerifyFrame(buffer: Buffer): VerifyFrame {
             val token = buffer.readByteArray(Settings.TOKEN_SIZE)
-            val signatureSize = buffer.readByte()
-            val signature = buffer.readByteArray(signatureSize.toInt())
+            val signature = buffer.readByteArray(Settings.SIGNATURE_SIZE)
             return VerifyFrame(token, signature)
         }
 

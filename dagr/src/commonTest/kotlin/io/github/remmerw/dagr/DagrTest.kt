@@ -1,11 +1,12 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.PeerId
 import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlin.random.Random
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class DagrTest {
 
@@ -16,13 +17,20 @@ class DagrTest {
 
         val serverPeerId = serverKeys.peerId
 
-
+        val serverText = "Moin"
+        val clientText = "Hello World"
         val server = newDagr( serverKeys, 4444, Responder( object : Handler {
             override suspend fun data(
                 stream: Stream,
                 data: ByteArray
             ) {
-                // todo
+
+                println("Server responding")
+                assertEquals(data.decodeToString(), clientText)
+
+                val buffer = Buffer()
+                buffer.write(serverText.encodeToByteArray())
+                stream.writeOutput(true, buffer)
             }
         })
 
@@ -31,22 +39,31 @@ class DagrTest {
         val connector = Connector()
         val clientKeys = generateKeys()
 
-        val client = newDagrClient(clientKeys, serverPeerId, remoteAddress,
+        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress,
             connector, Responder( object : Handler {
                 override suspend fun data(
                     stream: Stream,
                     data: ByteArray
                 ) {
                    // todo
+                    println("Client responding")
                 }
             }) )
-        client.connect(5)
+        connection.connect(5)
 
 
+        val stream = createStream(connection)
+        val buffer = Buffer();
+        buffer.write(clientText.encodeToByteArray())
+        val response = stream.request(1, buffer)
+
+        val text = response.readByteArray().decodeToString()
+        assertEquals(text, serverText)
+
+        println()
 
 
-
-        client.close()
+        connection.close()
         server.shutdown()
     }
 

@@ -297,7 +297,6 @@ abstract class Connection(
                 }
 
                 0x18 -> {
-                    debug("parseVerifyFrame")
                     isAckEliciting = true
                     process(FrameReceived.parseVerifyFrame(buffer))
                 }
@@ -644,14 +643,9 @@ abstract class Connection(
 
             val datagram = Datagram(buffer, remoteAddress)
 
-            println("Start remoteAddress " + remoteAddress.port + " " + packet.javaClass.simpleName)
 
             val timeSent = TimeSource.Monotonic.markNow()
-            socket!!.send(datagram)
-
-
-
-            println("End remoteAddress " + remoteAddress.port + " " + packet.javaClass.simpleName)
+            socket.send(datagram)
 
             idleCounter.store(0)
             packetSent(packet, size.toInt(), timeSent)

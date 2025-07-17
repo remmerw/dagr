@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 
 internal object Settings {
+    const val SIGNATURE_SIZE = 64
     const val TOKEN_SIZE = 32
     const val PROTOCOL_NEGOTIATION_FAILED: Short = 100
     const val INTERNAL_ERROR: Short = 500
