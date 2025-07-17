@@ -1,6 +1,9 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.Keys
 import io.github.remmerw.borr.PeerId
+import io.github.remmerw.borr.sign
+import io.github.remmerw.borr.verify
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
@@ -23,7 +26,7 @@ import kotlin.random.Random
 class DagrClient internal constructor(
     private val socket: BoundDatagramSocket,
     private val selectorManager: SelectorManager,
-    private val peerId: PeerId,
+    private val keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     responder: Responder,
@@ -84,8 +87,7 @@ class DagrClient internal constructor(
             runRequester()
         }
 
-
-        val signature = byteArrayOf() // todo signature
+        val signature = sign(keys, token)
         sendVerifyFrame(Level.INIT, token, signature)
     }
 
@@ -97,28 +99,29 @@ class DagrClient internal constructor(
     }
 
 
-    @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun handshakeDone() {
-
-        state(State.Connected)
-        discard(Level.INIT)
-
-        initializeDone.release()
-
-    }
-
     override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
 
 
-        println("Client process verify frame ")
+        val remoteToken = verifyFrame.token
+        val remoteSignature = verifyFrame.signature
+        println("Remote token " + remoteToken.toHexString())
+        println("Remote signature " + remoteSignature.toHexString())
+        try {
+            verify(remotePeerId(), remoteToken, remoteSignature)
 
-        handshakeDone()
+            state(State.Connected)
+            discard(Level.INIT)
 
-        /** TODO evaluate verify frame
-        immediateCloseWithError(
-        Level.APP,
-        TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-        )*/
+            initializeDone.release()
+        } catch (throwable: Throwable) {
+            debug("Verification failed " + throwable.message)
+
+            // todo remove from connector
+            immediateCloseWithError(
+                Level.APP,
+                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
+            )
+        }
 
 
     }
@@ -139,11 +142,7 @@ class DagrClient internal constructor(
         }
 
         try {
-            socket?.isClosed?.let {
-                if (!it) {
-                    socket!!.close()
-                }
-            }
+            socket.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -225,14 +224,14 @@ class DagrClient internal constructor(
     }
 
     override fun activePeerId(): PeerId {
-        return peerId
+        return keys.peerId
     }
 
 
 }
 
 suspend fun newDagrClient(
-    localPeerId: PeerId,
+    keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     responder: Responder
@@ -243,6 +242,6 @@ suspend fun newDagrClient(
         InetSocketAddress("::", 3333) // todo port
     )
     return DagrClient(
-        socket, selectorManager, localPeerId, remotePeerId, remoteAddress, responder, connector
+        socket, selectorManager, keys, remotePeerId, remoteAddress, responder, connector
     )
 }

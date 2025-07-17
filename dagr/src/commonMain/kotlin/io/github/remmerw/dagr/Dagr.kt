@@ -1,6 +1,9 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.Keys
 import io.github.remmerw.borr.PeerId
+import io.github.remmerw.borr.sign
+import io.github.remmerw.borr.verify
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
@@ -16,7 +19,7 @@ import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import kotlin.random.Random
 
-class Dagr(val peerId: PeerId, val responder: Responder) {
+class Dagr(val keys: Keys, val responder: Responder) {
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
@@ -103,14 +106,23 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
                     val remoteSignature = verifyFrame.signature
                     println("Remote token " + remoteToken.toHexString())
                     println("Remote signature " + remoteSignature.toHexString())
+                    try {
+                        verify(remotePeerId, remoteToken, remoteSignature)
 
+                        state(State.Connected)
+                        discard(Level.INIT)
 
-                    val signature = byteArrayOf() // todo signature
+                        val signature = sign(keys, token)
+                        sendVerifyFrame(Level.APP, token, signature)
+                    } catch (throwable: Throwable) {
+                        debug("Verification failed " + throwable.message)
 
-                    state(State.Connected)
-                    discard(Level.INIT)
-
-                    sendVerifyFrame(Level.APP, token, signature)
+                        // todo remove from connections
+                        immediateCloseWithError(
+                            Level.APP,
+                            TransportError(TransportError.Code.PROTOCOL_VIOLATION)
+                        )
+                    }
 
 
                 }
@@ -124,12 +136,10 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
                 }
 
                 override fun activePeerId(): PeerId {
-                    return peerId
+                    return keys.peerId
                 }
 
             }
-
-
 
             connections.put(remoteAddress, connection)
 
@@ -141,8 +151,6 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
                 PacketHeader(Level.INIT, source.readByteArray(), packetNumber)
             )
         }
-
-
     }
 
     private suspend fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
@@ -187,8 +195,8 @@ class Dagr(val peerId: PeerId, val responder: Responder) {
     }
 }
 
-suspend fun newDagr(peerId: PeerId, port: Int, responder: Responder): Dagr {
-    val dagr = Dagr(peerId, responder)
+suspend fun newDagr(keys: Keys, port: Int, responder: Responder): Dagr {
+    val dagr = Dagr(keys, responder)
 
     dagr.startup(port)
 

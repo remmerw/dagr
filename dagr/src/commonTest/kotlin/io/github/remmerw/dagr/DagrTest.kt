@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.PeerId
+import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
@@ -10,10 +11,13 @@ class DagrTest {
 
     @Test
     fun testDagr() : Unit = runBlocking(Dispatchers.IO) {
-        val serverPeerId = PeerId(Random.nextBytes(32))
+
+        val serverKeys = generateKeys()
+
+        val serverPeerId = serverKeys.peerId
 
 
-        val server = newDagr( serverPeerId, 4444, Responder( object : Handler {
+        val server = newDagr( serverKeys, 4444, Responder( object : Handler {
             override suspend fun data(
                 stream: Stream,
                 data: ByteArray
@@ -25,9 +29,9 @@ class DagrTest {
         )
         val remoteAddress = server.address()
 
-        val clientPeerId = PeerId(Random.nextBytes(32))
+        val clientKeys = generateKeys()
 
-        val client = newDagrClient( clientPeerId,
+        val client = newDagrClient(clientKeys,
             serverPeerId, remoteAddress, Responder( object : Handler {
                 override suspend fun data(
                     stream: Stream,
