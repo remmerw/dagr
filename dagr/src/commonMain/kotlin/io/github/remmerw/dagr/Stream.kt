@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.PeerId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -23,25 +22,14 @@ class Stream(
     )
     private val receiverMaxDataIncrement: Long
 
-
-    @Volatile
-    private var marked: PeerId? = null
-
-    // not required to be thread safe, only invoked from the receiver thread
     private val frames: MutableList<FrameReceived.StreamFrame> = mutableListOf() // no concurrency
     private val data = Buffer()
 
-    // Send queue contains stream bytes to send in order. The position of the first byte buffer in
-    // the queue determines the next byte(s) to send.
     private val sendQueue: Buffer = Buffer()
     private val mutex = Mutex()
 
-    // Reset indicates whether the OutputStream has been reset.
     @OptIn(ExperimentalAtomicApi::class)
     private val reset = AtomicBoolean(false)
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val terminate = AtomicBoolean(false)
 
     private val sendRequestQueue = connection.sendRequestQueue(Level.APP)
     private val requestFinish = Semaphore(1, 1)
@@ -64,7 +52,8 @@ class Stream(
     private var lastCommunicatedMaxData: Long // no concurrency
     private var processedToOffset: Long = 0 // no concurrency
 
-    // Stream offset at which the stream was last blocked, for detecting the first time stream is blocked at a certain offset.
+    // Stream offset at which the stream was last blocked, for detecting the first time
+    // stream is blocked at a certain offset.
     private var blockedOffset: Long = 0 // no concurrency
 
 
@@ -259,19 +248,6 @@ class Stream(
 
     private fun response(): Buffer {
         return data
-    }
-
-
-    fun mark(peerId: PeerId) {
-        marked = peerId
-    }
-
-    fun marked(): PeerId? {
-        return marked
-    }
-
-    fun isMarked(): Boolean {
-        return marked != null
     }
 
 

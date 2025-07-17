@@ -78,7 +78,10 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
         if (!connections.contains(remoteAddress)) {
             val connection =
-                object : Connection(socket!!, remotePeerId, remoteAddress, this) {
+                object : Connection(
+                    socket!!, keys.peerId,
+                    remotePeerId, remoteAddress, this
+                ) {
 
 
                     override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
@@ -102,13 +105,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         }
                     }
 
-                    override fun token(): ByteArray {
-                        return token
-                    }
-
-                    override fun peerId(): PeerId {
-                        return keys.peerId
-                    }
 
                     override fun responder(): Responder? {
                         return responder
@@ -139,14 +135,13 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         if (connection != null) {
 
             val packetNumber = source.readLong()
-            println("Dagr processAppPackage")
             connection.processPacket(
                 PacketHeader(Level.APP, source.readByteArray(), packetNumber)
             )
         }
     }
 
-    suspend fun shutdown() {
+    override suspend fun shutdown() {
 
         try {
             connections.values.forEach { connection ->
@@ -174,6 +169,10 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             debug(throwable)
         }
 
+    }
+
+    override fun connections(): Set<Connection> {
+        return connections.values.toSet()
     }
 
     override fun terminate(connection: Connection) {

@@ -23,11 +23,10 @@ class DagrClient internal constructor(
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     private val connector: Connector
-) : Connection(socket, remotePeerId, remoteAddress, connector) {
+) : Connection(socket, keys.peerId, remotePeerId, remoteAddress, connector) {
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
-
 
     suspend fun connect(timeout: Int) {
 
@@ -128,7 +127,6 @@ class DagrClient internal constructor(
             while (true) {
                 val receivedPacket = socket.receive()
                 try {
-                    println("DagrClient runReceiver")
                     val source = receivedPacket.packet
 
                     val type = source.readByte()
@@ -140,7 +138,7 @@ class DagrClient internal constructor(
                             PacketHeader(Level.APP, source.readByteArray(), packetNumber)
                         )
                     } else {
-                        println("Not supported level for clients $type")
+                        debug("Probably hole punch detected $type")
                     }
 
                 } catch (throwable: Throwable) {
@@ -152,13 +150,6 @@ class DagrClient internal constructor(
         }
     }
 
-    override fun token(): ByteArray {
-        return token
-    }
-
-    override fun peerId(): PeerId {
-        return keys.peerId
-    }
 
     override fun responder(): Responder? {
         return null // not yet supported (only uni directional connections)

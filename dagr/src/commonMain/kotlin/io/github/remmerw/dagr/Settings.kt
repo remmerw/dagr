@@ -4,8 +4,6 @@ package io.github.remmerw.dagr
 internal object Settings {
     const val SIGNATURE_SIZE = 64
     const val TOKEN_SIZE = 32
-    const val PROTOCOL_NEGOTIATION_FAILED: Short = 100
-    const val INTERNAL_ERROR: Short = 500
 
     const val UNREGISTER: Long = -1
 
@@ -17,7 +15,6 @@ internal object Settings {
 
     const val FACTOR = 2
 
-    const val PACKET_NUMBER_OFFSET: Int = 5
     const val TIME_THRESHOLD = 9f / 8f
 
     const val ACK_FREQUENCY_TWO = 2
@@ -87,8 +84,6 @@ internal object Settings {
     const val DEFAULT_ACK_DELAY_EXPONENT: Int = 3 // default init value
     const val DEFAULT_MAX_UDP_PAYLOAD_SIZE: Int = 65527 // default init value
 
-    const val DISABLE_MIGRATION: Boolean =
-        true // all other remote libp2p clients have same value
     const val ACTIVE_CONNECTION_ID_LIMIT: Int =
         4 // all other remote libp2p clients have same value
     const val MAX_ACK_DELAY: Int = 26 // all other remote libp2p clients have same value
@@ -123,8 +118,6 @@ internal object Settings {
 
     const val MAX_PACKET_SIZE: Int = 1500
 
-    const val ALPN: String = "libp2p"
-
 
     // NOTE: this is the default value for the ack scale
     // ((int) Math.pow(2, Settings.ACK_DELAY_EXPONENT)) and it is valid as long
@@ -132,58 +125,5 @@ internal object Settings {
     // do not change by a user defined value
     const val ACK_DELAY_SCALE: Int = 8
 
-
     val BYTES_EMPTY: ByteArray = ByteArray(0)
-
-
-    // https://www.rfc-editor.org/rfc/rfc9001.html#name-initial-secrets
-    // "initial_salt = 0x38762cf7f55934b34d179ae6a4c80cadccbb7f0a"
-    val STATIC_SALT_V1 = byteArrayOf(
-        0x38.toByte(),
-        0x76.toByte(),
-        0x2c.toByte(),
-        0xf7.toByte(),
-        0xf5.toByte(),
-        0x59.toByte(),
-        0x34.toByte(),
-        0xb3.toByte(),
-        0x4d.toByte(),
-        0x17.toByte(),
-        0x9a.toByte(),
-        0xe6.toByte(),
-        0xa4.toByte(),
-        0xc8.toByte(),
-        0x0c.toByte(),
-        0xad.toByte(),
-        0xcc.toByte(),
-        0xbb.toByte(),
-        0x7f.toByte(),
-        0x0a.toByte()
-    )
-
-    // https://www.ietf.org/archive/id/draft-ietf-quic-v2-01.html#name-initial-salt
-    // "The salt used to derive Initial keys in Section 5.2 of [QUIC-TLS] changes to:
-    //  initial_salt = 0xa707c203a59b47184a1d62ca570406ea7ae3e5d3"
-    val STATIC_SALT_V2 = byteArrayOf(
-        0xa7.toByte(),
-        0x07.toByte(),
-        0xc2.toByte(),
-        0x03.toByte(),
-        0xa5.toByte(),
-        0x9b.toByte(),
-        0x47.toByte(),
-        0x18.toByte(),
-        0x4a.toByte(),
-        0x1d.toByte(),
-        0x62.toByte(),
-        0xca.toByte(),
-        0x57.toByte(),
-        0x04.toByte(),
-        0x06.toByte(),
-        0xea.toByte(),
-        0x7a.toByte(),
-        0xe3.toByte(),
-        0xe5.toByte(),
-        0xd3.toByte()
-    )
 }

@@ -4,17 +4,20 @@ import io.ktor.util.collections.ConcurrentSet
 
 interface Terminate {
     fun terminate(connection: Connection)
+    suspend fun shutdown()
+
+    fun connections(): Set<Connection>
 }
 
 class Connector() : Terminate {
     private val connections: MutableSet<Connection> = ConcurrentSet()
 
 
-    fun connections(): Set<Connection> {
+    override fun connections(): Set<Connection> {
         return connections.toSet()
     }
 
-    suspend fun shutdown() {
+    override suspend fun shutdown() {
         connections.forEach { connection: Connection -> connection.close() }
         connections.clear()
 

@@ -19,6 +19,7 @@ import kotlin.time.TimeSource
 
 abstract class Connection(
     private val socket: BoundDatagramSocket,
+    private val peerId: PeerId,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val terminate: Terminate
@@ -48,10 +49,7 @@ abstract class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private val idleCounter = AtomicInt(0)
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private val marked = AtomicBoolean(false)
-    private var flowControlMax =
-        Settings.INITIAL_MAX_DATA.toLong() // no concurrency
+    private var flowControlMax = Settings.INITIAL_MAX_DATA // no concurrency
     private var flowControlLastAdvertised: Long // no concurrency
 
     @Volatile
@@ -318,38 +316,9 @@ abstract class Connection(
 
     private suspend fun process(streamFrame: FrameReceived.StreamFrame) {
         try {
-            println("Process stream frame " + streamFrame.streamId)
             processStreamFrame(this, streamFrame)
         } catch (transportError: TransportError) {
             immediateCloseWithError(Level.APP, transportError)
-        }
-    }
-
-    /**
-     *
-     */
-    fun determineIdleTimeout(maxIdleTimout: Long, peerMaxIdleTimeout: Long) {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-        // "If a max_idle_timeout is specified by either peer in its transport parameters
-        // (Section 18.2), the
-        //  connection is silently closed and its state is discarded when it remains idle
-        //  for longer than the minimum of both peers max_idle_timeout values."
-
-        var idleTimeout = min(maxIdleTimout, peerMaxIdleTimeout)
-        if (idleTimeout == 0L) {
-            // Value of 0 is the same as not specified.
-            idleTimeout = max(maxIdleTimout, peerMaxIdleTimeout)
-        }
-        if (idleTimeout != 0L) {
-            // Initialise the idle timer that will take care of (silently) closing connection
-            // if idle longer than idle timeout
-            setIdleTimeout(idleTimeout)
-        } else {
-            // Both or 0 or not set: [Note: this does not occur within this application]
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-18.2
-            // "Idle timeout is disabled when both endpoints omit this transport parameter or
-            // specify a value of 0."
-            setIdleTimeout(Long.MAX_VALUE)
         }
     }
 
@@ -454,9 +423,6 @@ abstract class Connection(
         delay(pto.toLong())
         terminate()
     }
-
-    internal abstract fun token(): ByteArray
-    internal abstract fun peerId(): PeerId
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun setIdleTimeout(idleTimeoutInMillis: Long) {
@@ -582,19 +548,7 @@ abstract class Connection(
     }
 
 
-    @OptIn(ExperimentalAtomicApi::class)
-    fun mark() {
-        marked.store(true)
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun isMarked(): Boolean {
-        return marked.load()
-    }
-
     private suspend fun assemblePackets(): List<Packet> {
-
-        val peerId = peerId()
 
 
         val packets: MutableList<Packet> = arrayListOf()

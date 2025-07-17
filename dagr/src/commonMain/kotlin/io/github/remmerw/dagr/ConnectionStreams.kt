@@ -40,10 +40,7 @@ abstract class ConnectionStreams() :
     @OptIn(ExperimentalAtomicApi::class)
     private val absoluteBidirectionalStreamIdLimit = AtomicLong(Int.MAX_VALUE.toLong())
 
-    protected suspend fun createStream(
-        connection: Connection,
-        bidirectional: Boolean
-    ): Stream {
+    protected suspend fun createStream(connection: Connection, bidirectional: Boolean): Stream {
         mutex.withLock {
             val streamId = generateStreamId(bidirectional)
             val stream = Stream(connection, streamId, null)
