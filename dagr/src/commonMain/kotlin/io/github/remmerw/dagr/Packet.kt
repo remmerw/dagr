@@ -39,12 +39,16 @@ internal interface Packet {
 
 
         override fun generatePacketBytes(): Buffer {
-            val frameBytes = PacketService.generatePayloadBytes(frames)
             val buffer = Buffer()
             buffer.writeByte(0.toByte())
             buffer.write(peerId.hash)
             buffer.writeLong(packetNumber)
-            buffer.write(frameBytes)
+
+            frames.forEach { frame ->
+                buffer.write(frame.frameBytes)
+            }
+            require(buffer.size < Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
+
             return buffer
         }
 
@@ -91,8 +95,11 @@ internal interface Packet {
             val buffer = Buffer()
             buffer.writeByte(1.toByte())
             buffer.writeLong(packetNumber)
-            val frameBytes = PacketService.generatePayloadBytes(frames)  // todo optimize
-            buffer.write(frameBytes)
+
+            frames.forEach { frame ->
+                buffer.write(frame.frameBytes)
+            }
+            require(buffer.size < Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
             return buffer
 
         }
