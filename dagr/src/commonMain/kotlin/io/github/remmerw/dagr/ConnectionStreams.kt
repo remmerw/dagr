@@ -104,8 +104,7 @@ abstract class ConnectionStreams() :
             } else {
                 // happens because of timeout (local created stream -> not remote)
                 debug(
-                    "Receiving frame for non-existent stream " + streamId +
-                            " FRAME " + frame
+                    "Receiving frame for non-existent stream $streamId FRAME $frame"
                 )
             }
         }
@@ -197,10 +196,10 @@ abstract class ConnectionStreams() :
     abstract fun clientConnection(): Boolean
 
     private fun isRemoteInitiated(streamId: Int): Boolean {
-        if (clientConnection()) {
-            return streamId % 2 == (1)
+        return if (clientConnection()) {
+            streamId % 2 == (1)
         } else {
-            return streamId % 2 == (0)
+            streamId % 2 == (0)
         }
     }
 
@@ -216,38 +215,6 @@ abstract class ConnectionStreams() :
             if (frame.maxStreams > streamsAcceptedByPeerUni) {
                 maxStreamsAcceptedByPeerUni.store(frame.maxStreams)
             }
-        }
-    }
-
-    /**
-     * Set initial max bidirectional streams that the peer will accept.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    fun initialMaxStreamsBidi(initialMaxStreamsBidi: Long) {
-        if (initialMaxStreamsBidi >= maxStreamsAcceptedByPeerBidi.load()) {
-            maxStreamsAcceptedByPeerBidi.store(initialMaxStreamsBidi)
-        } else {
-            debug(
-                ("Attempt to reduce value of initial_max_streams_bidi from "
-                        + maxStreamsAcceptedByPeerBidi + " to "
-                        + initialMaxStreamsBidi + "; ignoring.")
-            )
-        }
-    }
-
-    /**
-     * Set initial max unidirectional streams that the peer will accept.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    fun initialMaxStreamsUni(initialMaxStreamsUni: Long) {
-        if (initialMaxStreamsUni >= maxStreamsAcceptedByPeerUni.load()) {
-            maxStreamsAcceptedByPeerUni.store(initialMaxStreamsUni)
-        } else {
-            debug(
-                ("Attempt to reduce value of initial_max_streams_uni from "
-                        + maxStreamsAcceptedByPeerUni + " to "
-                        + initialMaxStreamsUni + "; ignoring.")
-            )
         }
     }
 

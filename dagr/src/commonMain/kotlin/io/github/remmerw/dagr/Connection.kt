@@ -734,19 +734,5 @@ abstract class Connection(
         }
     }
 
-    private fun quicError(throwable: Throwable): TransportError {
-        return if (throwable is ErrorAlert) {
-            // tlsError evaluate [and maybe in the future to support also ErrorAlert types]
-            TransportError(TransportError.Code.CRYPTO_ERROR)
-        } else if (throwable.cause is TransportError) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-20.1
-            (throwable.cause as TransportError)
-        } else {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-20.1
-            // "INTERNAL_ERROR (0x1):  The endpoint encountered an internal error and
-            // cannot continue with the connection."
-            TransportError(TransportError.Code.INTERNAL_ERROR)
-        }
-    }
 
 }
