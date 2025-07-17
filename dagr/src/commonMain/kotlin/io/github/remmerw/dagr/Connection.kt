@@ -219,7 +219,7 @@ abstract class Connection(
                     process(
                         FrameReceived.parseConnectionCloseFrame(
                             frameType, buffer
-                        ), packetHeader.level
+                        )
                     )
 
 
@@ -249,7 +249,7 @@ abstract class Connection(
         updateKeysAndPackageNumber(packetHeader)
 
 
-        if (!state.closingOrDraining()) {
+        if (!state.isClosing) {
             val level = packetHeader.level
 
             val isAckEliciting = process(packetHeader)
@@ -315,7 +315,7 @@ abstract class Connection(
 
 
     internal suspend fun scheduledClose(level: Level, transportError: TransportError) {
-        if (state.closingOrDraining()) {
+        if (state.isClosing) {
             debug("Immediate close ignored because already closing")
             return
         }
@@ -360,37 +360,18 @@ abstract class Connection(
         // No flush necessary, as this method is called while processing a received packet.
     }
 
-    private suspend fun process(closing: FrameReceived.ConnectionCloseFrame, level: Level) {
+    private suspend fun process(closing: FrameReceived.ConnectionCloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
-        if (!state.closingOrDraining()) {  // Can occur due to race condition (both peers closing simultaneously)
+        if (!state.isClosing) {  // Can occur due to race condition (both peers closing simultaneously)
             if (closing.hasError()) {
                 debug("Connection closed with " + determineClosingErrorMessage(closing))
             }
             clearRequests()
 
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
-            // "An endpoint that receives a CONNECTION_CLOSE frame MAY send a single packet
-            // containing a CONNECTION_CLOSE
-            // frame before entering the draining state, using a CONNECTION_CLOSE frame and a
-            // NO_ERROR code if appropriate.An endpoint MUST NOT send further packets."
-            addRequest(level, createConnectionCloseFrame())
-
-            drain()
+            terminate()
         }
-    }
-
-    private suspend fun drain() {
-        state(State.Draining)
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        // "The closing and draining connection states exist to ensure that connections close
-        // cleanly and that
-        // delayed or reordered packets are properly discarded. These states SHOULD persist
-        // for at least three
-        // times the current Probe Timeout (PTO) interval"
-        val pto = pto
-        scheduleTerminate(pto)
     }
 
 
@@ -408,7 +389,7 @@ abstract class Connection(
         scheduledClose(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }
 
-    suspend fun scheduleTerminate(pto: Int) {
+    suspend fun scheduleTerminate(pto: Int): Unit = coroutineScope {
         delay(pto.toLong())
         terminate()
     }
@@ -546,12 +527,7 @@ abstract class Connection(
         Created,
         Connected,
         Closing,
-        Draining,
         Closed;
-
-        fun closingOrDraining(): Boolean {
-            return this == Closing || this == Draining
-        }
 
         val isClosing: Boolean
             get() = this == Closing
