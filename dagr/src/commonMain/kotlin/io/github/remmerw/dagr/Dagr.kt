@@ -110,6 +110,10 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         return keys.peerId
                     }
 
+                    override fun clientConnection(): Boolean {
+                        return false
+                    }
+
                 }
 
             connections.put(remoteAddress, connection)

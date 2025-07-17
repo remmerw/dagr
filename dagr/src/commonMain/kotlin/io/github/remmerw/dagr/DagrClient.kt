@@ -161,6 +161,10 @@ class DagrClient internal constructor(
         return keys.peerId
     }
 
+    override fun clientConnection(): Boolean {
+        return true
+    }
+
 }
 
 suspend fun newDagrClient(

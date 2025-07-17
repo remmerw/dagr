@@ -24,15 +24,7 @@ abstract class StreamState {
     }
 
     companion object {
-        fun isProtocol(data: ByteArray): Boolean {
-            var result = false
-            if (data.size > 2) {
-                val first = data[0] == '/'.code.toByte()
-                val second = data[data.size - 1] == '\n'.code.toByte()
-                result = first && second
-            }
-            return result
-        }
+
 
         fun unsignedVarintReader(data: Buffer): ByteArray {
             if (data.size == 0L) {

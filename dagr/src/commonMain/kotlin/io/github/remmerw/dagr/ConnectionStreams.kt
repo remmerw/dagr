@@ -8,7 +8,7 @@ import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
 
-open class ConnectionStreams() :
+abstract class ConnectionStreams() :
     ConnectionFlow() {
     private val streams: MutableMap<Int, Stream> = mutableMapOf()
     private val mutex = Mutex()
@@ -29,10 +29,10 @@ open class ConnectionStreams() :
     private val nextStreamId = AtomicInt(0)
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val maxStreamsAcceptedByPeerBidi = AtomicLong(0L)
+    private val maxStreamsAcceptedByPeerBidi = AtomicLong(0)
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val maxStreamsAcceptedByPeerUni = AtomicLong(0L)
+    private val maxStreamsAcceptedByPeerUni = AtomicLong(0)
 
     @OptIn(ExperimentalAtomicApi::class)
     private val absoluteUnidirectionalStreamIdLimit = AtomicLong(Int.MAX_VALUE.toLong())
@@ -79,11 +79,11 @@ open class ConnectionStreams() :
             stream.add(frame)
             // This implementation maintains a fixed maximum number of open streams, so when the peer closes a stream
             // it is allowed to open another.
-            if (frame.isFinal && isPeerInitiated(streamId)) {
+            if (frame.isFinal && isRemoteInitiated(streamId)) {
                 increaseMaxOpenStreams(streamId)
             }
         } else {
-            if (isPeerInitiated(streamId)) {
+            if (isRemoteInitiated(streamId)) {
                 if (isUni(streamId) && streamId < maxOpenStreamIdUni.load() ||
                     isBidi(streamId) && streamId < maxOpenStreamIdBidi.load()
                 ) {
@@ -196,8 +196,14 @@ open class ConnectionStreams() :
         return createMaxStreamsFrame(maxOpenStreamIdBidi.load() / 4, true)
     }
 
-    private fun isPeerInitiated(streamId: Int): Boolean {
-        return streamId % 2 == (1)
+    abstract fun clientConnection() : Boolean
+
+    private fun isRemoteInitiated(streamId: Int): Boolean {
+        if(clientConnection()) {
+            return streamId % 2 == (1)
+        } else {
+            return streamId % 2 == (0)
+        }
     }
 
     @OptIn(ExperimentalAtomicApi::class)

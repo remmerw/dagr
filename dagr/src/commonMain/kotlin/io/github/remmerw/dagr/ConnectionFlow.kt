@@ -188,7 +188,7 @@ open class ConnectionFlow() {
         sendRequestQueue(level).appendRequest(frame)
     }
 
-    internal suspend fun process(ackFrame: FrameReceived.AckFrame, level: Level) {
+    internal fun process(ackFrame: FrameReceived.AckFrame, level: Level) {
         ackGenerator(level).ackFrameReceived(ackFrame)
 
         lossDetectors[level.ordinal]!!.processAckFrameReceived(ackFrame)
@@ -459,7 +459,7 @@ open class ConnectionFlow() {
         }
     }
 
-    private suspend fun stopRecovery() {
+    private fun stopRecovery() {
         for (lossDetector in lossDetectors) {
             lossDetector!!.stop()
         }

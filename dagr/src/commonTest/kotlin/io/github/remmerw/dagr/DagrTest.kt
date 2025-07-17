@@ -49,13 +49,13 @@ class DagrTest {
                     println("Client responding")
                 }
             }) )
-        connection.connect(1)
+        connection.connect(5)
 
 
         val stream = createStream(connection)
         val buffer = Buffer();
         buffer.write(clientText.encodeToByteArray())
-        val response = stream.request(300, buffer)
+        val response = stream.request(300, buffer) // todo time
 
         val text = response.readByteArray().decodeToString()
         assertEquals(text, serverText)
