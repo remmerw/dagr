@@ -44,7 +44,7 @@ class TimeoutTest {
         // now it should be no connections
 
         assertEquals(server.connections().size, 0)
-        assertEquals(server.connections().size, 0)
+        assertEquals(connector.connections().size, 0)
 
 
         connection.close()

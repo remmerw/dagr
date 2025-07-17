@@ -19,7 +19,7 @@ import kotlin.random.Random
 
 class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-    private val scope = CoroutineScope(Dispatchers.IO)
+
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private var socket: BoundDatagramSocket? = null
@@ -29,7 +29,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             InetSocketAddress("::", port)
         )
 
-        scope.launch {
+        selectorManager.launch {
             runReceiver()
         }
 
@@ -118,7 +118,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             connections.put(remoteAddress, connection)
 
-            scope.launch {
+            selectorManager.launch {
                 connection.runRequester()
             }
 
@@ -163,11 +163,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             debug(throwable)
         }
 
-        try {
-            scope.cancel()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
+
 
     }
 

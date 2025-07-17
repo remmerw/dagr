@@ -44,7 +44,7 @@ class KeepAliveTest {
         // now it should be no connections
 
         assertEquals(server.connections().size, 1)
-        assertEquals(server.connections().size, 1)
+        assertEquals(connector.connections().size, 1)
 
 
         connection.close()
