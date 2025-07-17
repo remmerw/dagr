@@ -6,6 +6,7 @@ import io.github.remmerw.borr.sign
 import io.github.remmerw.borr.verify
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
+import io.ktor.network.sockets.Datagram
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.aSocket
 import io.ktor.util.collections.ConcurrentMap
@@ -16,6 +17,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import kotlin.random.Random
@@ -38,6 +40,20 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             runReceiver()
         }
 
+    }
+
+    suspend fun punching(isa: InetSocketAddress): Boolean {
+        try {
+            val buffer = Buffer()
+            buffer.writeByte(Random.nextInt(2, 75).toByte())
+            buffer.write(Random.nextBytes(Random.nextInt(25, 75)))
+            val datagram = Datagram(buffer, isa)
+            socket!!.send(datagram)
+            return true
+        } catch (throwable: Throwable) {
+            debug("Error Punching " + throwable.message)
+            return false
+        }
     }
 
     fun address(): InetSocketAddress {

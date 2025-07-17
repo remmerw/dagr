@@ -91,25 +91,8 @@ internal object Settings {
     const val INITIAL_MAX_STREAM_DATA: Long = 524288
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
         1200 // all other remote libp2p clients have same value // TODO make sure datagram size
-    const val MAX_IDLE_TIMEOUT: Int = 30000
+    const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000
-
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-handshake-packet
-    // "A Handshake packet uses long headers with a payloadType value of 0x02, ..."
-    const val HANDSHAKE_V1_TYPE: Int = 2
-
-    // https://www.ietf.org/archive/id/draft-ietf-quic-v2-01.html#name-long-header-packet-types
-    // "Handshake packets use a packet payloadType field of 0b11."
-    const val HANDSHAKE_V2_TYPE: Int = 3
-
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-initial-packet
-    // "An Initial packet uses long headers with a payloadType value of 0x00."
-    const val INITIAL_V1_TYPE: Int = 0
-
-    // https://www.ietf.org/archive/id/draft-ietf-quic-v2-01.html#name-long-header-packet-types
-    // Initial packets use a packet payloadType field of 0b01.
-    const val INITIAL_V2_TYPE: Int = 1
-
 
     // NOTE: this is the default value for the ack scale
     // ((int) Math.pow(2, Settings.ACK_DELAY_EXPONENT)) and it is valid as long

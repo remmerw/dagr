@@ -106,6 +106,10 @@ class DagrClient internal constructor(
     }
 
 
+    fun address(): InetSocketAddress {
+        return socket.localAddress as InetSocketAddress
+    }
+
     override suspend fun terminate() {
         super.terminate()
 

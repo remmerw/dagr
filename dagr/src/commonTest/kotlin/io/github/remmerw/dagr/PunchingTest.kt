@@ -6,12 +6,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlin.test.Test
-import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
-class KeepAliveTest {
+class PunchingTest {
 
     @Test
-    fun keepAlive(): Unit = runBlocking(Dispatchers.IO) {
+    fun testPunching(): Unit = runBlocking(Dispatchers.IO) {
 
         val serverKeys = generateKeys()
 
@@ -29,25 +29,17 @@ class KeepAliveTest {
         val remoteAddress = server.address()
         val connector = Connector()
         val clientKeys = generateKeys()
-        val clientPeerId = clientKeys.peerId
 
         val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress, connector)
         connection.connect(1)
-        connection.enableKeepAlive()
 
-        assertEquals(connector.connections().size, 1)
-        assertEquals(server.connections().size, 1)
-        assertEquals(connector.connections().first().remotePeerId(), serverPeerId)
-        assertEquals(server.connections().first().remotePeerId(), clientPeerId)
-
-        delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
-        // now it should be no connections
-
-        assertEquals(server.connections().size, 1)
-        assertEquals(connector.connections().size, 1)
+        val clientAddress = connection.address()
+        assertTrue(server.punching(clientAddress))
+        delay(1000) // Note: punch try is visible via debug output
 
 
         connection.close()
         server.shutdown()
     }
+
 }

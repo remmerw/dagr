@@ -43,7 +43,6 @@ kotlin {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.kotlinx.io.core)
                 implementation(libs.ktor.network)
-                implementation(libs.atomicfu)
 
                 implementation("io.github.remmerw:borr:0.0.3")
             }
