@@ -635,7 +635,6 @@ abstract class Connection(
 
     enum class State {
         Created,
-        Handshaking,
         Connected,
         Closing,
         Draining,
