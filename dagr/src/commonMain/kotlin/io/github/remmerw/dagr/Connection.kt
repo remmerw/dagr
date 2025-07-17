@@ -389,7 +389,7 @@ abstract class Connection(
         scheduledClose(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }
 
-    suspend fun scheduleTerminate(pto: Int): Unit = coroutineScope {
+    suspend fun scheduleTerminate(pto: Int) {
         delay(pto.toLong())
         terminate()
     }
