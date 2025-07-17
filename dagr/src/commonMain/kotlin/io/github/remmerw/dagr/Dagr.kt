@@ -78,7 +78,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
         if (!connections.contains(remoteAddress)) {
             val connection =
-                object : Connection(socket!!, remotePeerId, remoteAddress, responder, this) {
+                object : Connection(socket!!, remotePeerId, remoteAddress, this) {
 
 
                     override suspend fun process(verifyFrame: FrameReceived.VerifyFrame) {
@@ -102,12 +102,16 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         }
                     }
 
-                    override fun activeToken(): ByteArray {
+                    override fun token(): ByteArray {
                         return token
                     }
 
-                    override fun activePeerId(): PeerId {
+                    override fun peerId(): PeerId {
                         return keys.peerId
+                    }
+
+                    override fun responder(): Responder? {
+                        return responder
                     }
 
                     override fun clientConnection(): Boolean {

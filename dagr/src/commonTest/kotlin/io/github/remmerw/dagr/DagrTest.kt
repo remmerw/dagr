@@ -39,16 +39,7 @@ class DagrTest {
         val connector = Connector()
         val clientKeys = generateKeys()
 
-        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress,
-            connector, Responder( object : Handler {
-                override suspend fun data(
-                    stream: Stream,
-                    data: ByteArray
-                ) {
-                   // todo
-                    println("Client responding")
-                }
-            }) )
+        val connection = newDagrClient(clientKeys, serverPeerId, remoteAddress, connector )
         connection.connect(5)
 
 

@@ -21,7 +21,6 @@ abstract class Connection(
     private val socket: BoundDatagramSocket,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
-    private val responder: Responder,
     private val terminate: Terminate
 ) : ConnectionStreams() {
 
@@ -73,9 +72,6 @@ abstract class Connection(
         return remoteAddress
     }
 
-    fun responder(): Responder {
-        return responder
-    }
 
     fun state(): State {
         return state
@@ -121,11 +117,8 @@ abstract class Connection(
     }
 
 
-    internal suspend fun createStream(
-        streamHandler: (Stream) -> StreamHandler,
-        bidirectional: Boolean
-    ): Stream {
-        return createStream(this, bidirectional, streamHandler)
+    internal suspend fun createStream(): Stream {
+        return createStream(this, false)
     }
 
     internal suspend fun nextPacket(reader: Reader) {
@@ -528,8 +521,8 @@ abstract class Connection(
         terminate()
     }
 
-    internal abstract fun activeToken(): ByteArray
-    internal abstract fun activePeerId(): PeerId
+    internal abstract fun token(): ByteArray
+    internal abstract fun peerId(): PeerId
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun setIdleTimeout(idleTimeoutInMillis: Long) {
@@ -667,7 +660,7 @@ abstract class Connection(
 
     private suspend fun assemblePackets(): List<Packet> {
 
-        val peerId = activePeerId()
+        val peerId = peerId()
 
 
         val packets: MutableList<Packet> = arrayListOf()

@@ -13,8 +13,9 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
 
 class Stream(
-    internal val connection: Connection, private val streamId: Int,
-    streamHandlerFunction: (Stream) -> StreamHandler
+    internal val connection: Connection,
+    private val streamId: Int,
+    private val responder: Responder?,
 ) {
     private val streamFlowControl = StreamFlowControl(
         connection,
@@ -28,7 +29,7 @@ class Stream(
 
     // not required to be thread safe, only invoked from the receiver thread
     private val frames: MutableList<FrameReceived.StreamFrame> = mutableListOf() // no concurrency
-    private val response: MutableList<ByteArray> = arrayListOf()
+    private val data = Buffer()
 
     // Send queue contains stream bytes to send in order. The position of the first byte buffer in
     // the queue determines the next byte(s) to send.
@@ -42,7 +43,6 @@ class Stream(
     @OptIn(ExperimentalAtomicApi::class)
     private val terminate = AtomicBoolean(false)
 
-    private val streamHandler: StreamHandler
     private val sendRequestQueue = connection.sendRequestQueue(Level.APP)
     private val requestFinish = Semaphore(1, 1)
 
@@ -72,7 +72,6 @@ class Stream(
         this.lastCommunicatedMaxData = receiverFlowControlLimit
         this.receiverMaxDataIncrement = (receiverFlowControlLimit *
                 Settings.RECEIVER_MAX_DATA_INCREMENT_FACTOR).toLong()
-        this.streamHandler = streamHandlerFunction.invoke(this)
     }
 
     internal suspend fun add(frame: FrameReceived.StreamFrame) {
@@ -105,15 +104,7 @@ class Stream(
                 if (upToOffset >= processedToOffset) {
                     bytesRead += frame.length
 
-                    if (streamHandler.readFully()) {
-                        val data = frame.streamData
-                        response.add(data)
-                    } else {
-                        val data = frame.streamData
-                        val buffer = Buffer()
-                        buffer.write(data)
-                        streamHandler.data(buffer)
-                    }
+                    data.write(frame.streamData)
 
                     processedToOffset = frame.offsetLength()
 
@@ -137,10 +128,10 @@ class Stream(
         if (frames.isEmpty()) {
             allDataReceived = isFinal
             if (allDataReceived) {
-                if (streamHandler.readFully()) {
+                if (responder == null) {
                     requestFinish.release()
                 } else {
-                    streamHandler.fin()
+                    responder.data(this, data.readByteArray()) // todo
                 }
             }
         }
@@ -219,7 +210,7 @@ class Stream(
         reset.compareAndSet(expectedValue = false, newValue = true)
         sendQueue.clear()
         streamFlowControl.unregister()
-        response.clear()
+        data.clear()
 
         try {
             requestFinish.release()
@@ -228,9 +219,6 @@ class Stream(
 
         connection.unregisterStream(streamId)
 
-        if (!terminate.exchange(true)) {
-            streamHandler.terminated()
-        }
     }
 
 
@@ -270,13 +258,7 @@ class Stream(
     }
 
     private fun response(): Buffer {
-
-        val buffer = Buffer()
-        for (entry in response) {
-            buffer.write(entry)
-        }
-        response.clear()
-        return buffer
+        return data
     }
 
 

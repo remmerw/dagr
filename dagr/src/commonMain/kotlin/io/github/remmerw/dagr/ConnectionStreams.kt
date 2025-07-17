@@ -42,12 +42,11 @@ abstract class ConnectionStreams() :
 
     protected suspend fun createStream(
         connection: Connection,
-        bidirectional: Boolean,
-        streamHandlerFunction: (Stream) -> StreamHandler
+        bidirectional: Boolean
     ): Stream {
         mutex.withLock {
             val streamId = generateStreamId(bidirectional)
-            val stream = Stream(connection, streamId, streamHandlerFunction)
+            val stream = Stream(connection, streamId, null)
             streams[streamId] = stream
             return stream
         }
@@ -67,6 +66,7 @@ abstract class ConnectionStreams() :
         return id
     }
 
+    abstract fun responder(): Responder?
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun processStreamFrame(
@@ -87,9 +87,7 @@ abstract class ConnectionStreams() :
                 if (isUni(streamId) && streamId < maxOpenStreamIdUni.load() ||
                     isBidi(streamId) && streamId < maxOpenStreamIdBidi.load()
                 ) {
-                    stream = Stream(
-                        connection, streamId
-                    ) { stream: Stream -> connection.responder().createResponder(stream) }
+                    stream = Stream(connection, streamId, responder())
                     mutex.withLock {
                         streams[streamId] = stream
                     }
@@ -196,10 +194,10 @@ abstract class ConnectionStreams() :
         return createMaxStreamsFrame(maxOpenStreamIdBidi.load() / 4, true)
     }
 
-    abstract fun clientConnection() : Boolean
+    abstract fun clientConnection(): Boolean
 
     private fun isRemoteInitiated(streamId: Int): Boolean {
-        if(clientConnection()) {
+        if (clientConnection()) {
             return streamId % 2 == (1)
         } else {
             return streamId % 2 == (0)

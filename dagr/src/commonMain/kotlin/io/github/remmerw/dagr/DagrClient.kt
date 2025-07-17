@@ -22,9 +22,8 @@ class DagrClient internal constructor(
     private val keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
-    responder: Responder,
     private val connector: Connector
-) : Connection(socket, remotePeerId, remoteAddress, responder, connector) {
+) : Connection(socket, remotePeerId, remoteAddress, connector) {
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
@@ -153,12 +152,16 @@ class DagrClient internal constructor(
         }
     }
 
-    override fun activeToken(): ByteArray {
+    override fun token(): ByteArray {
         return token
     }
 
-    override fun activePeerId(): PeerId {
+    override fun peerId(): PeerId {
         return keys.peerId
+    }
+
+    override fun responder(): Responder? {
+        return null // not yet supported (only uni directional connections)
     }
 
     override fun clientConnection(): Boolean {
@@ -171,27 +174,18 @@ suspend fun newDagrClient(
     keys: Keys,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
-    connector: Connector,
-    responder: Responder
+    connector: Connector
 ): DagrClient {
     val selectorManager = SelectorManager(Dispatchers.IO)
     val socket = aSocket(selectorManager).udp().bind(
         InetSocketAddress("::", 0)
     )
     return DagrClient(
-        socket, selectorManager, keys, remotePeerId, remoteAddress, responder, connector
+        socket, selectorManager, keys, remotePeerId, remoteAddress, connector
     )
 }
 
 
-/*
-suspend fun createStream(connection: Connection, requester: Requester): Stream {
-    return connection.createStream({ stream: Stream ->
-        AlpnRequester(stream, requester, AlpnState(requester))
-    }, true)
-}*/
-
-
 suspend fun createStream(connection: Connection): Stream {
-    return connection.createStream({ stream: Stream -> RequestResponse(stream) }, true)
+    return connection.createStream()
 }
