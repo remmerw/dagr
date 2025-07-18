@@ -17,7 +17,7 @@ class TimeoutTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 4444, object : Responder {
+        val server = newDagr(serverKeys, 1111, object : Responder {
             override suspend fun data(
                 connection: Connection,
                 data: ByteArray

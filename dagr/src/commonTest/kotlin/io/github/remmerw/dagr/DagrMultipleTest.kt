@@ -22,7 +22,7 @@ class DagrMultipleTest {
 
         val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
         val clientText = "Hello World"
-        val server = newDagr(serverKeys, 4444, object : Responder {
+        val server = newDagr(serverKeys, 7777, object : Responder {
             override suspend fun data(
                 connection: Connection,
                 data: ByteArray

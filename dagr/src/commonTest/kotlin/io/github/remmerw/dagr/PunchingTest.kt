@@ -17,7 +17,7 @@ class PunchingTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 4444, object : Responder {
+        val server = newDagr(serverKeys, 2222, object : Responder {
             override suspend fun data(
                 connection: Connection,
                 data: ByteArray

@@ -17,7 +17,7 @@ class KeepAliveTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 4444, object : Responder {
+        val server = newDagr(serverKeys, 3333, object : Responder {
             override suspend fun data(
                 connection: Connection,
                 data: ByteArray
