@@ -91,7 +91,7 @@ abstract class ConnectionData() :
         }
     }
 
-    internal abstract suspend fun sendFrame(dataFrame: Frame)
+    internal abstract suspend fun sendFrame(level: Level, frame: Frame)
 
     suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
         var offset = 0L
@@ -102,6 +102,7 @@ abstract class ConnectionData() :
                 finalFrame = true
             }
 
+            // todo optimize from here
             val byteArray = buffer.readByteArray(read.toInt())
 
             val dataFrame = createDataFrame(
@@ -109,7 +110,7 @@ abstract class ConnectionData() :
             )
             offset += read
 
-            sendFrame(dataFrame)
+            sendFrame(Level.APP, dataFrame)
         }
     }
 

@@ -12,7 +12,6 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
@@ -23,7 +22,6 @@ abstract class Connection(
     private val remoteAddress: InetSocketAddress,
     private val terminate: Terminate
 ) : ConnectionData() {
-    private val closeFramesSendRateLimiter = RateLimiter()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val packetNumberGenerator: AtomicLong = AtomicLong(0)
@@ -59,7 +57,7 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                addRequest(Level.APP, PING)
+                sendFrame(Level.APP, PING)
                 lastPing = TimeSource.Monotonic.markNow()
             }
         }
@@ -153,12 +151,6 @@ abstract class Connection(
             processFrames(source, packetNumber)
 
             packetIdleProcessed()
-        } else if (state.isClosing) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.1
-            // "An endpoint in the closing state sends a packet containing a CONNECTION_CLOSE
-            // frame in response
-            //  to any incoming packet that it attributes to the connection."
-            handlePacketInClosingState(level)
         }
     }
 
@@ -186,7 +178,7 @@ abstract class Connection(
 
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
 
-        sendFrame(createConnectionCloseFrame(transportError))
+        sendFrame(Level.APP, createConnectionCloseFrame(transportError))
 
 
         // "After sending a CONNECTION_CLOSE frame, an endpoint immediately enters the closing state;"
@@ -195,26 +187,6 @@ abstract class Connection(
         terminate()
     }
 
-    private suspend fun handlePacketInClosingState(level: Level) {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
-        // "An endpoint MAY enter the draining state from the closing state if it receives
-        // a CONNECTION_CLOSE frame, which indicates that the peer is also closing or draining."
-        // NOT DONE HERE (NO DRAINING)
-
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.1
-        // "An endpoint in the closing state sends a packet containing a CONNECTION_CLOSE frame
-        // in response to any incoming packet that it attributes to the connection."
-        // "An endpoint SHOULD limit the rate at which it generates packets in the closing state."
-
-        closeFramesSendRateLimiter.execute(object : Limiter {
-            override suspend fun run() {
-                addRequest(
-                    level, createConnectionCloseFrame()
-                )
-            }
-        })
-        // No flush necessary, as this method is called while processing a received packet.
-    }
 
     private suspend fun process(closing: FrameReceived.ConnectionCloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
@@ -289,7 +261,6 @@ abstract class Connection(
         while (isActive) {
 
             sendLostPackets()
-            sendNewPackets()
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
 
@@ -301,12 +272,6 @@ abstract class Connection(
         lossDetection().forEach { packet -> send(packet) }
     }
 
-    private suspend fun sendNewPackets() {
-        val item = assemblePacket()
-        if (item != null) {
-            send(item)
-        }
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun send(packet: Packet) {
@@ -321,9 +286,14 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun sendFrame(dataFrame: Frame) {
+    override suspend fun sendFrame(level: Level, frame: Frame) {
         val packetNumber = packetNumberGenerator.incrementAndFetch()
-        val packet = Packet.AppPacket(packetNumber, listOf(dataFrame))
+
+        val packet = if (level == Level.APP) {
+            Packet.AppPacket(packetNumber, listOf(frame))
+        } else {
+            Packet.InitPacket(peerId, packetNumber, listOf(frame))
+        }
         try {
             send(packet)
         } catch (throwable: Throwable) {
@@ -337,22 +307,6 @@ abstract class Connection(
         return Packet.AppPacket(packetNumber, listOf(createAckFrame(pn)))
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun assemblePacket(): Packet? {
-        for (level in Level.levels()) {
-            if (!isDiscarded(level)) {
-                val assembler = packetAssembler(level)
-                val packetNumber = packetNumberGenerator.incrementAndFetch()
-                val item = assembler.assemble(packetNumber, peerId)
-                if (item != null) {
-                    return item
-                } else {
-                    packetNumberGenerator.decrementAndFetch()
-                }
-            }
-        }
-        return null
-    }
 
     fun remotePeerId(): PeerId {
         return remotePeerId

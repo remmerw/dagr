@@ -15,20 +15,8 @@ internal data class PacketStatus(
 
 internal interface Packet {
     fun packetNumber(): Long
-    fun level(): Level
     fun frames(): List<Frame>
-    fun estimateLength(): Int
-
-    fun framesLength(): Int {
-        var sum = 0
-        for (frame in frames()) {
-            sum += frame.frameLength()
-        }
-        return sum
-    }
-
     fun generatePacketBytes(): Buffer
-
 
     data class InitPacket(
         val peerId: PeerId,
@@ -56,17 +44,8 @@ internal interface Packet {
             return packetNumber
         }
 
-        override fun level(): Level {
-            return Level.INIT
-        }
-
         override fun frames(): List<Frame> {
             return frames
-        }
-
-        override fun estimateLength(): Int {
-            val payloadLength = framesLength()
-            return (1 + peerId.hash.size + Long.SIZE_BYTES + payloadLength)
         }
 
     }
@@ -78,17 +57,8 @@ internal interface Packet {
             return packetNumber
         }
 
-        override fun level(): Level {
-            return Level.APP
-        }
-
         override fun frames(): List<Frame> {
             return frames
-        }
-
-        override fun estimateLength(): Int {
-            val payloadLength = framesLength()
-            return (1 + Long.SIZE_BYTES + payloadLength)
         }
 
         override fun generatePacketBytes(): Buffer {

@@ -107,7 +107,8 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
                             val signature = sign(keys, remoteToken)
 
-                            insertRequest(Level.APP, createVerifyResponseFrame(signature))
+                            sendFrame(Level.APP, createVerifyResponseFrame(signature))
+
                         } catch (throwable: Throwable) {
                             debug("Verification failed " + throwable.message)
 

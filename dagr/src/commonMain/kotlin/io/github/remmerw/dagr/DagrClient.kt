@@ -67,7 +67,7 @@ class DagrClient internal constructor(
             runRequester()
         }
 
-        insertRequest(Level.INIT, createVerifyRequestFrame(token))
+        sendFrame(Level.INIT, createVerifyRequestFrame(token))
     }
 
 
