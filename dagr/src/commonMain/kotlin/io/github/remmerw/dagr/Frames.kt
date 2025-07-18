@@ -63,18 +63,9 @@ internal fun createConnectionCloseFrame(
     val frameType = 0x1c
     val errorCode = transportError.errorCode()
 
-    val length = 1 +
-            bytesNeeded(errorCode) +
-            bytesNeeded(0) +
-            bytesNeeded(0)
-
     val buffer = Buffer()
-
     buffer.writeByte(frameType.toByte())
-    encode(errorCode, buffer)
-    encode(0, buffer)
-    encode(0, buffer)
-    require(buffer.size.toInt() == length)
+    buffer.writeLong(errorCode)
 
     return Frame(FrameType.ConnectionCloseFrame, buffer.readByteArray())
 }

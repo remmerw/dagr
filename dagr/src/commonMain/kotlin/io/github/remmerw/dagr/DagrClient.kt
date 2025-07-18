@@ -14,7 +14,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
-import kotlinx.io.readByteArray
 import kotlin.random.Random
 
 
@@ -148,9 +147,7 @@ class DagrClient internal constructor(
                     // only APP packages allowed
                     val packetNumber = source.readLong()
 
-                    processPacket(
-                        Level.APP, source.readByteArray(), packetNumber
-                    )
+                    processPacket(Level.APP, source, packetNumber)
                 } else {
                     debug("Probably hole punch detected $type")
                 }

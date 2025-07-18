@@ -7,7 +7,7 @@ import io.ktor.network.sockets.InetSocketAddress
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.io.Buffer
+import kotlinx.io.Source
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
@@ -81,7 +81,7 @@ abstract class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun processFrames(level: Level, framesBytes: ByteArray): Boolean {
+    internal suspend fun processFrames(level: Level, source: Source): Boolean {
         // <a href="https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions">...</a>
         // "Ack-eliciting packet: A QUIC packet that contains frames other than ACK, PADDING,
         // and CONNECTION_CLOSE."
@@ -89,54 +89,44 @@ abstract class Connection(
         var isAckEliciting = false
 
 
-        val buffer = Buffer()
-        buffer.write(framesBytes)
-
         var frameType: Byte
 
-        while (buffer.size > 0) {
+        while (!source.exhausted()) {
             // https://tools.ietf.org/html/draft-ietf-quic-transport-16#section-12.4
             // "Each frame begins with a Frame Type, indicating its payloadType,
             // followed by additional payloadType-dependent fields"
-            frameType = buffer.readByte()
+            frameType = source.readByte()
 
             when (frameType.toInt()) {
-                0x00 ->  // isAckEliciting = false
-                    FrameReceived.parsePaddingFrame(buffer)
-
                 0x01 ->  // ping frame nothing to parse
                     isAckEliciting = true
 
                 0x02, 0x03 ->  // isAckEliciting = false
                     process(
                         FrameReceived.parseAckFrame(
-                            frameType, buffer,
+                            frameType, source,
                         ), level
                     )
 
 
                 0x18 -> {
                     isAckEliciting = true
-                    process(FrameReceived.parseVerifyRequestFrame(buffer))
+                    process(FrameReceived.parseVerifyRequestFrame(source))
                 }
 
                 0x19 -> {
                     isAckEliciting = true
-                    process(FrameReceived.parseVerifyResponseFrame(buffer))
+                    process(FrameReceived.parseVerifyResponseFrame(source))
                 }
 
                 0x1c, 0x1d ->  // isAckEliciting is false;
-                    process(
-                        FrameReceived.parseConnectionCloseFrame(
-                            frameType, buffer
-                        )
-                    )
+                    process(FrameReceived.parseConnectionCloseFrame(source))
 
 
                 else -> {
                     if ((frameType >= 0x08) && (frameType <= 0x0f)) {
                         isAckEliciting = true
-                        process(FrameReceived.parseDataFrame(frameType, buffer))
+                        process(FrameReceived.parseDataFrame(frameType, source))
                     } else {
                         // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.4
                         // "An endpoint MUST treat the receipt of a frame of unknown payloadType
@@ -152,7 +142,7 @@ abstract class Connection(
 
 
     internal suspend fun processPacket(
-        level: Level, framesBytes: ByteArray, packetNumber: Long,
+        level: Level, source: Source, packetNumber: Long,
     ) {
 
         if (isDiscarded(level)) {
@@ -161,7 +151,7 @@ abstract class Connection(
 
         if (!state.isClosing) {
 
-            val isAckEliciting = processFrames(level, framesBytes)
+            val isAckEliciting = processFrames(level, source)
 
             ackGenerator(level).packetReceived(isAckEliciting, packetNumber)
 
@@ -239,7 +229,7 @@ abstract class Connection(
         // which indicates that its peer is closing or draining."
         if (!state.isClosing) {  // Can occur due to race condition (both peers closing simultaneously)
             if (closing.hasError()) {
-                debug("Connection closed with " + determineClosingErrorMessage(closing))
+                debug("Connection closed with code " + closing.errorCode)
             }
             clearRequests()
 
@@ -384,21 +374,5 @@ abstract class Connection(
         val isConnected: Boolean
             get() = this == Connected
     }
-
-    private fun determineClosingErrorMessage(closing: FrameReceived.ConnectionCloseFrame): String {
-        return if (closing.hasTransportError()) {
-            if (closing.hasTlsError()) {
-                "TLS error " + closing.tlsError + (if (closing.hasReasonPhrase()) ": " + closing.reasonPhrase else "")
-            } else {
-                "transport error " + closing.errorCode + (if (closing.hasReasonPhrase()) ": " + closing.reasonPhrase else "")
-            }
-        } else if (closing.hasApplicationProtocolError()) {
-            "application protocol error " + closing.errorCode +
-                    (if (closing.hasReasonPhrase()) ": " + closing.reasonPhrase else "")
-        } else {
-            ""
-        }
-    }
-
 
 }

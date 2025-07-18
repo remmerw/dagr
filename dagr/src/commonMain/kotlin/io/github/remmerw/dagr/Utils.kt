@@ -1,6 +1,8 @@
 package io.github.remmerw.dagr
 
+import io.ktor.utils.io.core.remaining
 import kotlinx.io.Buffer
+import kotlinx.io.Source
 import kotlinx.io.readByteArray
 
 internal fun longToBytes(value: Long): ByteArray {
@@ -26,7 +28,7 @@ internal fun intToBytes(value: Int): ByteArray {
 }
 
 
-internal fun parseInt(buffer: Buffer): Int {
+internal fun parseInt(buffer: Source): Int {
     val value = parseLong(buffer)
     if (value <= Int.MAX_VALUE) {
         return value.toInt()
@@ -37,8 +39,8 @@ internal fun parseInt(buffer: Buffer): Int {
 }
 
 
-internal fun parseLong(buffer: Buffer): Long {
-    if (buffer.size < 1) {
+internal fun parseLong(buffer: Source): Long {
+    if (buffer.remaining < 1) {
         error("Invalid size encoding")
     }
 
@@ -47,7 +49,7 @@ internal fun parseLong(buffer: Buffer): Long {
     when ((firstLengthByte.toInt() and 0xc0) shr 6) {
         0 -> value = firstLengthByte.toLong()
         1 -> {
-            if (buffer.size < 1) {
+            if (buffer.remaining < 1) {
                 error("Invalid size encoding")
             }
             val data = Buffer()
@@ -58,7 +60,7 @@ internal fun parseLong(buffer: Buffer): Long {
         }
 
         2 -> {
-            if (buffer.size < 3) {
+            if (buffer.remaining < 3) {
                 error("Invalid size encoding")
             }
             val data = Buffer()
@@ -68,7 +70,7 @@ internal fun parseLong(buffer: Buffer): Long {
         }
 
         3 -> {
-            if (buffer.size < 7) {
+            if (buffer.remaining < 7) {
                 error("Invalid size encoding")
             }
             val data = Buffer()

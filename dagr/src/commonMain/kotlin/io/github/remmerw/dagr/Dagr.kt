@@ -136,9 +136,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             jobs.put(remoteAddress, job)
 
 
-            connection.processPacket(
-                Level.INIT, source.readByteArray(), packetNumber
-            )
+            connection.processPacket(Level.INIT, source, packetNumber)
         }
     }
 
@@ -147,11 +145,8 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
         val connection = connections[remoteAddress]
         if (connection != null) {
-
             val packetNumber = source.readLong()
-            connection.processPacket(
-                Level.APP, source.readByteArray(), packetNumber
-            )
+            connection.processPacket(Level.APP, source, packetNumber)
         }
     }
 
