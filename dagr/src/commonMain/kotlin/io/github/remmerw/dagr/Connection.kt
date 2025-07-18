@@ -21,11 +21,7 @@ abstract class Connection(
     private val remoteAddress: InetSocketAddress,
     private val terminate: Terminate
 ) : ConnectionData() {
-
-    private val largestPacketNumber = LongArray(Level.LENGTH)
     private val closeFramesSendRateLimiter = RateLimiter()
-    private val flowControlIncrement: Long // no concurrency
-
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -39,14 +35,9 @@ abstract class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private val idleCounter = AtomicInt(0)
 
-    private var flowControlMax = Settings.INITIAL_MAX_DATA // no concurrency
-
     @Volatile
     private var state = State.Created
 
-    init {
-        this.flowControlIncrement = flowControlMax / 10
-    }
 
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
@@ -87,19 +78,6 @@ abstract class Connection(
 
     val isConnected: Boolean
         get() = state.isConnected
-
-
-    private fun updateKeysAndPackageNumber(packetHeader: PacketHeader) {
-        val level = packetHeader.level
-        updatePackageNumber(level, packetHeader)
-    }
-
-
-    private fun updatePackageNumber(level: Level, packetHeader: PacketHeader) {
-        if (packetHeader.packetNumber > largestPacketNumber[level.ordinal]) {
-            largestPacketNumber[level.ordinal] = packetHeader.packetNumber
-        }
-    }
 
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -178,14 +156,13 @@ abstract class Connection(
         if (isDiscarded(packetHeader.level)) {
             return
         }
-        updateKeysAndPackageNumber(packetHeader)
+
 
 
         if (!state.isClosing) {
             val level = packetHeader.level
 
             val isAckEliciting = process(packetHeader)
-
 
 
             ackGenerator(level).packetReceived(
@@ -323,7 +300,6 @@ abstract class Connection(
                     TransportError.Code.NO_ERROR
                 )
             )
-
         }
     }
 
@@ -353,18 +329,11 @@ abstract class Connection(
         // race conditions with
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
-            try {
-                lossDetection()
-                sendIfAny()
+            lossDetection()
+            sendIfAny()
 
-                keepAlive() // only happens when enabled
-                checkIdle() // only happens when enabled
-
-
-            } catch (throwable: Throwable) {
-                debug(throwable)
-                throw throwable
-            }
+            keepAlive() // only happens when enabled
+            checkIdle() // only happens when enabled
         }
     }
 
@@ -383,7 +352,6 @@ abstract class Connection(
     private suspend fun send(itemsToSend: List<Packet>) {
         for (packet in itemsToSend) {
             val buffer = packet.generatePacketBytes()
-            val size = buffer.size
 
             val datagram = Datagram(buffer, remoteAddress)
 
@@ -391,7 +359,7 @@ abstract class Connection(
             socket.send(datagram)
 
             idleCounter.store(0)
-            packetSent(packet, size.toInt(), timeSent)
+            packetSent(packet, timeSent)
             packetIdleSent(packet, timeSent)
 
         }
@@ -402,29 +370,13 @@ abstract class Connection(
 
 
         val packets: MutableList<Packet> = arrayListOf()
-        var size = 0
-
-        val minPacketSize = Long.SIZE_BYTES + 1 // Computed for short header packet
-        var remaining = Settings.MAX_PACKAGE_SIZE
 
         for (level in Level.levels()) {
             if (!isDiscarded(level)) {
                 val assembler = packetAssembler(level)
-
-                val item = assembler.assemble(
-                    remaining,
-                    Settings.MAX_PACKAGE_SIZE - size, peerId
-                )
-
+                val item = assembler.assemble(peerId)
                 if (item != null) {
                     packets.add(item)
-                    val packetSize = item.estimateLength()
-                    size += packetSize
-                    remaining -= packetSize
-                }
-                if (remaining < minPacketSize && (Settings.MAX_PACKAGE_SIZE - size) < minPacketSize) {
-                    // Trying a next level to produce a packet is useless
-                    break
                 }
             }
         }

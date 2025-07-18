@@ -52,11 +52,10 @@ open class ConnectionFlow() {
 
     internal fun packetSent(
         packet: Packet,
-        size: Int,
         timeSent: TimeSource.Monotonic.ValueTimeMark
     ) {
         if (isInflightPacket(packet)) {
-            val packetStatus = PacketStatus(packet, size, timeSent)
+            val packetStatus = PacketStatus(packet, timeSent)
             lossDetectors[packet.level().ordinal]!!.packetSent(packetStatus)
         }
     }

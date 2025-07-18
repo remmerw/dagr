@@ -16,13 +16,10 @@ internal class PacketAssembler internal constructor(
 
 
     suspend fun assemble(
-        remainingCwndSize: Int,
-        availablePacketSize: Int,
         peerId: PeerId
     ): Packet? {
 
-        // Packet can be 3 bytes larger than estimated size because of unknown packet number length.
-        val available = kotlin.math.min(remainingCwndSize, availablePacketSize - 3)
+        val available = Settings.MAX_PACKAGE_SIZE
         val frames: MutableList<Frame> = arrayListOf()
 
         val packetNumber = packetNumberGenerator++

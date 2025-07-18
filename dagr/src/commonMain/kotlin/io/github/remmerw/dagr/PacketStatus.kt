@@ -4,7 +4,7 @@ import kotlin.time.TimeSource
 
 
 internal data class PacketStatus(
-    val packet: Packet, val size: Int,
+    val packet: Packet,
     val timeSent: TimeSource.Monotonic.ValueTimeMark
 )
 
