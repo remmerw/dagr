@@ -130,12 +130,10 @@ abstract class Connection(
     }
 
 
+    @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        try {
-            send(assembleAck(packetNumber))
-        } catch (throwable: Throwable) {
-            throwable.printStackTrace()
-        }
+        val packetNumber = packetNumberGenerator.incrementAndFetch()
+        sendFrame(Level.APP, createAckFrame(packetNumber))
     }
 
     internal suspend fun processPacket(
@@ -301,11 +299,6 @@ abstract class Connection(
         }
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun assembleAck(pn: Long): Packet {
-        val packetNumber = packetNumberGenerator.incrementAndFetch()
-        return Packet.AppPacket(packetNumber, listOf(createAckFrame(pn)))
-    }
 
 
     fun remotePeerId(): PeerId {
