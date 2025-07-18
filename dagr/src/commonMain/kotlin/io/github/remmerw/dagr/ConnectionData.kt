@@ -21,7 +21,7 @@ abstract class ConnectionData() :
     private val frames: MutableList<FrameReceived.DataFrame> = mutableListOf() // no concurrency
     private val readingBuffer = Buffer()
 
-    private val sendQueue: Buffer = Buffer()
+    private val sendingBuffer = Buffer()
     private val mutex = Mutex()
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -32,11 +32,11 @@ abstract class ConnectionData() :
 
     // meaning that no more bytes can be written by caller.
     @Volatile
-    private var isFinal = false
+    private var isSendingFinal = false
 
     // Current offset is the offset of the next byte in the stream that will be sent.
     // Thread safety: only used by sender thread, no concurrency
-    private var currentOffset: Long = 0 // no concurrency
+    private var sendingOffset: Long = 0 // no concurrency
 
     @Volatile
     private var allDataReceived = false
@@ -47,7 +47,7 @@ abstract class ConnectionData() :
 
     // Stream offset at which the stream was last blocked, for detecting the first time
     // stream is blocked at a certain offset.
-    private var blockedOffset: Long = 0 // no concurrency
+    private var sendingBlockedOffset: Long = 0 // no concurrency
 
 
     init {
@@ -100,10 +100,24 @@ abstract class ConnectionData() :
                 if (responder() == null) {
                     requestFinish.release()
                 } else {
-                    responder()!!.data(this as Connection, readingBuffer)
+                    responder()!!.data(this as Connection, readingBuffer.readByteArray())
+                    resetReading()
                 }
             }
         }
+    }
+
+    fun resetReading() {
+        frames.clear()
+        allDataReceived = false
+        readingBuffer.clear()
+    }
+
+    fun resetSending() {
+        sendingBlockedOffset = 0
+        sendingOffset = 0
+        isSendingFinal = false
+        sendingBuffer.clear()
     }
 
     private suspend fun updateAllowedFlowControl(bytesRead: Int) {
@@ -127,7 +141,7 @@ abstract class ConnectionData() :
     @OptIn(ExperimentalAtomicApi::class)
     internal open suspend fun terminate() {
         reset.compareAndSet(expectedValue = false, newValue = true)
-        sendQueue.clear()
+        sendingBuffer.clear()
         streamFlowControl.unregister()
         readingBuffer.clear()
 
@@ -141,10 +155,10 @@ abstract class ConnectionData() :
 
 
     suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
-        this.isFinal = autoFlush
+        this.isSendingFinal = autoFlush
 
         mutex.withLock {
-            sendQueue.write(buffer, buffer.size)
+            sendingBuffer.write(buffer, buffer.size)
         }
 
         sendRequestQueue.appendRequest(object : FrameSupplier {
@@ -156,21 +170,23 @@ abstract class ConnectionData() :
 
 
     // this is a blocking request with the given timeout [fin is written, no more writing data allowed]
-    suspend fun request(timeout: Long, data: Buffer): Buffer {
+    suspend fun request(timeout: Long, data: Buffer): ByteArray {
         write(data)
 
         try {
             return withTimeout(timeout * 1000L) {
                 requestFinish.acquire()
                 if (!allDataReceived) {
-                    Buffer()
+                    byteArrayOf()
                 } else {
-                    response()
+                    response().readByteArray()
                 }
             }
         } catch (_: Throwable) {
             close()
-            return Buffer()
+            return byteArrayOf()
+        } finally {
+            resetReading()
         }
     }
 
@@ -185,45 +201,45 @@ abstract class ConnectionData() :
             return null
         }
         mutex.withLock {
-            if (!sendQueue.exhausted()) {
+            if (!sendingBuffer.exhausted()) {
                 val flowControlLimit: Long = streamFlowControl.flowControlLimit
 
                 if (flowControlLimit < 0) {
                     return null
                 }
 
-                var maxBytesToSend = sendQueue.size.toInt()
+                var maxBytesToSend = sendingBuffer.size.toInt()
 
-                if (flowControlLimit > currentOffset || maxBytesToSend == 0) {
-                    val dummyFrameLength = frameLength(currentOffset, 0)
+                if (flowControlLimit > sendingOffset || maxBytesToSend == 0) {
+                    val dummyFrameLength = frameLength(sendingOffset, 0)
 
                     maxBytesToSend = min(
                         maxBytesToSend,
                         maxFrameSize - dummyFrameLength - 1
                     ) // Take one byte extra for length field var int
                     val maxAllowedByFlowControl = (streamFlowControl.increaseFlowControlLimit(
-                        currentOffset + maxBytesToSend
-                    ) - currentOffset).toInt()
+                        sendingOffset + maxBytesToSend
+                    ) - sendingOffset).toInt()
                     if (maxAllowedByFlowControl < 0) {
                         return null
                     }
                     maxBytesToSend = min(maxAllowedByFlowControl, maxBytesToSend)
 
-                    val dataToSend = sendQueue.readByteArray(maxBytesToSend)
+                    val dataToSend = sendingBuffer.readByteArray(maxBytesToSend)
                     var finalFrame = false
 
-                    if (sendQueue.exhausted()) {
-                        finalFrame = this.isFinal
+                    if (sendingBuffer.exhausted()) {
+                        finalFrame = this.isSendingFinal
                     }
 
                     val dataFrame = createDataFrame(
-                        currentOffset, dataToSend, finalFrame
+                        sendingOffset, dataToSend, finalFrame
                     )
 
-                    currentOffset += maxBytesToSend
+                    sendingOffset += maxBytesToSend
 
 
-                    if (!sendQueue.exhausted()) {
+                    if (!sendingBuffer.exhausted()) {
                         sendRequestQueue.appendRequest(object : FrameSupplier {
                             override suspend fun nextFrame(maxSize: Int): Frame? {
                                 return sendFrame(maxSize)
@@ -233,6 +249,7 @@ abstract class ConnectionData() :
 
                     if (finalFrame) {
                         // Done! Retransmissions may follow, but don't need flow control.
+                        resetSending()
                         streamFlowControl.unregister()
                     }
 
@@ -240,9 +257,9 @@ abstract class ConnectionData() :
                 } else {
                     // So flowControlLimit <= currentOffset
                     // Check if this condition hasn't been handled before
-                    if (currentOffset != blockedOffset) {
+                    if (sendingOffset != sendingBlockedOffset) {
                         // Not handled before, remember this offset, so this isn't executed twice for the same offset
-                        blockedOffset = currentOffset
+                        sendingBlockedOffset = sendingOffset
                         // And let peer know
                         // https://www.rfc-editor.org/rfc/rfc9000.html#name-data-flow-control
                         // "A sender SHOULD send a STREAM_DATA_BLOCKED or DATA_BLOCKED frame to indicate to the receiver
@@ -405,7 +422,6 @@ abstract class ConnectionData() :
             broadcast() // this blocks the parsing of further packets
         }
     }
-
 
 
 }

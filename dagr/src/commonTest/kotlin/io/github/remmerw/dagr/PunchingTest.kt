@@ -20,7 +20,7 @@ class PunchingTest {
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
                 connection: Connection,
-                buffer: Buffer
+                data: ByteArray
             ) {
             }
         }

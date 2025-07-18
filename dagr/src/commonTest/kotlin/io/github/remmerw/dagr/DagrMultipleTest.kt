@@ -2,26 +2,36 @@ package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
+import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
-class TimeoutTest {
+class DagrMultipleTest {
+
 
     @Test
-    fun timeout(): Unit = runBlocking(Dispatchers.IO) {
+    fun testDagrMultiple(): Unit = runBlocking(Dispatchers.IO) {
 
         val serverKeys = generateKeys()
 
         val serverPeerId = serverKeys.peerId
 
+        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
+        val clientText = "Hello World"
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
                 connection: Connection,
                 data: ByteArray
             ) {
+                assertEquals(data.decodeToString(), clientText)
+
+                val buffer = Buffer()
+                buffer.write(serverData)
+                connection.write(buffer)
             }
         }
 
@@ -35,20 +45,16 @@ class TimeoutTest {
         connection.connect(1)
 
 
-        assertEquals(connector.connections().size, 1)
-        assertEquals(server.connections().size, 1)
-        assertEquals(connector.connections().first().remotePeerId(), serverPeerId)
-        assertEquals(server.connections().first().remotePeerId(), clientPeerId)
+        repeat(10) {
+            val buffer = Buffer()
+            buffer.write(clientText.encodeToByteArray())
+            val response = connection.request(1, buffer)
 
-        delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
-        // now it should be no connections
-
-        assertEquals(server.connections().size, 0)
-        assertEquals(connector.connections().size, 0)
-
-        delay(5000)
+            assertContentEquals(response,serverData)
+        }
 
         connection.close()
         server.shutdown()
     }
+
 }

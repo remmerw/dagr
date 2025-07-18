@@ -24,9 +24,9 @@ class DagrTest {
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
                 connection: Connection,
-                buffer: Buffer
+                data: ByteArray
             ) {
-                assertEquals(buffer.readByteArray().decodeToString(), clientText)
+                assertEquals(data.decodeToString(), clientText)
 
                 val buffer = Buffer()
                 buffer.write(serverText.encodeToByteArray())
@@ -48,7 +48,7 @@ class DagrTest {
         buffer.write(clientText.encodeToByteArray())
         val response = connection.request(1, buffer)
 
-        val text = response.readByteArray().decodeToString()
+        val text = response.decodeToString()
         assertEquals(text, serverText)
 
 
@@ -70,13 +70,14 @@ class DagrTest {
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
                 connection: Connection,
-                buffer: Buffer
+                data: ByteArray
             ) {
-                assertEquals(buffer.readByteArray().decodeToString(), clientText)
+                assertEquals(data.decodeToString(), clientText)
 
                 val buffer = Buffer()
                 buffer.write(serverData)
                 connection.write(buffer)
+
             }
         }
 
@@ -94,8 +95,8 @@ class DagrTest {
         buffer.write(clientText.encodeToByteArray())
         val response = connection.request(1, buffer)
 
-        val data = response.readByteArray()
-        assertContentEquals(data, serverData)
+
+        assertContentEquals(response, serverData)
 
 
         connection.close()
