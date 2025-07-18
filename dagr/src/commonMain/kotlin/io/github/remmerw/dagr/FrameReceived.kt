@@ -95,7 +95,6 @@ internal interface FrameReceived {
 
     @Suppress("ArrayInDataClass")
     data class DataFrame(
-        val streamId: Int,
         val isFinal: Boolean,
         val offset: Long,
         val length: Int,
@@ -283,8 +282,6 @@ internal interface FrameReceived {
             val withLength = ((type.toInt() and 0x02) == 0x02)
             val isFinal = ((type.toInt() and 0x01) == 0x01)
 
-            val streamId = parseInt(buffer)
-
             var offset: Long = 0
             if (withOffset) {
                 offset = parseLong(buffer)
@@ -297,7 +294,7 @@ internal interface FrameReceived {
 
             val streamData = buffer.readByteArray(length)
 
-            return DataFrame(streamId, isFinal, offset, length, streamData)
+            return DataFrame(isFinal, offset, length, streamData)
         }
 
     }

@@ -124,18 +124,17 @@ internal fun createAckFrame(packets: List<Long>, ackDelay: Int): Frame {
 }
 
 
-internal fun frameLength(streamId: Int, offset: Long, length: Int): Int {
+internal fun frameLength(offset: Long, length: Int): Int {
     return (1 // frame payloadType
-            + bytesNeeded(streamId.toLong())
             + bytesNeeded(offset)
             + bytesNeeded(length.toLong())
             + length)
 }
 
 internal fun createDataFrame(
-    streamId: Int, offset: Long, applicationData: ByteArray, fin: Boolean
+    offset: Long, applicationData: ByteArray, fin: Boolean
 ): Frame {
-    val frameLength = frameLength(streamId, offset, applicationData.size)
+    val frameLength = frameLength(offset, applicationData.size)
 
     val buffer = Buffer()
     val baseType = 0x08.toByte()
@@ -145,7 +144,6 @@ internal fun createDataFrame(
         frameType = (frameType.toInt() or 0x01).toByte()
     }
     buffer.writeByte(frameType)
-    encode(streamId, buffer)
     encode(offset, buffer)
     encode(applicationData.size, buffer)
     buffer.write(applicationData)

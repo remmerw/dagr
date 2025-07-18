@@ -166,10 +166,6 @@ class DagrClient internal constructor(
         return null // not yet supported (only uni directional connections)
     }
 
-    override fun clientConnection(): Boolean {
-        return true
-    }
-
 }
 
 suspend fun newDagrClient(
@@ -188,6 +184,3 @@ suspend fun newDagrClient(
 }
 
 
-suspend fun createStream(connection: Connection): Stream {
-    return connection.createStream()
-}

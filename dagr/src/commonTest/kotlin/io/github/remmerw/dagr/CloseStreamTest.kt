@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class CloseStreamTest {
 
     @Test
-    fun testDagr(): Unit = runBlocking(Dispatchers.IO) {
+    fun testClose(): Unit = runBlocking(Dispatchers.IO) {
 
         val serverKeys = generateKeys()
 
@@ -20,10 +20,10 @@ class CloseStreamTest {
 
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
-                stream: Stream,
+                connection: Connection,
                 buffer: Buffer
             ) {
-                stream.close()
+                connection.close()
             }
         }
 
@@ -36,12 +36,9 @@ class CloseStreamTest {
         val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
         connection.connect(1)
 
-
-        val stream = createStream(connection)
-
         val buffer = Buffer()
         buffer.write("Solar".encodeToByteArray())
-        val response = stream.request(1, buffer)
+        val response = connection.request(1, buffer)
 
         assertEquals(response.size, 0)
         assertTrue(!connection.isConnected)
@@ -51,5 +48,7 @@ class CloseStreamTest {
         connection.close()
         server.shutdown()
     }
+
+
 
 }

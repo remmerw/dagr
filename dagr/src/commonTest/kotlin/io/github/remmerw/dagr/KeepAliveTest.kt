@@ -19,7 +19,7 @@ class KeepAliveTest {
 
         val server = newDagr(serverKeys, 4444, object : Responder {
             override suspend fun data(
-                stream: Stream,
+                connection: Connection,
                 buffer: Buffer
             ) {
             }

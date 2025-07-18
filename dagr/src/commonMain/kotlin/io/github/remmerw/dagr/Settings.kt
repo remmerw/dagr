@@ -78,8 +78,6 @@ internal object Settings {
 
     const val MAX_ACK_DELAY: Int = 26
 
-    const val MAX_STREAMS_BIDI: Int = 256
-    const val MAX_STREAMS_UNI: Int = 256
     const val INITIAL_MAX_DATA: Long = 786432
     const val INITIAL_MAX_STREAM_DATA: Long = 524288
     const val MAX_DATAGRAM_FRAME_SIZE: Int =

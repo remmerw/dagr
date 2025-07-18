@@ -99,11 +99,6 @@ abstract class Connection(
         }
     }
 
-
-    internal suspend fun createStream(): Stream {
-        return createStream(this, false)
-    }
-
     private fun updateKeysAndPackageNumber(packetHeader: PacketHeader) {
         val level = packetHeader.level
         updatePackageNumber(level, packetHeader)
@@ -255,7 +250,7 @@ abstract class Connection(
 
     private suspend fun process(dataFrame: FrameReceived.DataFrame) {
         try {
-            processStreamFrame(this, dataFrame)
+            processDataFrame(dataFrame)
         } catch (transportError: TransportError) {
             scheduledClose(Level.APP, transportError)
         }
@@ -323,7 +318,7 @@ abstract class Connection(
     }
 
 
-    internal open suspend fun terminate() {
+    override suspend fun terminate() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         // "Once its closing or draining state ends, an endpoint SHOULD discard all
         // connection state."
@@ -332,7 +327,7 @@ abstract class Connection(
         state(State.Closed)
     }
 
-    suspend fun close() {
+    override suspend fun close() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         scheduledClose(Level.APP, TransportError(TransportError.Code.NO_ERROR))
     }

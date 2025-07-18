@@ -105,22 +105,11 @@ open class ConnectionFlow() {
     @Volatile
     private var maxDataAllowed = Settings.INITIAL_MAX_DATA
 
-    // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-18.2
-    // "initial_max_stream_data_bidi_local (0x0005):  This parameter is an integer value specifying the initial flow control limit for
-    //  locally-initiated bidirectional streams.
-    @Volatile
-    private var initialMaxStreamDataBidiLocal = Settings.INITIAL_MAX_STREAM_DATA
-
     // "initial_max_stream_data_bidi_remote (0x0006):  This parameter is an integer value specifying the initial flow control limit for peer-
     //  initiated bidirectional streams. "
     @Volatile
     var initialMaxStreamDataBidiRemote = Settings.INITIAL_MAX_STREAM_DATA
         private set
-
-    // "initial_max_stream_data_uni (0x0007):  This parameter is an integer value specifying the initial flow control limit for unidirectional
-    //  streams."
-    @Volatile
-    private var initialMaxStreamDataUni = Settings.INITIAL_MAX_STREAM_DATA
 
     @Volatile
     private var slowStartThreshold = Long.MAX_VALUE
@@ -246,27 +235,6 @@ open class ConnectionFlow() {
         maxDataAssigned.fetchAndAdd(proposedStreamIncrement)
     }
 
-    fun determineInitialMaxStreamData(stream: Stream): Long {
-        return if (stream.isUnidirectional) {
-            initialMaxStreamDataUni
-        } else if (stream.isClientInitiatedBidirectional) {
-            // For the receiver (imposing the limit) the stream is peer-initiated (remote).
-            // "This limit applies to newly created bidirectional streams opened by the endpoint that receives
-            // the transport parameter."
-            initialMaxStreamDataBidiRemote
-        } else if (stream.isServerInitiatedBidirectional) {
-            // For the receiver (imposing the limit), the stream is locally-initiated
-            // "This limit applies to newly created bidirectional streams opened by the endpoint that sends the
-            // transport parameter."
-            initialMaxStreamDataBidiLocal
-        } else {
-            throw IllegalStateException()
-        }
-    }
-
-    fun maxDataAllowed(value: Long) {
-        maxDataAllowed = value
-    }
 
     /**
      * Returns the current connection flow control limit.
