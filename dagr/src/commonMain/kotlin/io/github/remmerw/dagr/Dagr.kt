@@ -188,7 +188,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             debug(throwable)
         }
 
-
     }
 
     override fun connections(peerId: PeerId): Set<Connection> {
