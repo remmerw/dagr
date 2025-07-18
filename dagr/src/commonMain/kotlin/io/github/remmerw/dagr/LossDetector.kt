@@ -35,32 +35,24 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
 
     }
 
-    suspend fun detectLostPackets() {
+    fun detectLostPackets(): List<Packet> {
         if (isStopped) {
-            return
+            return emptyList()
         }
 
-
-        // https://tools.ietf.org/html/draft-ietf-quic-recovery-20#section-6.1
-        // "A packet is declared lost if it meets all the following conditions:
-        //   o  The packet is unacknowledged, in-flight, and was sent prior to an
-        //      acknowledged packet.
-        //   o  Either its packet number is kPacketThreshold smaller than an
-        //      acknowledged packet (Section 6.1.1), or it was sent long enough in
-        //      the past (Section 6.1.2)."
-        // https://tools.ietf.org/html/draft-ietf-quic-recovery-20#section-2
-        // "In-flight:  Packets are considered in-flight when they have been sent
-        //      and neither acknowledged nor declared lost, and they are not ACK-
-        //      only."
+        val result: MutableList<Packet> = mutableListOf()
         val packets = packetSentLog.values
 
         packets.forEach { packetStatus ->
             if (pnTooOld(packetStatus)) {
                 if (!packetStatus.packet.isAckOnly) {
-                    declareLost(packetStatus)
+                    println("Declare Lost")
+                    result.add(packetStatus.packet)
+                    packetSentLog.remove(packetStatus.packet.packetNumber())
                 }
             }
         }
+        return result
     }
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -70,36 +62,5 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
             println("Loss too Old $largestAcked " + p.packet.level() + " " + p.packet.packetNumber())
         }
         return result
-    }
-
-    private suspend fun declareLost(packetStatus: PacketStatus) {
-
-
-        println("Declare Lost")
-
-        // Retransmitting the frames in the lost packet is delegated to the lost frame callback,
-        // because whether retransmitting the frame is necessary (and in which manner) depends
-        // on frame payloadType,
-        // see https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-13.3
-        val frames = packetStatus.packet.frames()
-        for (frame in frames) {
-            when (frame.frameType) {
-                FrameType.DataFrame -> connectionFlow.insertRequest(
-                    packetStatus.packet.level(),
-                    frame
-                )
-
-                FrameType.VerifyResponseFrame,
-                FrameType.VerifyRequestFrame -> connectionFlow.addRequest(
-                    packetStatus.packet.level(),
-                    frame
-                )
-
-                else -> {}
-            }
-        }
-
-        packetSentLog.remove(packetStatus.packet.packetNumber())
-
     }
 }

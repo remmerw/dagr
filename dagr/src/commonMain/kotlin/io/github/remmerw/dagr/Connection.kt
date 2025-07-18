@@ -300,16 +300,20 @@ abstract class Connection(
         // race conditions with
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
-            lossDetection()
-            sendIfAny()
+
+            sendLostPackets()
+            sendNewPackets()
 
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
         }
     }
 
+    private suspend fun sendLostPackets() {
+        send(lossDetection())
+    }
 
-    private suspend fun sendIfAny() {
+    private suspend fun sendNewPackets() {
         var items: List<Packet>
         do {
             items = assemblePackets()

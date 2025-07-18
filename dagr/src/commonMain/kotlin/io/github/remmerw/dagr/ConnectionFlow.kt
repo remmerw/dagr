@@ -116,10 +116,12 @@ open class ConnectionFlow() {
         ackGenerator(level).cleanup()
     }
 
-    suspend fun lossDetection() {
+    internal fun lossDetection(): List<Packet> {
+        val result: MutableList<Packet> = mutableListOf()
         for (level in Level.levels()) {
-            lossDetectors[level.ordinal]!!.detectLostPackets()
+            result.addAll(lossDetectors[level.ordinal]!!.detectLostPackets())
         }
+        return result
     }
 
     private fun stopRecovery() {
