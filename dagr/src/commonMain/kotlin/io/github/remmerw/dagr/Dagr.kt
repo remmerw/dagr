@@ -142,7 +142,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
     private suspend fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
 
-
         val connection = connections[remoteAddress]
         if (connection != null) {
             val packetNumber = source.readLong()

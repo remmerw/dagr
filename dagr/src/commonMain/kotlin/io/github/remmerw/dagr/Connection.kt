@@ -119,9 +119,6 @@ abstract class Connection(
                         sendAck(packetNumber)
                         process(parseDataFrame(frameType, source))
                     } else {
-                        // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.4
-                        // "An endpoint MUST treat the receipt of a frame of unknown payloadType
-                        // as a connection error of payloadType FRAME_ENCODING_ERROR."
                         error("Receipt a frame of unknown type $frameType")
                     }
                 }
