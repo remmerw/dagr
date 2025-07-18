@@ -132,7 +132,6 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        val packetNumber = packetNumberGenerator.incrementAndFetch()
         sendFrame(Level.APP, createAckFrame(packetNumber))
     }
 
