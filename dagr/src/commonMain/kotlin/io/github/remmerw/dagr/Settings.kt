@@ -78,6 +78,8 @@ internal object Settings {
 
     const val MAX_ACK_DELAY: Int = 26
 
+    const val LACKED_ACKS: Int = 3
+
     const val INITIAL_MAX_DATA: Long = 786432
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
         1200 // all other remote libp2p clients have same value // TODO make sure datagram size

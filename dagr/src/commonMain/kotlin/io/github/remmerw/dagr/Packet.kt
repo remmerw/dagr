@@ -19,16 +19,6 @@ internal interface Packet {
 
     fun generatePacketBytes(): Buffer
 
-    val isAckOnly: Boolean
-        get() {
-            for ((frameType) in frames()) {
-                if (frameType != FrameType.AckFrame) {
-                    return false
-                }
-            }
-            return true
-        }
-
 
     data class InitPacket(
         val peerId: PeerId,
@@ -111,15 +101,6 @@ internal interface Packet {
 // "Packets that contain ack-eliciting frames elicit an ACK from the receiver (...)
 // and are called ack-eliciting packets."
 internal fun isAckEliciting(packet: Packet): Boolean {
-    for (frame in packet.frames()) {
-        if (isAckEliciting(frame)) {
-            return true
-        }
-    }
-    return false
-}
-
-internal fun isInflightPacket(packet: Packet): Boolean {
     for (frame in packet.frames()) {
         if (isAckEliciting(frame)) {
             return true

@@ -1,23 +1,15 @@
 package io.github.remmerw.dagr
 
-import kotlin.time.TimeSource
-
 
 open class ConnectionFlow() {
     private val sendRequestQueues = arrayOfNulls<SendRequestQueue>(Level.LENGTH)
     private val packetAssemblers = arrayOfNulls<PacketAssembler>(Level.LENGTH)
-    private val ackGenerators = arrayOfNulls<AckGenerator>(Level.LENGTH)
     private val discardedLevels = arrayOfNulls<Boolean>(Level.LENGTH)
-    private val lossDetectors = arrayOfNulls<LossDetector>(Level.LENGTH)
-
+    private val lostDetector = LossDetector()
 
     init {
         for (level in Level.levels()) {
             sendRequestQueues[level.ordinal] = SendRequestQueue()
-        }
-
-        for (level in Level.levels()) {
-            ackGenerators[level.ordinal] = AckGenerator()
         }
 
         discardedLevels[Level.INIT.ordinal] = false
@@ -28,23 +20,16 @@ open class ConnectionFlow() {
             val levelIndex = level.ordinal
             packetAssemblers[levelIndex] = PacketAssembler(
                 level,
-                sendRequestQueues[levelIndex]!!, ackGenerators[levelIndex]!!
+                sendRequestQueues[levelIndex]!!
             )
         }
-
-        for (level in Level.levels()) {
-            lossDetectors[level.ordinal] = LossDetector(this)
-        }
     }
 
 
-    internal fun lossDetector(level: Level): LossDetector {
-        return lossDetectors[level.ordinal]!!
+    internal fun lossDetector(): LossDetector {
+        return lostDetector
     }
 
-    internal fun ackGenerator(level: Level): AckGenerator {
-        return ackGenerators[level.ordinal]!!
-    }
 
     internal fun sendRequestQueue(level: Level): SendRequestQueue {
         return sendRequestQueues[level.ordinal]!!
@@ -54,13 +39,9 @@ open class ConnectionFlow() {
         return packetAssemblers[level.ordinal]!!
     }
 
-    internal fun packetSent(
-        packet: Packet,
-        timeSent: TimeSource.Monotonic.ValueTimeMark
-    ) {
-        if (isInflightPacket(packet)) {
-            val packetStatus = PacketStatus(packet, timeSent)
-            lossDetectors[packet.level().ordinal]!!.packetSent(packetStatus)
+    internal fun packetSent(packet: Packet) {
+        if (isAckEliciting(packet)) {
+            lostDetector.packetSent(packet)
         }
     }
 
@@ -102,31 +83,21 @@ open class ConnectionFlow() {
         // clear all send requests and probes on that level
         sendRequestQueues[level.ordinal]!!.clear()
 
-        // 5.5.  Discarding Keys and Packet State
-        //
-        //   When packet protection keys are discarded (see Section 4.9 of
-        //   [QUIC-TLS]), all packets that were sent with those keys can no longer
-        //   be acknowledged because their acknowledgements cannot be processed
-        //   anymore.  The sender MUST discard all recovery state associated with
-        //   those packets and MUST remove them from the count of bytes in flight.
-        lossDetectors[level.ordinal]!!.stop()
+    }
 
-
-        // deactivate ack generator for level
-        ackGenerator(level).cleanup()
+    internal fun allowedSending(): Boolean {
+        if (lostDetector.isStopped()) {
+            return false
+        }
+        return lostDetector.packetsInFlight() < Settings.LACKED_ACKS
     }
 
     internal fun lossDetection(): List<Packet> {
-        val result: MutableList<Packet> = mutableListOf()
-        for (level in Level.levels()) {
-            result.addAll(lossDetectors[level.ordinal]!!.detectLostPackets())
-        }
-        return result
+        return lostDetector.detectLostPackets()
     }
 
     private fun stopRecovery() {
-        for (lossDetector in lossDetectors) {
-            lossDetector!!.stop()
-        }
+        lossDetector().stop()
+
     }
 }

@@ -3,16 +3,10 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.PeerId
 
 
-/**
- * Assembles QUIC packets for a given encryption level, based on "send requests" that are previously queued.
- * These send requests either contain a frame, or can produce a frame to be sent.
- */
 internal class PacketAssembler internal constructor(
     private val level: Level,
-    private val sendRequestQueue: SendRequestQueue,
-    private val ackGenerator: AckGenerator
+    private val sendRequestQueue: SendRequestQueue
 ) {
-
 
 
     suspend fun assemble(
@@ -22,12 +16,6 @@ internal class PacketAssembler internal constructor(
 
         val available = Settings.MAX_PACKAGE_SIZE
         val frames: MutableList<Frame> = arrayListOf()
-
-
-        val ackFrames = ackGenerator.generateAcks()
-
-        frames.addAll(ackFrames)
-
 
         if (sendRequestQueue.hasRequests()) {
             // Must create packet here, to have an initial estimate of packet header overhead
@@ -57,24 +45,12 @@ internal class PacketAssembler internal constructor(
             // Nothing could be added, discard packet and mark packet number as not used
             null
         } else {
-            createPacket(
-                level, peerId, packetNumber, frames
-            )
+            when (level) {
+                Level.APP -> Packet.AppPacket(packetNumber, frames)
+                Level.INIT -> Packet.InitPacket(peerId, packetNumber, frames)
+            }
         }
         return packet
-    }
-
-
-    private fun createPacket(
-        level: Level,
-        peerId: PeerId,
-        packetNumber: Long,
-        frames: List<Frame>
-    ): Packet {
-        return when (level) {
-            Level.APP -> Packet.AppPacket(packetNumber, frames)
-            Level.INIT -> Packet.InitPacket(peerId, packetNumber, frames)
-        }
     }
 
     private fun framesLength(frames: List<Frame>): Int {

@@ -1,11 +1,12 @@
 package io.github.remmerw.dagr
 
 import io.ktor.util.collections.ConcurrentMap
+import io.ktor.utils.io.InternalAPI
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-internal class LossDetector(private val connectionFlow: ConnectionFlow) {
-    private val packetSentLog: MutableMap<Long, PacketStatus> = ConcurrentMap()
+internal class LossDetector() {
+    private val packetSentLog: MutableMap<Long, Packet> = ConcurrentMap()
 
     @Volatile
     private var largestAcked = -1L
@@ -13,18 +14,23 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
     @Volatile
     private var isStopped = false
 
-    fun packetSent(packetStatus: PacketStatus) {
+    @OptIn(InternalAPI::class)
+    fun packetSent(packet: Packet) {
         if (isStopped) {
             return
         }
 
         // During a reset operation, no new packets must be logged as sent.
-        packetSentLog[packetStatus.packet.packetNumber()] = packetStatus
+        packetSentLog[packet.packetNumber()] = packet
+
     }
 
     fun processAckFrameReceived(packetNumber: Long) {
         if (isStopped) {
             return
+        }
+        if (packetNumber > largestAcked) {
+            largestAcked = packetNumber
         }
         packetSentLog.remove(packetNumber)
     }
@@ -35,31 +41,39 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
 
     }
 
+    fun isStopped(): Boolean {
+        return isStopped
+    }
+
+    fun packetsInFlight(): Int {
+        return packetSentLog.size
+    }
+
     fun detectLostPackets(): List<Packet> {
         if (isStopped) {
             return emptyList()
         }
 
         val result: MutableList<Packet> = mutableListOf()
-        val packets = packetSentLog.values
 
-        packets.forEach { packetStatus ->
-            if (pnTooOld(packetStatus)) {
-                if (!packetStatus.packet.isAckOnly) {
+        /* TODO
+        packetSentLog.keys.forEach { pn ->
+            if (pnTooOld(pn)) {
+                val packet = packetSentLog.remove(pn)
+                if (packet != null) {
                     println("Declare Lost")
-                    result.add(packetStatus.packet)
-                    packetSentLog.remove(packetStatus.packet.packetNumber())
+                    result.add(packet)
                 }
             }
-        }
+        }*/
         return result
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun pnTooOld(p: PacketStatus): Boolean {
-        val result = p.packet.packetNumber() <= largestAcked - 3
+    private fun pnTooOld(pn: Long): Boolean {
+        val result = pn <= largestAcked - (2*Settings.LACKED_ACKS)
         if (result) {
-            println("Loss too Old $largestAcked " + p.packet.level() + " " + p.packet.packetNumber())
+            println("Loss too Old $largestAcked packet $pn")
         }
         return result
     }

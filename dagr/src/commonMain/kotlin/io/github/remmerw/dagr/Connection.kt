@@ -11,9 +11,10 @@ import kotlinx.io.Source
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.dec
-import kotlin.inc
+import kotlin.concurrent.atomics.decrementAndFetch
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
 abstract class Connection(
@@ -24,7 +25,9 @@ abstract class Connection(
     private val terminate: Terminate
 ) : ConnectionData() {
     private val closeFramesSendRateLimiter = RateLimiter()
-    private var packetNumberGenerator = 0L // no concurrency
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val packetNumberGenerator: AtomicLong = AtomicLong(0)
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -84,13 +87,7 @@ abstract class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun processFrames(level: Level, source: Source): Boolean {
-        // <a href="https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions">...</a>
-        // "Ack-eliciting packet: A QUIC packet that contains frames other than ACK, PADDING,
-        // and CONNECTION_CLOSE."
-
-        var isAckEliciting = false
-
+    internal suspend fun processFrames(source: Source, packetNumber: Long) {
 
         var frameType: Byte
 
@@ -102,21 +99,21 @@ abstract class Connection(
 
             when (frameType.toInt()) {
                 0x01 ->  // ping frame nothing to parse
-                    isAckEliciting = true
+                    sendAck(packetNumber)
 
                 0x02 ->  // isAckEliciting = false
                 {
                     val packetNumber = source.readLong()
-                    lossDetector(level).processAckFrameReceived(packetNumber)
+                    lossDetector().processAckFrameReceived(packetNumber)
                 }
 
                 0x18 -> {
-                    isAckEliciting = true
+                    sendAck(packetNumber)
                     process(FrameReceived.parseVerifyRequestFrame(source))
                 }
 
                 0x19 -> {
-                    isAckEliciting = true
+                    sendAck(packetNumber)
                     process(FrameReceived.parseVerifyResponseFrame(source))
                 }
 
@@ -126,7 +123,7 @@ abstract class Connection(
 
                 else -> {
                     if ((frameType >= 0x08) && (frameType <= 0x0f)) {
-                        isAckEliciting = true
+                        sendAck(packetNumber)
                         process(FrameReceived.parseDataFrame(frameType, source))
                     } else {
                         // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.4
@@ -137,10 +134,16 @@ abstract class Connection(
                 }
             }
         }
-
-        return isAckEliciting
     }
 
+
+    internal suspend fun sendAck(packetNumber: Long) {
+        try {
+            send(assembleAck(packetNumber))
+        } catch (throwable: Throwable){
+            throwable.printStackTrace()
+        }
+    }
 
     internal suspend fun processPacket(
         level: Level, source: Source, packetNumber: Long,
@@ -152,13 +155,8 @@ abstract class Connection(
 
         if (!state.isClosing) {
 
-            val isAckEliciting = processFrames(level, source)
+            processFrames(source, packetNumber)
 
-            ackGenerator(level).packetReceived(isAckEliciting, packetNumber)
-
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-            // "An endpoint restarts its idle timer when a packet from its peer is received
-            // and processed successfully."
             packetIdleProcessed()
         } else if (state.isClosing) {
             // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.1
@@ -287,13 +285,9 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun packetIdleSent(packet: Packet, sendTime: TimeSource.Monotonic.ValueTimeMark) {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-        // "An endpoint also restarts its idle timer when sending an ack-eliciting packet
-        // if no other ack-eliciting packets have been sent since last receiving and
-        // processing a packet. "
+    private fun packetIdleSent(packet: Packet) {
         if (isAckEliciting(packet)) {
-            lastAction = sendTime
+            lastAction = TimeSource.Monotonic.markNow()
         }
     }
 
@@ -304,65 +298,66 @@ abstract class Connection(
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
-            sendLostPackets()
-            sendNewPackets()
+            try {
+                sendLostPackets()
 
-            keepAlive() // only happens when enabled
-            checkIdle() // only happens when enabled
+                /*
+                if (!allowedSending()) { // todo
+
+                }*/
+                sendNewPackets()
+                keepAlive() // only happens when enabled
+                checkIdle() // only happens when enabled
+
+            } catch (throwable: Throwable){
+                debug(throwable)
+                throw throwable
+            }
         }
     }
 
     private suspend fun sendLostPackets() {
-        send(lossDetection())
+        lossDetection().forEach { packet -> send(packet) }
     }
 
     private suspend fun sendNewPackets() {
-        var items: List<Packet>
-        do {
-            items = assemblePackets()
-            if (items.isNotEmpty()) {
-                send(items)
-            }
-        } while (items.isNotEmpty())
+        val item = assemblePacket()
+        if(item != null){
+            send(item)
+        }
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun send(itemsToSend: List<Packet>) {
-        for (packet in itemsToSend) {
-            val buffer = packet.generatePacketBytes()
-
-            val datagram = Datagram(buffer, remoteAddress)
-
-            val timeSent = TimeSource.Monotonic.markNow()
-            socket.send(datagram)
-
-            idleCounter.store(0)
-            packetSent(packet, timeSent)
-            packetIdleSent(packet, timeSent)
-
-        }
+    private suspend fun send(packet: Packet) {
+        val buffer = packet.generatePacketBytes()
+        val datagram = Datagram(buffer, remoteAddress)
+        socket.send(datagram)
+        idleCounter.store(0)
+        packetSent(packet)
+        packetIdleSent(packet)
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
+    private fun assembleAck(pn: Long): Packet {
+        val packetNumber = packetNumberGenerator.incrementAndFetch()
+        return Packet.AppPacket(packetNumber, listOf(createAckFrame(pn)))
+    }
 
-    private suspend fun assemblePackets(): List<Packet> {
-
-
-        val packets: MutableList<Packet> = arrayListOf()
-
+    @OptIn(ExperimentalAtomicApi::class)
+    private suspend fun assemblePacket(): Packet? {
         for (level in Level.levels()) {
             if (!isDiscarded(level)) {
                 val assembler = packetAssembler(level)
-                val packetNumber = packetNumberGenerator++
-                val item = assembler.assemble(packetNumber,peerId)
+                val packetNumber = packetNumberGenerator.incrementAndFetch()
+                val item = assembler.assemble(packetNumber, peerId)
                 if (item != null) {
-                    packets.add(item)
+                    return item
                 } else {
-                    packetNumberGenerator--
+                    packetNumberGenerator.decrementAndFetch()
                 }
             }
         }
-
-        return packets
+        return null
     }
 
     fun remotePeerId(): PeerId {
