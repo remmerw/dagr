@@ -19,7 +19,7 @@ class DagrMultipleTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
+        var serverData : ByteArray? = null
         val clientText = "Hello World"
         val server = newDagr(serverKeys, 7777, object : Responder {
             override suspend fun data(
@@ -29,6 +29,7 @@ class DagrMultipleTest {
                 assertEquals(data.decodeToString(), clientText)
 
                 val buffer = Buffer()
+                serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
                 buffer.write(serverData)
                 connection.write(buffer)
             }

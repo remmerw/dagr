@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import io.ktor.utils.io.core.remaining
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -110,23 +111,33 @@ abstract class ConnectionData() :
             requestFinish.release()
         } catch (_: Throwable) {
         }
-
-
     }
 
+    internal abstract suspend fun sendDataFrame(dataFrame: Frame)
 
     suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
         this.isSendingFinal = autoFlush
 
-        mutex.withLock {
-            sendingBuffer.write(buffer, buffer.size)
+        var offset = 0L
+        while(!buffer.exhausted()){
+            val read = min(1200, buffer.remaining)
+            var finalFrame = false
+            if(read < 1200 && autoFlush){
+                finalFrame = true
+            }
+
+
+            val byteArray = buffer.readByteArray(read.toInt())
+
+            val dataFrame = createDataFrame(
+                offset, byteArray, finalFrame
+            )
+            offset += read
+
+            sendDataFrame(dataFrame)
+
         }
 
-        sendRequestQueue.appendRequest(object : FrameSupplier {
-            override suspend fun nextFrame(maxSize: Int): Frame? {
-                return sendFrame(maxSize)
-            }
-        }, Settings.MIN_FRAME_SIZE)
     }
 
 

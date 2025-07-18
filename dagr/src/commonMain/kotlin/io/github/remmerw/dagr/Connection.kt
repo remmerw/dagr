@@ -309,6 +309,7 @@ abstract class Connection(
                 keepAlive() // only happens when enabled
                 checkIdle() // only happens when enabled
 
+                delay(Settings.MAX_ACK_DELAY.toLong())
             } catch (throwable: Throwable){
                 debug(throwable)
                 throw throwable
@@ -335,6 +336,17 @@ abstract class Connection(
         idleCounter.store(0)
         packetSent(packet)
         packetIdleSent(packet)
+    }
+
+    @OptIn(ExperimentalAtomicApi::class)
+     override suspend fun sendDataFrame(dataFrame: Frame) {
+        val packetNumber = packetNumberGenerator.incrementAndFetch()
+        val packet = Packet.AppPacket(packetNumber, listOf(dataFrame))
+        try {
+            send(packet)
+        } catch (throwable: Throwable){
+            throwable.printStackTrace()
+        }
     }
 
     @OptIn(ExperimentalAtomicApi::class)
