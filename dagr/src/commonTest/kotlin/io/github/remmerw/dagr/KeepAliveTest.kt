@@ -39,6 +39,9 @@ class KeepAliveTest {
         assertEquals(server.connections().size, 1)
         assertEquals(connector.connections().first().remotePeerId(), serverPeerId)
         assertEquals(server.connections().first().remotePeerId(), clientPeerId)
+        assertEquals(connector.connections(serverPeerId).size, 1)
+        assertEquals(server.connections(clientPeerId).size, 1)
+
 
         delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
         // now it should be no connections

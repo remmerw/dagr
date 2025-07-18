@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import io.github.remmerw.borr.PeerId
 import io.ktor.util.collections.ConcurrentSet
 
 interface Terminate {
@@ -7,6 +8,7 @@ interface Terminate {
     suspend fun shutdown()
 
     fun connections(): Set<Connection>
+    fun connections(peerId: PeerId): Set<Connection>
 }
 
 class Connector() : Terminate {
@@ -21,6 +23,10 @@ class Connector() : Terminate {
         connections.forEach { connection: Connection -> connection.close() }
         connections.clear()
 
+    }
+
+    override fun connections(peerId: PeerId): Set<Connection> {
+        return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
     }
 
     fun addConnection(connection: Connection) {

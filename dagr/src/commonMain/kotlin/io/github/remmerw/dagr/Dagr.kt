@@ -191,6 +191,10 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
     }
 
+    override fun connections(peerId: PeerId): Set<Connection> {
+        return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
+    }
+
     override fun connections(): Set<Connection> {
         return connections.values.toSet()
     }
