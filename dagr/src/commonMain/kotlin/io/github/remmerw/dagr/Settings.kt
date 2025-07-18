@@ -79,17 +79,10 @@ internal object Settings {
     const val MAX_ACK_DELAY: Int = 26
 
     const val INITIAL_MAX_DATA: Long = 786432
-    const val INITIAL_MAX_STREAM_DATA: Long = 524288
     const val MAX_DATAGRAM_FRAME_SIZE: Int =
         1200 // all other remote libp2p clients have same value // TODO make sure datagram size
     const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000
-
-    // NOTE: this is the default value for the ack scale
-    // ((int) Math.pow(2, Settings.ACK_DELAY_EXPONENT)) and it is valid as long
-    // Settings.ACK_DELAY_EXPONENT is used as default for client and server and
-    // do not change by a user defined value
-    const val ACK_DELAY_SCALE: Int = 8
 
     val BYTES_EMPTY: ByteArray = ByteArray(0)
 }

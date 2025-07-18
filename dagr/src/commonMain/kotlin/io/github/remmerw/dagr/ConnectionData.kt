@@ -35,9 +35,7 @@ abstract class ConnectionData() :
 
     private var processedToOffset: Long = 0 // no concurrency
 
-    // Stream offset at which the stream was last blocked, for detecting the first time
-    // stream is blocked at a certain offset.
-    private var sendingBlockedOffset: Long = 0 // no concurrency
+
 
 
     private suspend fun broadcast() {
@@ -93,7 +91,6 @@ abstract class ConnectionData() :
     }
 
     fun resetSending() {
-        sendingBlockedOffset = 0
         sendingOffset = 0
         isSendingFinal = false
         sendingBuffer.clear()

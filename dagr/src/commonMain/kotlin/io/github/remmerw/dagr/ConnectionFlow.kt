@@ -4,7 +4,6 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.time.TimeSource
 
@@ -214,44 +213,6 @@ open class ConnectionFlow() {
     val pto: Int
         get() = getSmoothedRtt() + 4 * getRttVar() + remoteMaxAckDelay
 
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun addSample(timeSent: TimeSource.Monotonic.ValueTimeMark, ackDelay: Int) {
-        var delay = ackDelay
-
-
-        if (delay > remoteMaxAckDelay) {
-            delay = remoteMaxAckDelay
-        }
-
-
-        var rttSample = timeSent.elapsedNow().inWholeMilliseconds.toInt()
-        if (rttSample < minRtt.load()) minRtt.store(rttSample)
-        // Adjust for ack delay if it's plausible. Because times are truncated at millisecond precision,
-        // consider rtt equal to min as plausible.
-        if (rttSample >= minRtt.load() + delay) {
-            rttSample -= delay
-        }
-        latestRtt.store(rttSample)
-
-        if (smoothedRtt.load() == Settings.NOT_DEFINED) {
-            // First time
-            smoothedRtt.store(rttSample)
-            rttVar.store(rttSample / 2)
-        } else {
-            val currentRttVar = abs(smoothedRtt.load() - rttSample)
-
-            rttVar.store(
-                // Add 2 to round to nearest integer
-                (3 * rttVar.load() + currentRttVar + 2) / 4
-            )
-
-            smoothedRtt.store(
-                // Add 4 to round to nearest integer
-                (7 * smoothedRtt.load() + rttSample + 4) / 8
-            )
-        }
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     fun getSmoothedRtt(): Int {
