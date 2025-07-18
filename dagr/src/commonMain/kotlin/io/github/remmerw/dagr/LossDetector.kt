@@ -22,12 +22,11 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         packetSentLog[packetStatus.packet.packetNumber()] = packetStatus
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    fun processAckFrameReceived(ackFrame: FrameReceived.AckFrame) {
+    fun processAckFrameReceived(packetNumber: Long) {
         if (isStopped) {
             return
         }
-        packetSentLog.remove(ackFrame.packetNumber)
+        packetSentLog.remove(packetNumber)
     }
 
     fun stop() {

@@ -101,13 +101,11 @@ abstract class Connection(
                 0x01 ->  // ping frame nothing to parse
                     isAckEliciting = true
 
-                0x02, 0x03 ->  // isAckEliciting = false
-                    process(
-                        FrameReceived.parseAckFrame(
-                            frameType, source,
-                        ), level
-                    )
-
+                0x02 ->  // isAckEliciting = false
+                {
+                    val packetNumber = source.readLong()
+                    lossDetector(level).processAckFrameReceived(packetNumber)
+                }
 
                 0x18 -> {
                     isAckEliciting = true

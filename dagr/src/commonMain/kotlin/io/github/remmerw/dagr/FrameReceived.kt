@@ -82,20 +82,6 @@ internal interface FrameReceived {
         }
 
 
-        fun parseAckFrame(type: Byte, buffer: Source): AckFrame {
-            //  If the frame payloadType is 0x03, ACK frames also contain the cumulative count
-            //  of QUIC packets with associated ECN marks received on the connection
-            //  up until this point.
-
-            if (type.toInt() == 0x03) {
-                debug("AckFrame of payloadType 0x03 is not yet fully supported")
-            }
-
-            val packetNumber = buffer.readLong()
-            return AckFrame(packetNumber)
-        }
-
-
         fun parseVerifyRequestFrame(buffer: Source): VerifyRequestFrame {
             val token = buffer.readByteArray(Settings.TOKEN_SIZE)
             return VerifyRequestFrame(token)

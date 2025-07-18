@@ -38,6 +38,10 @@ open class ConnectionFlow() {
     }
 
 
+    internal fun lossDetector(level: Level): LossDetector {
+        return lossDetectors[level.ordinal]!!
+    }
+
     internal fun ackGenerator(level: Level): AckGenerator {
         return ackGenerators[level.ordinal]!!
     }
@@ -68,9 +72,6 @@ open class ConnectionFlow() {
         sendRequestQueue(level).appendRequest(frame)
     }
 
-    internal fun process(ackFrame: FrameReceived.AckFrame, level: Level) {
-        lossDetectors[level.ordinal]!!.processAckFrameReceived(ackFrame)
-    }
 
     /**
      * Stop sending packets, but don't shutdown yet, so connection close can be sent.
