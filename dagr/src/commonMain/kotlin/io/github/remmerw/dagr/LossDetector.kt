@@ -3,7 +3,6 @@ package io.github.remmerw.dagr
 import io.ktor.util.collections.ConcurrentMap
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.max
 
 internal class LossDetector(private val connectionFlow: ConnectionFlow) {
     private val packetSentLog: MutableMap<Long, PacketStatus> = ConcurrentMap()
@@ -42,10 +41,6 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
             return
         }
 
-        val lossDelay = (Settings.TIME_THRESHOLD * max(
-            connectionFlow.getSmoothedRtt(), connectionFlow.getLatestRtt()
-        )).toLong()
-
 
         // https://tools.ietf.org/html/draft-ietf-quic-recovery-20#section-6.1
         // "A packet is declared lost if it meets all the following conditions:
@@ -61,7 +56,7 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         val packets = packetSentLog.values
 
         packets.forEach { packetStatus ->
-            if (pnTooOld(packetStatus) || sentTimeTooLongAgo(packetStatus, lossDelay)) {
+            if (pnTooOld(packetStatus)) {
                 if (!packetStatus.packet.isAckOnly) {
                     declareLost(packetStatus)
                 }
@@ -74,16 +69,6 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         val result = p.packet.packetNumber() <= largestAcked - 3
         if (result) {
             println("Loss too Old $largestAcked " + p.packet.level() + " " + p.packet.packetNumber())
-        }
-        return result
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun sentTimeTooLongAgo(p: PacketStatus, lossDelay: Long): Boolean {
-
-        val result = p.timeSent.elapsedNow().inWholeMilliseconds > lossDelay
-        if (result) {
-            println("Loss delay $lossDelay " + p.packet.level() + " " + p.packet.packetNumber())
         }
         return result
     }

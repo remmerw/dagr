@@ -12,7 +12,6 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
@@ -249,12 +248,7 @@ abstract class Connection(
         state(State.Closing)
 
 
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        // "The closing and draining connection states exist to ensure that connections
-        // close cleanly and that
-        // delayed or reordered packets are properly discarded. These states SHOULD persist
-        // for at least three times the current Probe Timeout (PTO) interval"
-        scheduleTerminate(pto)
+        scheduleTerminate(Settings.MAX_ACK_DELAY)
 
     }
 
@@ -359,17 +353,18 @@ abstract class Connection(
         // race conditions with
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
-            lossDetection()
-            sendIfAny()
+            try {
+                lossDetection()
+                sendIfAny()
 
-            keepAlive() // only happens when enabled
-            checkIdle() // only happens when enabled
+                keepAlive() // only happens when enabled
+                checkIdle() // only happens when enabled
 
-            val time = min(
-                (Settings.MAX_ACK_DELAY * (idleCounter.load() + 1)),
-                1000
-            ).toLong() // time is max 1s
-            delay(time)
+
+            } catch (throwable: Throwable) {
+                debug(throwable)
+                throw throwable
+            }
         }
     }
 

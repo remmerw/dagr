@@ -44,7 +44,7 @@ class DagrMultipleTest {
         connection.connect(1)
 
 
-        repeat(100) {
+        repeat(1000) {
             val buffer = Buffer()
             buffer.write(clientText.encodeToByteArray())
             val response = connection.request(1, buffer)
