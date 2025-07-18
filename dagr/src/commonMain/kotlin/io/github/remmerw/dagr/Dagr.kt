@@ -137,7 +137,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
 
             connection.processPacket(
-                PacketHeader(Level.INIT, source.readByteArray(), packetNumber)
+                Level.INIT, source.readByteArray(), packetNumber
             )
         }
     }
@@ -150,7 +150,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             val packetNumber = source.readLong()
             connection.processPacket(
-                PacketHeader(Level.APP, source.readByteArray(), packetNumber)
+                Level.APP, source.readByteArray(), packetNumber
             )
         }
     }

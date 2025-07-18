@@ -81,7 +81,7 @@ abstract class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun processFrames(packetHeader: PacketHeader): Boolean {
+    internal suspend fun processFrames(level: Level, framesBytes: ByteArray): Boolean {
         // <a href="https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions">...</a>
         // "Ack-eliciting packet: A QUIC packet that contains frames other than ACK, PADDING,
         // and CONNECTION_CLOSE."
@@ -90,7 +90,7 @@ abstract class Connection(
 
 
         val buffer = Buffer()
-        buffer.write(packetHeader.framesBytes)
+        buffer.write(framesBytes)
 
         var frameType: Byte
 
@@ -111,7 +111,7 @@ abstract class Connection(
                     process(
                         FrameReceived.parseAckFrame(
                             frameType, buffer,
-                        ), packetHeader.level
+                        ), level
                     )
 
 
@@ -151,24 +151,19 @@ abstract class Connection(
     }
 
 
-    internal suspend fun processPacket(packetHeader: PacketHeader) {
+    internal suspend fun processPacket(
+        level: Level, framesBytes: ByteArray, packetNumber: Long,
+    ) {
 
-        if (isDiscarded(packetHeader.level)) {
+        if (isDiscarded(level)) {
             return
         }
 
-
-
         if (!state.isClosing) {
-            val level = packetHeader.level
 
-            val isAckEliciting = process(packetHeader)
+            val isAckEliciting = processFrames(level, framesBytes)
 
-
-            ackGenerator(level).packetReceived(
-                isAckEliciting, packetHeader.packetNumber
-            )
-
+            ackGenerator(level).packetReceived(isAckEliciting, packetNumber)
 
             // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
             // "An endpoint restarts its idle timer when a packet from its peer is received
@@ -179,22 +174,10 @@ abstract class Connection(
             // "An endpoint in the closing state sends a packet containing a CONNECTION_CLOSE
             // frame in response
             //  to any incoming packet that it attributes to the connection."
-            handlePacketInClosingState(packetHeader.level)
+            handlePacketInClosingState(level)
         }
     }
 
-    private suspend fun process(packetHeader: PacketHeader): Boolean {
-        return when (packetHeader.level) {
-            Level.INIT -> {
-                processFrames(packetHeader)
-            }
-
-            Level.APP -> {
-
-                processFrames(packetHeader)
-            }
-        }
-    }
 
     internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame)
     internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame)

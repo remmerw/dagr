@@ -149,7 +149,7 @@ class DagrClient internal constructor(
                     val packetNumber = source.readLong()
 
                     processPacket(
-                        PacketHeader(Level.APP, source.readByteArray(), packetNumber)
+                        Level.APP, source.readByteArray(), packetNumber
                     )
                 } else {
                     debug("Probably hole punch detected $type")
