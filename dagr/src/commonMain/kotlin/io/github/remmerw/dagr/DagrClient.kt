@@ -67,7 +67,7 @@ class DagrClient internal constructor(
             runRequester()
         }
 
-        sendFrame(Level.INIT, createVerifyRequestFrame(token))
+        sendFrame(Level.INIT, true, createVerifyRequestFrame(token))
     }
 
 
@@ -77,12 +77,12 @@ class DagrClient internal constructor(
         terminate()
     }
 
-    override suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame) {
+    override suspend fun process(verifyFrame: VerifyRequestFrame) {
         // not yet supported (maybe in the future)
     }
 
 
-    override suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame) {
+    override suspend fun process(verifyFrame: VerifyResponseFrame) {
 
 
         val remoteSignature = verifyFrame.signature

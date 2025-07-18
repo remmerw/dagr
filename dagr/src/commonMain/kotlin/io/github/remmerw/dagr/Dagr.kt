@@ -98,7 +98,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                 ) {
 
 
-                    override suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame) {
+                    override suspend fun process(verifyFrame: VerifyRequestFrame) {
                         val remoteToken = verifyFrame.token
                         try {
 
@@ -107,7 +107,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
                             val signature = sign(keys, remoteToken)
 
-                            sendFrame(Level.APP, createVerifyResponseFrame(signature))
+                            sendFrame(Level.APP, true, createVerifyResponseFrame(signature))
 
                         } catch (throwable: Throwable) {
                             debug("Verification failed " + throwable.message)
@@ -118,7 +118,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         }
                     }
 
-                    override suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame) {
+                    override suspend fun process(verifyFrame: VerifyResponseFrame) {
                         // not yet supported (maybe in the future)
                     }
 

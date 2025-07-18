@@ -14,14 +14,24 @@ internal data class PacketStatus(
 
 
 internal interface Packet {
+
+    /**
+     * Returns whether the frame is ack eliciting
+     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions)
+     * "Ack-eliciting packet: A QUIC packet that contains frames other than ACK, PADDING, and CONNECTION_CLOSE."
+     *
+     * @return true when the frame is ack-eliciting
+     */
+    fun isAckEliciting(): Boolean
     fun packetNumber(): Long
-    fun frames(): List<Frame>
     fun generatePacketBytes(): Buffer
 
+    @Suppress("ArrayInDataClass")
     data class InitPacket(
         val peerId: PeerId,
-        val packetNumber: Long,
-        val frames: List<Frame>
+        private val packetNumber: Long,
+        private val isAckEliciting: Boolean,
+        private val frame: ByteArray
     ) :
         Packet {
 
@@ -31,60 +41,50 @@ internal interface Packet {
             buffer.writeByte(0.toByte())
             buffer.write(peerId.hash)
             buffer.writeLong(packetNumber)
+            buffer.write(frame)
 
-            frames.forEach { frame ->
-                buffer.write(frame.frameBytes)
-            }
             require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
 
             return buffer
         }
 
-        override fun packetNumber(): Long {
-            return packetNumber
+        override fun isAckEliciting(): Boolean {
+            return isAckEliciting
         }
 
-        override fun frames(): List<Frame> {
-            return frames
+        override fun packetNumber(): Long {
+            return packetNumber
         }
 
     }
 
-
-    data class AppPacket(val packetNumber: Long, val frames: List<Frame>) :
+    @Suppress("ArrayInDataClass")
+    data class AppPacket(
+        private val packetNumber: Long,
+        private val isAckEliciting: Boolean,
+        private val frame: ByteArray
+    ) :
         Packet {
+
+
         override fun packetNumber(): Long {
             return packetNumber
         }
 
-        override fun frames(): List<Frame> {
-            return frames
+        override fun isAckEliciting(): Boolean {
+            return isAckEliciting
         }
 
         override fun generatePacketBytes(): Buffer {
             val buffer = Buffer()
             buffer.writeByte(1.toByte())
             buffer.writeLong(packetNumber)
+            buffer.write(frame)
 
-            frames.forEach { frame ->
-                buffer.write(frame.frameBytes)
-            }
             require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
             return buffer
 
         }
-
     }
 }
 
-// https://tools.ietf.org/html/draft-ietf-quic-recovery-33#section-2
-// "Packets that contain ack-eliciting frames elicit an ACK from the receiver (...)
-// and are called ack-eliciting packets."
-internal fun isAckEliciting(packet: Packet): Boolean {
-    for (frame in packet.frames()) {
-        if (isAckEliciting(frame)) {
-            return true
-        }
-    }
-    return false
-}

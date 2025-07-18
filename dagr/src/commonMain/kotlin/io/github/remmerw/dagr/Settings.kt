@@ -4,7 +4,6 @@ package io.github.remmerw.dagr
 internal object Settings {
     const val SIGNATURE_SIZE = 64
     const val TOKEN_SIZE = 32
-    const val FACTOR = 2
 
     // https://datatracker.ietf.org/doc/html/rfc9002#name-variables-of-interest-2
     // The sender's current maximum payload size. This does not include UDP or IP overhead.

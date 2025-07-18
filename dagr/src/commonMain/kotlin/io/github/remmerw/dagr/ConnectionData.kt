@@ -12,7 +12,7 @@ import kotlin.math.min
 abstract class ConnectionData() :
     ConnectionFlow() {
 
-    private val frames: MutableList<FrameReceived.DataFrame> = mutableListOf() // no concurrency
+    private val frames: MutableList<DataFrame> = mutableListOf() // no concurrency
     private val readingBuffer = Buffer()
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -26,7 +26,7 @@ abstract class ConnectionData() :
         var bytesRead = 0
 
 
-        val removes: MutableList<FrameReceived.DataFrame> = mutableListOf()
+        val removes: MutableList<DataFrame> = mutableListOf()
 
         val iterator = frames.sorted().iterator()
         var isFinal = false
@@ -91,7 +91,7 @@ abstract class ConnectionData() :
         }
     }
 
-    internal abstract suspend fun sendFrame(level: Level, frame: Frame)
+    internal abstract suspend fun sendFrame(level: Level, isAckEliciting: Boolean, frame: ByteArray)
 
     suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
         var offset = 0L
@@ -110,7 +110,7 @@ abstract class ConnectionData() :
             )
             offset += read
 
-            sendFrame(Level.APP, dataFrame)
+            sendFrame(Level.APP, true, dataFrame)
         }
     }
 
@@ -137,7 +137,7 @@ abstract class ConnectionData() :
         return readingBuffer
     }
 
-    private fun addFrame(frame: FrameReceived.DataFrame): Boolean {
+    private fun addFrame(frame: DataFrame): Boolean {
         if (frame.offset >= processedToOffset) {
             return frames.add(frame)
         } else {
@@ -150,7 +150,7 @@ abstract class ConnectionData() :
     abstract fun responder(): Responder?
 
 
-    internal suspend fun processDataFrame(frame: FrameReceived.DataFrame) {
+    internal suspend fun processDataFrame(frame: DataFrame) {
         val added = addFrame(frame)
         if (added) {
             broadcast() // this blocks the parsing of further packets

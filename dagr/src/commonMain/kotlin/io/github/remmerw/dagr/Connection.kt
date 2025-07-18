@@ -57,7 +57,7 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                sendFrame(Level.APP, PING)
+                sendFrame(Level.APP, true, PING)
                 lastPing = TimeSource.Monotonic.markNow()
             }
         }
@@ -102,22 +102,22 @@ abstract class Connection(
 
                 0x18 -> {
                     sendAck(packetNumber)
-                    process(FrameReceived.parseVerifyRequestFrame(source))
+                    process(parseVerifyRequestFrame(source))
                 }
 
                 0x19 -> {
                     sendAck(packetNumber)
-                    process(FrameReceived.parseVerifyResponseFrame(source))
+                    process(parseVerifyResponseFrame(source))
                 }
 
                 0x1c, 0x1d ->  // isAckEliciting is false;
-                    process(FrameReceived.parseConnectionCloseFrame(source))
+                    process(parseConnectionCloseFrame(source))
 
 
                 else -> {
                     if ((frameType >= 0x08) && (frameType <= 0x0f)) {
                         sendAck(packetNumber)
-                        process(FrameReceived.parseDataFrame(frameType, source))
+                        process(parseDataFrame(frameType, source))
                     } else {
                         // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.4
                         // "An endpoint MUST treat the receipt of a frame of unknown payloadType
@@ -132,7 +132,7 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        sendFrame(Level.APP, createAckFrame(packetNumber))
+        sendFrame(Level.APP, false, createAckFrame(packetNumber))
     }
 
     internal suspend fun processPacket(
@@ -152,11 +152,11 @@ abstract class Connection(
     }
 
 
-    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame)
-    internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame)
+    internal abstract suspend fun process(verifyFrame: VerifyRequestFrame)
+    internal abstract suspend fun process(verifyFrame: VerifyResponseFrame)
 
 
-    private suspend fun process(dataFrame: FrameReceived.DataFrame) {
+    private suspend fun process(dataFrame: DataFrame) {
         try {
             processDataFrame(dataFrame)
         } catch (transportError: TransportError) {
@@ -175,7 +175,10 @@ abstract class Connection(
 
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
 
-        sendFrame(Level.APP, createConnectionCloseFrame(transportError))
+        sendFrame(
+            Level.APP, false,
+            createConnectionCloseFrame(transportError)
+        )
 
 
         // "After sending a CONNECTION_CLOSE frame, an endpoint immediately enters the closing state;"
@@ -185,7 +188,7 @@ abstract class Connection(
     }
 
 
-    private suspend fun process(closing: FrameReceived.ConnectionCloseFrame) {
+    private suspend fun process(closing: ConnectionCloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
@@ -245,7 +248,7 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun packetIdleSent(packet: Packet) {
-        if (isAckEliciting(packet)) {
+        if (packet.isAckEliciting()) {
             lastAction = TimeSource.Monotonic.markNow()
         }
     }
@@ -283,13 +286,13 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun sendFrame(level: Level, frame: Frame) {
+    override suspend fun sendFrame(level: Level, isAckEliciting: Boolean, frame: ByteArray) {
         val packetNumber = packetNumberGenerator.incrementAndFetch()
 
         val packet = if (level == Level.APP) {
-            Packet.AppPacket(packetNumber, listOf(frame))
+            Packet.AppPacket(packetNumber, isAckEliciting, frame)
         } else {
-            Packet.InitPacket(peerId, packetNumber, listOf(frame))
+            Packet.InitPacket(peerId, packetNumber, isAckEliciting, frame)
         }
         try {
             send(packet)
@@ -297,7 +300,6 @@ abstract class Connection(
             throwable.printStackTrace()
         }
     }
-
 
 
     fun remotePeerId(): PeerId {

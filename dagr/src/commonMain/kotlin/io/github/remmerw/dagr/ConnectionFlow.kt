@@ -19,7 +19,7 @@ open class ConnectionFlow() {
 
 
     internal fun packetSent(packetStatus: PacketStatus) {
-        if (isAckEliciting(packetStatus.packet)) {
+        if (packetStatus.packet.isAckEliciting()) {
             lostDetector.packetSent(packetStatus)
         }
     }
