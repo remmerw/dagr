@@ -25,10 +25,7 @@ abstract class ConnectionData() :
     private suspend fun broadcast() {
         var bytesRead = 0
 
-
-        val removes: MutableList<DataFrame> = mutableListOf()
-
-        val iterator = frames.sorted().iterator()
+        val iterator = frames.iterator()
         var isFinal = false
         while (iterator.hasNext()) {
             val frame = iterator.next()
@@ -45,14 +42,13 @@ abstract class ConnectionData() :
                     if (frame.isFinal) {
                         isFinal = true
                     }
+                    iterator.remove()
 
-                    removes.add(frame)
                 }
             } else {
                 break
             }
         }
-        frames.removeAll(removes)
 
 
 
@@ -151,6 +147,7 @@ abstract class ConnectionData() :
 
 
     internal suspend fun processDataFrame(frame: DataFrame) {
+
         val added = addFrame(frame)
         if (added) {
             broadcast() // this blocks the parsing of further packets
