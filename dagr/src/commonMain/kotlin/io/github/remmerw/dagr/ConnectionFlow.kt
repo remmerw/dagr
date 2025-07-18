@@ -2,9 +2,7 @@ package io.github.remmerw.dagr
 
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.max
 import kotlin.time.TimeSource
 
 
@@ -80,28 +78,14 @@ open class ConnectionFlow() {
     private val smoothedRtt = AtomicInt(Settings.NOT_DEFINED)
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val minRtt = AtomicInt(Int.MAX_VALUE)
-
-    @OptIn(ExperimentalAtomicApi::class)
     private val latestRtt = AtomicInt(0)
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private val bytesInFlight = AtomicLong(0L)
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val congestionWindow = AtomicLong(Settings.INITIAL_CONGESTION_WINDOW.toLong())
     private val lossDetectors = arrayOfNulls<LossDetector>(Level.LENGTH)
 
     // https://tools.ietf.org/html/draft-ietf-quic-transport-30#section-8.2
     // "If this value is absent, a default of 25 milliseconds is assumed."
     @Volatile
     protected var remoteMaxAckDelay: Int = Settings.MAX_ACK_DELAY
-
-    @Volatile
-    private var slowStartThreshold = Long.MAX_VALUE
-
-    @Volatile
-    private var congestionRecoveryStartTime: TimeSource.Monotonic.ValueTimeMark? = null
 
 
     init {
@@ -150,7 +134,6 @@ open class ConnectionFlow() {
     ) {
         if (isInflightPacket(packet)) {
             val packetStatus = PacketStatus(packet, size, timeSent)
-            registerInFlight(packetStatus)
             lossDetectors[packet.level().ordinal]!!.packetSent(packetStatus)
         }
     }
@@ -246,106 +229,6 @@ open class ConnectionFlow() {
         return latestRtt.load()
     }
 
-    // the packet status is a packet send earlier and has now been acknowlegded
-    @OptIn(ExperimentalAtomicApi::class)
-    internal fun processAckedPacket(acknowlegdedPacket: PacketStatus) {
-
-        bytesInFlight.store(
-            max((bytesInFlight.load() - acknowlegdedPacket.size.toLong()), 0)
-        )
-
-
-        // https://datatracker.ietf.org/doc/html/rfc9002#name-underutilizing-the-congesti
-        // 7.8. Underutilizing the Congestion Window
-        // When bytes in flight is smaller than the congestion window and sending is not pacing
-        // limited, the congestion window is underutilized. This can happen due to insufficient
-        // application data or flow control limits. When this occurs, the congestion window
-        // SHOULD NOT be increased in either slow start or congestion avoidance.
-        //
-        val underutilizingCongestionWindow = bytesInFlight.load() < congestionWindow.load()
-        if (!underutilizingCongestionWindow) {
-            // https://tools.ietf.org/html/draft-ietf-quic-recovery-23#section-6.4
-            // "QUIC defines the end of recovery as a packet sent after the start
-            // of recovery being acknowledged"
-            if (congestionRecoveryStartTime == null ||
-                acknowlegdedPacket.timeSent > congestionRecoveryStartTime!!
-            ) {
-                val operand = congestionWindow.load()
-                congestionWindow.store(
-                    if (operand < slowStartThreshold) {
-                        // i.e. mode is slow start
-                        operand + acknowlegdedPacket.size // ok
-                    } else {
-                        // i.e. mode is congestion avoidance
-                        // A sender in congestion avoidance uses an Additive Increase Multiplicative
-                        // Decrease (AIMD) approach that MUST limit the increase to the congestion window to
-                        // at most one maximum datagram size for each congestion window that is acknowledged.
-                        operand + (Settings.MAX_DATAGRAM_SIZE.toLong() * acknowlegdedPacket.size / operand)
-                    }
-                )
-            }
-        }
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    internal fun discardBytesInFlight(packetStatus: PacketStatus) {
-
-        bytesInFlight.store(
-            max((bytesInFlight.load() - packetStatus.size.toLong()), 0)
-        )
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    internal fun registerLost(packetStatus: PacketStatus) {
-        discardBytesInFlight(packetStatus)
-
-
-        // 6.4.  Recovery Period
-        //
-        //   Recovery is a period of time beginning with detection of a lost
-        //   packet or an increase in the ECN-CE counter.  Because QUIC does not
-        //   retransmit packets, it defines the end of recovery as a packet sent
-        //   after the start of recovery being acknowledged.  This is slightly
-        //   different from TCP's definition of recovery, which ends when the lost
-        //   packet that started recovery is acknowledged.
-        //
-        //   The recovery period limits congestion window reduction to once per
-        //   round trip.  During recovery, the congestion window remains unchanged
-        //   irrespective of new losses or increases in the ECN-CE counter.
-        if (congestionRecoveryStartTime == null ||
-            packetStatus.timeSent > congestionRecoveryStartTime!!
-        ) {
-            congestionRecoveryStartTime = TimeSource.Monotonic.markNow()
-
-            //   When a loss is detected,
-            //   NewReno halves the congestion window and sets the slow start
-            //   threshold  to the new congestion window.
-            val operand = congestionWindow.load()
-
-
-            // When a loss is detected,
-            // NewReno halves the congestion window and sets the slow start
-            // threshold to the new congestion window.
-            slowStartThreshold = operand / Settings.CONGESTION_LOSS_REDUCTION_FACTOR
-            if (slowStartThreshold < Settings.MINIMUM_CONGESTION_WINDOW) {
-                Settings.MINIMUM_CONGESTION_WINDOW.toLong()
-            } else {
-                slowStartThreshold
-            }
-
-            congestionWindow.store(slowStartThreshold)
-        }
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun remainingCwnd(): Long {
-        return max((congestionWindow.load() - bytesInFlight.load()), 0)
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun registerInFlight(packetStatus: PacketStatus) {
-        bytesInFlight.addAndFetch(packetStatus.size.toLong())
-    }
 
     suspend fun lossDetection() {
         for (level in Level.levels()) {

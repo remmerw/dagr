@@ -36,8 +36,6 @@ abstract class ConnectionData() :
     private var processedToOffset: Long = 0 // no concurrency
 
 
-
-
     private suspend fun broadcast() {
         var bytesRead = 0
 

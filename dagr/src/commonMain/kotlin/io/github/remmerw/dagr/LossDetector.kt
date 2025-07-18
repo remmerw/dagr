@@ -28,27 +28,11 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         if (isStopped) {
             return
         }
-        val pn = ackFrame.packetNumber
-
-
-        val packetStatus = packetSentLog.remove(pn)
-        if (packetStatus != null) {
-            if (isAckEliciting(packetStatus.packet)) {
-                connectionFlow.processAckedPacket(packetStatus)
-            }
-        }
-
+        packetSentLog.remove(ackFrame.packetNumber)
     }
 
     fun stop() {
         isStopped = true
-
-
-        val packets = packetSentLog.values
-        packets.forEach { packetStatus ->
-            connectionFlow.discardBytesInFlight(packetStatus)
-        }
-
         packetSentLog.clear()
 
     }
@@ -105,9 +89,7 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
     }
 
     private suspend fun declareLost(packetStatus: PacketStatus) {
-        if (isAckEliciting(packetStatus.packet)) {
-            connectionFlow.registerLost(packetStatus)
-        }
+
 
         println("Declare Lost")
 

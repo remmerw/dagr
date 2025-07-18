@@ -410,7 +410,7 @@ abstract class Connection(
         var size = 0
 
         val minPacketSize = Long.SIZE_BYTES + 1 // Computed for short header packet
-        var remaining = min(remainingCwnd().toInt(), Settings.MAX_PACKAGE_SIZE)
+        var remaining = Settings.MAX_PACKAGE_SIZE
 
         for (level in Level.levels()) {
             if (!isDiscarded(level)) {
