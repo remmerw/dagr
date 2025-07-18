@@ -12,17 +12,16 @@ internal class PacketAssembler internal constructor(
     private val sendRequestQueue: SendRequestQueue,
     private val ackGenerator: AckGenerator
 ) {
-    private var packetNumberGenerator = 0L // no concurrency
+
 
 
     suspend fun assemble(
+        packetNumber: Long,
         peerId: PeerId
     ): Packet? {
 
         val available = Settings.MAX_PACKAGE_SIZE
         val frames: MutableList<Frame> = arrayListOf()
-
-        val packetNumber = packetNumberGenerator++
 
 
         val ackFrames = ackGenerator.generateAcks()
@@ -54,15 +53,11 @@ internal class PacketAssembler internal constructor(
                 }
             }
         }
-
-
-        val packet: Packet?
-        if (frames.isEmpty()) {
+        val packet: Packet? = if (frames.isEmpty()) {
             // Nothing could be added, discard packet and mark packet number as not used
-            packetNumberGenerator--
-            packet = null
+            null
         } else {
-            packet = createPacket(
+            createPacket(
                 level, peerId, packetNumber, frames
             )
         }

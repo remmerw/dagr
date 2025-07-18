@@ -12,6 +12,8 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.dec
+import kotlin.inc
 import kotlin.time.TimeSource
 
 abstract class Connection(
@@ -22,6 +24,7 @@ abstract class Connection(
     private val terminate: Terminate
 ) : ConnectionData() {
     private val closeFramesSendRateLimiter = RateLimiter()
+    private var packetNumberGenerator = 0L // no concurrency
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -349,9 +352,12 @@ abstract class Connection(
         for (level in Level.levels()) {
             if (!isDiscarded(level)) {
                 val assembler = packetAssembler(level)
-                val item = assembler.assemble(peerId)
+                val packetNumber = packetNumberGenerator++
+                val item = assembler.assemble(packetNumber,peerId)
                 if (item != null) {
                     packets.add(item)
+                } else {
+                    packetNumberGenerator--
                 }
             }
         }
