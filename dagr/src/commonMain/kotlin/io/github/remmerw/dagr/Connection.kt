@@ -10,7 +10,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.io.Source
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.decrementAndFetch
@@ -37,9 +36,6 @@ abstract class Connection(
 
     @Volatile
     private var lastPing = TimeSource.Monotonic.markNow()
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val idleCounter = AtomicInt(0)
 
     @Volatile
     private var state = State.Created
@@ -73,7 +69,6 @@ abstract class Connection(
     fun enableKeepAlive() {
         if (enableKeepAlive.compareAndSet(expectedValue = false, newValue = true)) {
             lastPing = TimeSource.Monotonic.markNow()
-            idleCounter.store(0)
         }
     }
 
@@ -140,7 +135,7 @@ abstract class Connection(
     internal suspend fun sendAck(packetNumber: Long) {
         try {
             send(assembleAck(packetNumber))
-        } catch (throwable: Throwable){
+        } catch (throwable: Throwable) {
             throwable.printStackTrace()
         }
     }
@@ -176,12 +171,12 @@ abstract class Connection(
         try {
             processDataFrame(dataFrame)
         } catch (transportError: TransportError) {
-            scheduledClose(Level.APP, transportError)
+            sendCloseFrame(transportError)
         }
     }
 
 
-    internal suspend fun scheduledClose(level: Level, transportError: TransportError) {
+    internal suspend fun sendCloseFrame(transportError: TransportError) {
         if (state.isClosing) {
             debug("Immediate close ignored because already closing")
             return
@@ -190,15 +185,14 @@ abstract class Connection(
         disableKeepAlive()
 
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
-        addRequest(level, createConnectionCloseFrame(transportError))
+
+        sendFrame(createConnectionCloseFrame(transportError))
 
 
         // "After sending a CONNECTION_CLOSE frame, an endpoint immediately enters the closing state;"
         state(State.Closing)
 
-
-        scheduleTerminate(Settings.MAX_ACK_DELAY)
-
+        terminate()
     }
 
     private suspend fun handlePacketInClosingState(level: Level) {
@@ -248,13 +242,9 @@ abstract class Connection(
 
     override suspend fun close() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        scheduledClose(Level.APP, TransportError(TransportError.Code.NO_ERROR))
+        sendCloseFrame(TransportError(TransportError.Code.NO_ERROR))
     }
 
-    suspend fun scheduleTerminate(pto: Int) {
-        delay(pto.toLong())
-        terminate()
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun checkIdle() {
@@ -267,8 +257,8 @@ abstract class Connection(
 
             debug("Idle timeout: silently closing connection $remoteAddress")
 
-            scheduledClose(
-                Level.APP, TransportError(
+            sendCloseFrame(
+                TransportError(
                     TransportError.Code.NO_ERROR
                 )
             )
@@ -298,22 +288,12 @@ abstract class Connection(
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
-            try {
-                sendLostPackets()
+            sendLostPackets()
+            sendNewPackets()
+            keepAlive() // only happens when enabled
+            checkIdle() // only happens when enabled
 
-                /*
-                if (!allowedSending()) { // todo
-
-                }*/
-                sendNewPackets()
-                keepAlive() // only happens when enabled
-                checkIdle() // only happens when enabled
-
-                delay(Settings.MAX_ACK_DELAY.toLong())
-            } catch (throwable: Throwable){
-                debug(throwable)
-                throw throwable
-            }
+            delay(Settings.MAX_DELAY.toLong())
         }
     }
 
@@ -323,7 +303,7 @@ abstract class Connection(
 
     private suspend fun sendNewPackets() {
         val item = assemblePacket()
-        if(item != null){
+        if (item != null) {
             send(item)
         }
     }
@@ -332,19 +312,21 @@ abstract class Connection(
     private suspend fun send(packet: Packet) {
         val buffer = packet.generatePacketBytes()
         val datagram = Datagram(buffer, remoteAddress)
+
+        val timeSent = TimeSource.Monotonic.markNow()
         socket.send(datagram)
-        idleCounter.store(0)
-        packetSent(packet)
+
+        packetSent(PacketStatus(packet, timeSent))
         packetIdleSent(packet)
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-     override suspend fun sendDataFrame(dataFrame: Frame) {
+    override suspend fun sendFrame(dataFrame: Frame) {
         val packetNumber = packetNumberGenerator.incrementAndFetch()
         val packet = Packet.AppPacket(packetNumber, listOf(dataFrame))
         try {
             send(packet)
-        } catch (throwable: Throwable){
+        } catch (throwable: Throwable) {
             throwable.printStackTrace()
         }
     }

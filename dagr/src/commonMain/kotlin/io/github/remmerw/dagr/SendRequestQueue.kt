@@ -4,6 +4,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 
+// todo remove
 internal class SendRequestQueue {
     private val requestQueue: ArrayDeque<SendRequest> = ArrayDeque()
     private val mutex = Mutex()
@@ -33,18 +34,6 @@ internal class SendRequestQueue {
                     }
                 )
             )
-        }
-    }
-
-    /**
-     * @param estimatedSize The minimum size of the frame that the supplier can produce. When the supplier is
-     * requested to produce a frame of that size, it must return a frame of the size or smaller.
-     * This leaves room for the caller to handle uncertainty of how large the frame will be,
-     * for example due to a var-length int value that may be larger at the moment the frame
-     */
-    suspend fun appendRequest(frameSupplier: FrameSupplier, estimatedSize: Int) {
-        mutex.withLock {
-            requestQueue.addLast(SendRequest(estimatedSize, frameSupplier))
         }
     }
 

@@ -20,11 +20,6 @@ internal interface FrameReceived {
         }
     }
 
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-transport-parameter-definit
-    // "...  a default value of 3 is assumed (indicating a multiplier of 8)."
-
-    data class AckFrame(val packetNumber: Long) : FrameReceived
-
 
     /**
      * Represents a new connection id frame.

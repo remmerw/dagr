@@ -3,6 +3,16 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
 
+
+import kotlin.time.TimeSource
+
+
+internal data class PacketStatus(
+    val packet: Packet,
+    val timeSent: TimeSource.Monotonic.ValueTimeMark
+)
+
+
 internal interface Packet {
     fun packetNumber(): Long
     fun level(): Level

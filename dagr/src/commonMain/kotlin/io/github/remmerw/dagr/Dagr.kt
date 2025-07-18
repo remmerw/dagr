@@ -111,8 +111,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         } catch (throwable: Throwable) {
                             debug("Verification failed " + throwable.message)
 
-                            scheduledClose(
-                                Level.APP,
+                            sendCloseFrame(
                                 TransportError(TransportError.Code.PROTOCOL_VIOLATION)
                             )
                         }

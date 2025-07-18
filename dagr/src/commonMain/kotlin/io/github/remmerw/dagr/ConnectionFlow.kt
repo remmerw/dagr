@@ -39,9 +39,9 @@ open class ConnectionFlow() {
         return packetAssemblers[level.ordinal]!!
     }
 
-    internal fun packetSent(packet: Packet) {
-        if (isAckEliciting(packet)) {
-            lostDetector.packetSent(packet)
+    internal fun packetSent(packetStatus: PacketStatus) {
+        if (isAckEliciting(packetStatus.packet)) {
+            lostDetector.packetSent(packetStatus)
         }
     }
 
@@ -83,13 +83,6 @@ open class ConnectionFlow() {
         // clear all send requests and probes on that level
         sendRequestQueues[level.ordinal]!!.clear()
 
-    }
-
-    internal fun allowedSending(): Boolean {
-        if (lostDetector.isStopped()) {
-            return false
-        }
-        return lostDetector.packetsInFlight() < Settings.LACKED_ACKS
     }
 
     internal fun lossDetection(): List<Packet> {

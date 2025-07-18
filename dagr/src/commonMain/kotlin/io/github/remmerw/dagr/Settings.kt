@@ -4,69 +4,16 @@ package io.github.remmerw.dagr
 internal object Settings {
     const val SIGNATURE_SIZE = 64
     const val TOKEN_SIZE = 32
-
-    const val UNREGISTER: Long = -1
-
-    const val RECEIVER_MAX_DATA_INCREMENT_FACTOR = 0.10f
-
-    // Minimum stream frame size: frame payloadType (1), stream id (1..8), offset (1..8), length (1..2), data (1...)
-    // Note that in practice stream id and offset will seldom / never occupy 8 bytes, so the minimum leaves more room for data.
-    const val MIN_FRAME_SIZE = 1 + 8 + 8 + 2 + 1
-
     const val FACTOR = 2
-
-    const val TIME_THRESHOLD = 9f / 8f
-
-    const val ACK_FREQUENCY_TWO = 2
-
-    const val NOT_DEFINED: Int = -1
 
     // https://datatracker.ietf.org/doc/html/rfc9002#name-variables-of-interest-2
     // The sender's current maximum payload size. This does not include UDP or IP overhead.
     // The max datagram size is used for congestion window computations. An endpoint sets the
     // value of this variable based on its Path Maximum Transmission Unit (PMTU; see Section
     // 14.2 of [QUIC-TRANSPORT]), with a minimum value of 1200 bytes.
-    const val MAX_DATAGRAM_SIZE: Int = 1200
+    const val MAX_DATAGRAM_SIZE: Long = 1200
 
 
-    // https://datatracker.ietf.org/doc/html/rfc9002#initial-cwnd
-    // QUIC begins every connection in slow start with the congestion window set to an
-    // initial value. Endpoints SHOULD use an initial congestion window of ten times the
-    // maximum datagram size (max_datagram_size), while limiting the window to the larger
-    // of 14,720 bytes or twice the maximum datagram size. This follows the analysis
-    // and recommendations in [RFC6928], increasing the byte limit to account for the smaller
-    // 8-byte overhead of UDP compared to the 20-byte overhead for TCP.
-    //
-    // If the maximum datagram size changes during the connection, the initial congestion
-    // window SHOULD be recalculated with the new size. If the maximum datagram size is
-    // decreased in order to complete the handshake, the congestion window SHOULD be set
-    // to the new initial congestion window.
-    //
-    // Prior to validating the client's address, the server can be further limited by
-    // the anti-amplification limit as specified in Section 8.1 of [QUIC-TRANSPORT]. T
-    // hough the anti-amplification limit can prevent the congestion window from being fully
-    // utilized and therefore slow down the increase in congestion window, it does not
-    // directly affect the congestion window.
-    //
-    // The minimum congestion window is the smallest value the congestion window can attain
-    // in response to loss, an increase in the peer-reported ECN-CE count, or persistent
-    // congestion. The RECOMMENDED value is 2 * max_datagram_size.
-    // Endpoints SHOULD use an initial congestion window of ten times the maximum datagram
-    // size (max_datagram_size), while limiting the window to the larger of 14,720
-    // bytes or twice the maximum datagram size.
-    const val INITIAL_CONGESTION_WINDOW: Int = 10 * MAX_DATAGRAM_SIZE
-
-    const val MINIMUM_CONGESTION_WINDOW: Int = 2 * MAX_DATAGRAM_SIZE
-
-
-    // https://tools.ietf.org/html/draft-ietf-quic-recovery-23#appendix-B.1
-    // "Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5."
-    const val CONGESTION_LOSS_REDUCTION_FACTOR: Int = 2 // note how it is used
-
-    // https://tools.ietf.org/html/draft-ietf-quic-transport-17#section-14.1:
-    // "An endpoint SHOULD use Datagram Packetization Layer PMTU Discovery
-    //   ([DPLPMTUD]) or implement Path MTU Discovery (PMTUD) [RFC1191]
-    //   [RFC8201] ..."
     // "In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP
     //   packets larger than 1280 bytes.  Assuming the minimum IP header size,
     //   this results in a QUIC maximum packet size of 1232 bytes for IPv6 and
@@ -76,15 +23,8 @@ internal object Settings {
 
     const val INITIAL_RTT: Int = 500
 
-    const val MAX_ACK_DELAY: Int = 26
-
-    const val LACKED_ACKS: Int = 3
-
-    const val INITIAL_MAX_DATA: Long = 786432
-    const val MAX_DATAGRAM_FRAME_SIZE: Int =
-        1200 // all other remote libp2p clients have same value // TODO make sure datagram size
+    const val MAX_DELAY: Int = 100
     const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000
 
-    val BYTES_EMPTY: ByteArray = ByteArray(0)
 }
