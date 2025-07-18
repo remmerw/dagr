@@ -109,6 +109,7 @@ abstract class ConnectionData() :
 
     fun resetReading() {
         frames.clear()
+        processedToOffset = 0
         allDataReceived = false
         readingBuffer.clear()
     }
@@ -182,7 +183,8 @@ abstract class ConnectionData() :
                     response().readByteArray()
                 }
             }
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            debug(throwable)
             close()
             return byteArrayOf()
         } finally {
