@@ -28,33 +28,10 @@ internal class PacketAssembler internal constructor(
         val packetNumber = packetNumberGenerator++
 
 
-        // Check for an explicit ack, i.e. an ack on ack-eliciting packet that cannot be delayed
-        if (ackGenerator.mustSendAck(level)) {
-            val ackFrame = ackGenerator.generateAck(
-                packetNumber
-            ) { length: Int ->
-                (estimateLength(
-                    level, frames
-                ) + length) <= availablePacketSize
-            }
+        val ackFrames = ackGenerator.generateAcks()
 
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-29#section-13.2
-            // "... packets containing only ACK frames are not congestion controlled ..."
-            // So: only check if it fits within available packet space
-            if (ackFrame != null) {
-                frames.add(ackFrame)
-            } else {
-                // If not even a mandatory ack can be added, don't bother about other frames:
-                // theoretically there might be frames
-                // that can be fit, but this is very unlikely to happen (because limit packet size
-                // is caused by coalescing packets
-                // in one datagram, which will only happen during handshake, when acks are still
-                // small) and even then: there
-                // will be a next packet in due time.
-                // AckFrame does not fit in availablePacketSize, so just return;
-                return null
-            }
-        }
+        frames.addAll(ackFrames)
+
 
         if (sendRequestQueue.hasRequests()) {
             // Must create packet here, to have an initial estimate of packet header overhead

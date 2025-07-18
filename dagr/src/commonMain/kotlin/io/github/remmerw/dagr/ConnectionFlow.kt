@@ -75,9 +75,6 @@ open class ConnectionFlow() {
     private val discardedLevels = arrayOfNulls<Boolean>(Level.LENGTH)
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val maxDataAssigned = AtomicLong(0L)
-
-    @OptIn(ExperimentalAtomicApi::class)
     private val rttVar = AtomicInt(Settings.NOT_DEFINED)
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -100,16 +97,6 @@ open class ConnectionFlow() {
     // "If this value is absent, a default of 25 milliseconds is assumed."
     @Volatile
     protected var remoteMaxAckDelay: Int = Settings.MAX_ACK_DELAY
-
-    // The maximum amount of data that can be sent (to the peer) on the connection as a whole
-    @Volatile
-    private var maxDataAllowed = Settings.INITIAL_MAX_DATA
-
-    // "initial_max_stream_data_bidi_remote (0x0006):  This parameter is an integer value specifying the initial flow control limit for peer-
-    //  initiated bidirectional streams. "
-    @Volatile
-    var initialMaxStreamDataBidiRemote = Settings.INITIAL_MAX_STREAM_DATA
-        private set
 
     @Volatile
     private var slowStartThreshold = Long.MAX_VALUE
@@ -178,8 +165,6 @@ open class ConnectionFlow() {
     }
 
     internal fun process(ackFrame: FrameReceived.AckFrame, level: Level) {
-        ackGenerator(level).ackFrameReceived(ackFrame)
-
         lossDetectors[level.ordinal]!!.processAckFrameReceived(ackFrame)
     }
 
@@ -229,26 +214,6 @@ open class ConnectionFlow() {
     val pto: Int
         get() = getSmoothedRtt() + 4 * getRttVar() + remoteMaxAckDelay
 
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun addMaxDataAssigned(proposedStreamIncrement: Long) {
-        maxDataAssigned.fetchAndAdd(proposedStreamIncrement)
-    }
-
-
-    /**
-     * Returns the current connection flow control limit.
-     *
-     * @return current connection flow control limit
-     */
-    fun maxDataAllowed(): Long {
-        return maxDataAllowed
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun maxDataAssigned(): Long {
-        return maxDataAssigned.load()
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     fun addSample(timeSent: TimeSource.Monotonic.ValueTimeMark, ackDelay: Int) {

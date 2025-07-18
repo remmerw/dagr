@@ -28,53 +28,23 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         if (isStopped) {
             return
         }
+        val pn = ackFrame.packetNumber
 
 
-        largestAcked = max(largestAcked, ackFrame.largestAcknowledged)
-
-
-        var newlyAcked: PacketStatus? = null
-
-        // it is ordered, packet status with highest packet number is at the top
-        val acknowledgedRanges = ackFrame.acknowledgedRanges
-        var i = 0
-        while (i < acknowledgedRanges.size) {
-            val to = acknowledgedRanges[i]
-            i++
-            val from = acknowledgedRanges[i]
-            for (pn in to downTo from) {
-                val packetStatus = packetSentLog.remove(pn)
-                if (packetStatus != null) {
-                    if (isAckEliciting(packetStatus.packet)) {
-                        connectionFlow.processAckedPacket(packetStatus)
-                    }
-                    if (newlyAcked == null) {
-                        newlyAcked = packetStatus
-                    }
-                }
-            }
-            i++
-        }
-
-        // https://tools.ietf.org/html/draft-ietf-quic-recovery-33#section-5.1
-        // "An endpoint generates an RTT sample on receiving an ACK frame that meets the following
-        // two conditions:
-        // the largest acknowledged packet number is newly acknowledged, and
-        // at least one of the newly acknowledged packets was ack-eliciting."
-        if (newlyAcked != null) {
-            if (newlyAcked.packet.packetNumber() == ackFrame.largestAcknowledged) {
-                if (isAckEliciting(newlyAcked.packet)) { // at least one of the newly acknowledged packets was ack-eliciting."
-                    connectionFlow.addSample(newlyAcked.timeSent, ackFrame.ackDelay)
-                }
+        val packetStatus = packetSentLog.remove(pn)
+        if (packetStatus != null) {
+            if (isAckEliciting(packetStatus.packet)) {
+                connectionFlow.processAckedPacket(packetStatus)
             }
         }
+
     }
 
     fun stop() {
         isStopped = true
 
 
-        val packets = packetSentLog.values.toList()
+        val packets = packetSentLog.values
         packets.forEach { packetStatus ->
             connectionFlow.discardBytesInFlight(packetStatus)
         }
@@ -104,7 +74,7 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         // "In-flight:  Packets are considered in-flight when they have been sent
         //      and neither acknowledged nor declared lost, and they are not ACK-
         //      only."
-        val packets = packetSentLog.values.toList()
+        val packets = packetSentLog.values
 
         packets.forEach { packetStatus ->
             if (pnTooOld(packetStatus) || sentTimeTooLongAgo(packetStatus, lossDelay)) {
@@ -117,19 +87,29 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun pnTooOld(p: PacketStatus): Boolean {
-        val kPacketThreshold = 3
-        return p.packet.packetNumber() <= largestAcked - kPacketThreshold
+        val result = p.packet.packetNumber() <= largestAcked - 3
+        if (result) {
+            println("Loss too Old $largestAcked " + p.packet.level() + " " + p.packet.packetNumber())
+        }
+        return result
     }
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun sentTimeTooLongAgo(p: PacketStatus, lossDelay: Long): Boolean {
-        return p.timeSent.elapsedNow().inWholeMilliseconds > lossDelay
+
+        val result = p.timeSent.elapsedNow().inWholeMilliseconds > lossDelay
+        if (result) {
+            println("Loss delay $lossDelay " + p.packet.level() + " " + p.packet.packetNumber())
+        }
+        return result
     }
 
     private suspend fun declareLost(packetStatus: PacketStatus) {
         if (isAckEliciting(packetStatus.packet)) {
             connectionFlow.registerLost(packetStatus)
         }
+
+        println("Declare Lost")
 
         // Retransmitting the frames in the lost packet is delegated to the lost frame callback,
         // because whether retransmitting the frame is necessary (and in which manner) depends
@@ -138,14 +118,13 @@ internal class LossDetector(private val connectionFlow: ConnectionFlow) {
         val frames = packetStatus.packet.frames()
         for (frame in frames) {
             when (frame.frameType) {
-                FrameType.DataFrame,
-                FrameType.MaxDataFrame -> connectionFlow.insertRequest(
+                FrameType.DataFrame -> connectionFlow.insertRequest(
                     packetStatus.packet.level(),
                     frame
                 )
 
-                FrameType.VerifyResponseFrame, FrameType.VerifyRequestFrame,
-                FrameType.DataBlockedFrame -> connectionFlow.addRequest(
+                FrameType.VerifyResponseFrame,
+                FrameType.VerifyRequestFrame -> connectionFlow.addRequest(
                     packetStatus.packet.level(),
                     frame
                 )

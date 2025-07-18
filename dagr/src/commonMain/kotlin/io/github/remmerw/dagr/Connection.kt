@@ -41,13 +41,11 @@ abstract class Connection(
     private val idleCounter = AtomicInt(0)
 
     private var flowControlMax = Settings.INITIAL_MAX_DATA // no concurrency
-    private var flowControlLastAdvertised: Long // no concurrency
 
     @Volatile
     private var state = State.Created
 
     init {
-        this.flowControlLastAdvertised = flowControlMax
         this.flowControlIncrement = flowControlMax / 10
     }
 
@@ -91,13 +89,6 @@ abstract class Connection(
     val isConnected: Boolean
         get() = state.isConnected
 
-    suspend fun updateConnectionFlowControl(size: Int) {
-        flowControlMax += size.toLong()
-        if (flowControlMax - flowControlLastAdvertised > flowControlIncrement) {
-            addRequest(Level.APP, createMaxDataFrame(flowControlMax))
-            flowControlLastAdvertised = flowControlMax
-        }
-    }
 
     private fun updateKeysAndPackageNumber(packetHeader: PacketHeader) {
         val level = packetHeader.level
@@ -143,17 +134,8 @@ abstract class Connection(
                     process(
                         FrameReceived.parseAckFrame(
                             frameType, buffer,
-                            Settings.ACK_DELAY_SCALE
                         ), packetHeader.level
                     )
-
-
-                0x14 -> {
-                    isAckEliciting = true
-                    debug("parseDataBlockedFrame")
-                    FrameReceived.parseDataBlockedFrame(buffer)
-                    // type will be supported someday in the future
-                }
 
 
                 0x18 -> {
@@ -206,15 +188,9 @@ abstract class Connection(
             val isAckEliciting = process(packetHeader)
 
 
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-13.1
-            // "A packet MUST NOT be acknowledged until packet protection has been successfully
-            // removed and all frames contained in the packet have been processed."
-            // "Once the packet has been fully processed, a receiver acknowledges receipt by
-            // sending one or more ACK frames containing the packet number of the received
-            // packet." boolean isAckEliciting  = PacketHeader.isAckEliciting(frames);
+
             ackGenerator(level).packetReceived(
-                level, isAckEliciting,
-                packetHeader.packetNumber
+                isAckEliciting, packetHeader.packetNumber
             )
 
 

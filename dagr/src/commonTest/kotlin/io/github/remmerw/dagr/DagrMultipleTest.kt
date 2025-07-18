@@ -4,7 +4,6 @@ import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
