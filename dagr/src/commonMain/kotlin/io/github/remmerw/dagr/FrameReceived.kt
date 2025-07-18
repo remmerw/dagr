@@ -57,27 +57,6 @@ internal interface FrameReceived {
     data class DataBlockedFrame(val streamDataLimit: Long) : FrameReceived
 
 
-    // https://tools.ietf.org/html/draft-ietf-quic-transport-20#section-19.9
-
-    data class MaxDataFrame(val maxData: Long) : FrameReceived
-
-    /**
-     * Represents a max stream data frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-max_stream_data-frames)
-     */
-
-    data class MaxStreamDataFrame(val streamId: Int, val maxData: Long) : FrameReceived
-
-    /**
-     * Represents a max streams frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-max_streams-frames)
-     */
-
-    data class MaxStreamsFrame(
-        val maxStreams: Long,
-        val appliesToBidirectional: Boolean
-    ) : FrameReceived
-
     /**
      * Represents a new connection id frame.
      * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-new_connection_id-frames)
@@ -113,39 +92,17 @@ internal interface FrameReceived {
     @Suppress("unused")
     class PingFrame : FrameReceived
 
-    /**
-     * Represents a reset stream frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-reset_stream-frames)
-     */
-
-    data class ResetStreamFrame(val streamId: Int, val errorCode: Long, val finalSize: Long) :
-        FrameReceived
-
-
-    /**
-     * Represents a stop sending frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-stop_sending-frames)
-     */
-
-    data class StopSendingFrame(val streamId: Int, val errorCode: Long) : FrameReceived
-
-    /**
-     * Represents a stream data blocked frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-stream_data_blocked-frames)
-     */
-
-    data class StreamDataBlockedFrame(val streamId: Int, val streamDataLimit: Long) : FrameReceived
 
     @Suppress("ArrayInDataClass")
-    data class StreamFrame(
+    data class DataFrame(
         val streamId: Int,
         val isFinal: Boolean,
         val offset: Long,
         val length: Int,
-        val streamData: ByteArray
+        val bytes: ByteArray
     ) :
-        FrameReceived, Comparable<StreamFrame> {
-        override fun compareTo(other: StreamFrame): Int {
+        FrameReceived, Comparable<DataFrame> {
+        override fun compareTo(other: DataFrame): Int {
             return if (this.offset == other.offset) {
                 length.compareTo(other.length)
             } else {
@@ -158,21 +115,7 @@ internal interface FrameReceived {
         }
     }
 
-    /**
-     * Represents a streams blocked frame.
-     * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-streams_blocked-frames)
-     */
-
-    data class StreamsBlockedFrame(val bidirectional: Boolean, val streamLimit: Int) : FrameReceived
-
     companion object {
-
-        fun parseStreamsBlockedFrame(type: Byte, buffer: Buffer): StreamsBlockedFrame {
-            return StreamsBlockedFrame(
-                type.toInt() == 0x16,
-                parseLong(buffer).toInt()
-            )
-        }
 
 
         fun parseConnectionCloseFrame(type: Byte, buffer: Buffer): ConnectionCloseFrame {
@@ -308,26 +251,6 @@ internal interface FrameReceived {
             return DataBlockedFrame(parseLong(buffer))
         }
 
-        fun parseMaxDataFrame(buffer: Buffer): MaxDataFrame {
-            return MaxDataFrame(parseLong(buffer))
-        }
-
-
-        fun parseMaxStreamDataFrame(buffer: Buffer): MaxStreamDataFrame {
-            return MaxStreamDataFrame(
-                parseLong(buffer).toInt(),
-                parseLong(buffer)
-            )
-        }
-
-
-        fun parseMaxStreamsFrame(type: Byte, buffer: Buffer): MaxStreamsFrame {
-            return MaxStreamsFrame(
-                parseLong(buffer),
-                type.toInt() == 0x12
-            )
-        }
-
 
         fun parseVerifyRequestFrame(buffer: Buffer): VerifyRequestFrame {
             val token = buffer.readByteArray(Settings.TOKEN_SIZE)
@@ -337,11 +260,6 @@ internal interface FrameReceived {
         fun parseVerifyResponseFrame(buffer: Buffer): VerifyResponseFrame {
             val signature = buffer.readByteArray(Settings.SIGNATURE_SIZE)
             return VerifyResponseFrame(signature)
-        }
-
-        fun parseNewTokenFrame(buffer: Buffer) {
-            val tokenLength = parseInt(buffer)
-            buffer.skip(tokenLength.toLong()) // new Token
         }
 
         /**
@@ -360,31 +278,7 @@ internal interface FrameReceived {
         }
 
 
-        fun parseResetStreamFrame(buffer: Buffer): ResetStreamFrame {
-            val streamId = parseInt(buffer)
-            val errorCode = parseLong(buffer)
-            val finalSize = parseLong(buffer)
-            return ResetStreamFrame(streamId, errorCode, finalSize)
-        }
-
-
-        fun parseStopSendingFrame(buffer: Buffer): StopSendingFrame {
-            val streamId = parseInt(buffer)
-            val errorCode = parseLong(buffer)
-
-            return StopSendingFrame(streamId, errorCode)
-        }
-
-
-        fun parseStreamDataBlockedFrame(buffer: Buffer): StreamDataBlockedFrame {
-            val streamId = parseInt(buffer)
-            val streamDataLimit = parseLong(buffer)
-
-            return StreamDataBlockedFrame(streamId, streamDataLimit)
-        }
-
-
-        fun parseStreamFrame(type: Byte, buffer: Buffer): StreamFrame {
+        fun parseDataFrame(type: Byte, buffer: Buffer): DataFrame {
             val withOffset = ((type.toInt() and 0x04) == 0x04)
             val withLength = ((type.toInt() and 0x02) == 0x02)
             val isFinal = ((type.toInt() and 0x01) == 0x01)
@@ -403,7 +297,7 @@ internal interface FrameReceived {
 
             val streamData = buffer.readByteArray(length)
 
-            return StreamFrame(streamId, isFinal, offset, length, streamData)
+            return DataFrame(streamId, isFinal, offset, length, streamData)
         }
 
     }

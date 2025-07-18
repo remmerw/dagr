@@ -21,7 +21,7 @@ abstract class Connection(
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val terminate: Terminate
-) : ConnectionStreams() {
+) : ConnectionData() {
 
     private val largestPacketNumber = LongArray(Level.LENGTH)
     private val closeFramesSendRateLimiter = RateLimiter()
@@ -152,35 +152,6 @@ abstract class Connection(
                         ), packetHeader.level
                     )
 
-                0x04 -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parseResetStreamFrame(buffer))
-                }
-
-                0x05 -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parseStopSendingFrame(buffer))
-                }
-
-                0x07 -> {
-                    isAckEliciting = true
-                    FrameReceived.parseNewTokenFrame(buffer)
-                }
-
-                0x10 -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parseMaxDataFrame(buffer))
-                }
-
-                0x011 -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parseMaxStreamDataFrame(buffer))
-                }
-
-                0x12, 0x13 -> {
-                    isAckEliciting = true
-                    process(FrameReceived.parseMaxStreamsFrame(frameType, buffer))
-                }
 
                 0x14 -> {
                     isAckEliciting = true
@@ -189,19 +160,6 @@ abstract class Connection(
                     // type will be supported someday in the future
                 }
 
-                0x15 -> {
-                    isAckEliciting = true
-                    debug("parseStreamDataBlockedFrame")
-                    FrameReceived.parseStreamDataBlockedFrame(buffer)
-                    // type will be supported someday in the future
-                }
-
-                0x16, 0x17 -> {
-                    isAckEliciting = true
-                    debug("parseStreamDataBlockedFrame")
-                    FrameReceived.parseStreamsBlockedFrame(frameType, buffer)
-                    // type will be supported someday in the future
-                }
 
                 0x18 -> {
                     isAckEliciting = true
@@ -224,7 +182,7 @@ abstract class Connection(
                 else -> {
                     if ((frameType >= 0x08) && (frameType <= 0x0f)) {
                         isAckEliciting = true
-                        process(FrameReceived.parseStreamFrame(frameType, buffer))
+                        process(FrameReceived.parseDataFrame(frameType, buffer))
                     } else {
                         // https://tools.ietf.org/html/draft-ietf-quic-transport-24#section-12.4
                         // "An endpoint MUST treat the receipt of a frame of unknown payloadType
@@ -294,18 +252,10 @@ abstract class Connection(
     internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyRequestFrame)
     internal abstract suspend fun process(verifyFrame: FrameReceived.VerifyResponseFrame)
 
-    private suspend fun process(maxStreamDataFrame: FrameReceived.MaxStreamDataFrame) {
-        try {
-            processMaxStreamDataFrame(maxStreamDataFrame)
-        } catch (transportError: TransportError) {
-            scheduledClose(Level.APP, transportError)
-        }
-    }
 
-
-    private suspend fun process(streamFrame: FrameReceived.StreamFrame) {
+    private suspend fun process(dataFrame: FrameReceived.DataFrame) {
         try {
-            processStreamFrame(this, streamFrame)
+            processStreamFrame(this, dataFrame)
         } catch (transportError: TransportError) {
             scheduledClose(Level.APP, transportError)
         }

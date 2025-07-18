@@ -22,7 +22,7 @@ class Stream(
     )
     private val receiverMaxDataIncrement: Long
 
-    private val frames: MutableList<FrameReceived.StreamFrame> = mutableListOf() // no concurrency
+    private val frames: MutableList<FrameReceived.DataFrame> = mutableListOf() // no concurrency
     private val readingBuffer = Buffer()
 
     private val sendQueue: Buffer = Buffer()
@@ -43,9 +43,6 @@ class Stream(
     private var currentOffset: Long = 0 // no concurrency
 
     @Volatile
-    private var resetErrorCode = 0L
-
-    @Volatile
     private var allDataReceived = false
     private var receiverFlowControlLimit =
         connection.initialMaxStreamDataBidiRemote // no concurrency
@@ -63,25 +60,19 @@ class Stream(
                 Settings.RECEIVER_MAX_DATA_INCREMENT_FACTOR).toLong()
     }
 
-    internal suspend fun add(frame: FrameReceived.StreamFrame) {
+    internal suspend fun add(frame: FrameReceived.DataFrame) {
         val added = addFrame(frame)
         if (added) {
             broadcast() // this blocks the parsing of further packets
         }
     }
 
-    suspend fun increaseMaxStreamDataAllowed(maxStreamData: Long) {
-        val streamWasBlocked = streamFlowControl.increaseMaxStreamDataAllowed(maxStreamData)
-        if (streamWasBlocked) {
-            unblock()
-        }
-    }
 
     private suspend fun broadcast() {
         var bytesRead = 0
 
 
-        val removes: MutableList<FrameReceived.StreamFrame> = mutableListOf()
+        val removes: MutableList<FrameReceived.DataFrame> = mutableListOf()
 
         val iterator = frames.sorted().iterator()
         var isFinal = false
@@ -93,7 +84,7 @@ class Stream(
                 if (upToOffset >= processedToOffset) {
                     bytesRead += frame.length
 
-                    readingBuffer.write(frame.streamData)
+                    readingBuffer.write(frame.bytes)
 
                     processedToOffset = frame.offsetLength()
 
@@ -133,9 +124,7 @@ class Stream(
         // Avoid sending flow control updates with every single read; check diff with last
         // send max data
         if (receiverFlowControlLimit - lastCommunicatedMaxData > receiverMaxDataIncrement) {
-            sendRequestQueue.appendRequest(
-                createMaxStreamDataFrame(streamId, receiverFlowControlLimit)
-            )
+
             lastCommunicatedMaxData = receiverFlowControlLimit
         }
     }
@@ -157,42 +146,10 @@ class Stream(
             (streamId and 0x0003) == 0x0001
 
 
-    @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun resetStream(errorCode: Long) {
-        if (!reset.exchange(true)) {
-            resetErrorCode = errorCode
-            sendRequestQueue.appendRequest(createResetFrame())
-        }
-        terminate(errorCode)
-    }
-
     suspend fun close() {
         terminate()
     }
 
-    /**
-     * Terminates the receiving input stream (abruptly). Is called when peer sends a RESET_STREAM frame
-     *
-     *
-     * This method is intentionally package-protected, as it should only be called by the StreamManager class.
-     */
-    internal suspend fun terminate(errorCode: Long) {
-        if (errorCode > 0) {
-            debug("Terminate (reset) Stream $streamId Error code $errorCode")
-        }
-
-        terminate()
-    }
-
-
-    @Suppress("unused")
-    internal suspend fun stopLoading(errorCode: Int) {
-        // Note that QUIC specification does not define application protocol error codes.
-        // By absence of an application specified error code, the arbitrary code 0 is used.
-        if (!allDataReceived) {
-            sendRequestQueue.appendRequest(createStopSendingFrame(streamId, errorCode.toLong()))
-        }
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun terminate() {
@@ -288,7 +245,7 @@ class Stream(
                         finalFrame = this.isFinal
                     }
 
-                    val streamFrame = createStreamFrame(
+                    val streamFrame = createDataFrame(
                         streamId, currentOffset, dataToSend, finalFrame
                     )
 
@@ -330,17 +287,6 @@ class Stream(
         return null
     }
 
-    suspend fun unblock() {
-        // Stream might have been blocked (or it might have filled the flow control window exactly),
-        // queue send request and let sendFrame method determine whether there is more to send or not.
-        sendRequestQueue.appendRequest(object : FrameSupplier {
-            override suspend fun nextFrame(maxSize: Int): Frame? {
-                return sendFrame(maxSize)
-            }
-        }, Settings.MIN_FRAME_SIZE)
-        // No need to flush, as this is called while processing received message
-    }
-
     /**
      * Sends StreamDataBlockedFrame or DataBlockedFrame to the peer, provided the blocked condition is still true.
      */
@@ -348,18 +294,13 @@ class Stream(
         // Retrieve actual block reason; could be "none" when an update has been received in the meantime.
         val blockReason: BlockReason = streamFlowControl.flowControlBlockReason
         return when (blockReason) {
-            BlockReason.STREAM_DATA_BLOCKED -> createStreamDataBlockedFrame(
-                streamId, currentOffset
-            )
+
 
             BlockReason.DATA_BLOCKED -> createDataBlockedFrame(streamFlowControl.maxDataAllowed())
             else -> null
         }
     }
 
-    private fun createResetFrame(): Frame {
-        return createResetStreamFrame(streamId, resetErrorCode, currentOffset)
-    }
 
     /**
      * Add a stream frame to this stream. The frame can contain any number of bytes positioned anywhere in the stream;
@@ -368,7 +309,7 @@ class Stream(
      * @return true if the frame is adds bytes to this stream; false if the frame does not add bytes to the stream
      * (because the frame is a duplicate or its stream bytes where already received with previous frames).
      */
-    private fun addFrame(frame: FrameReceived.StreamFrame): Boolean {
+    private fun addFrame(frame: FrameReceived.DataFrame): Boolean {
         if (frame.offset >= processedToOffset) {
             return frames.add(frame)
         } else {
@@ -385,21 +326,6 @@ class Stream(
         // The maximum amount of data that is already assigned to a stream (i.e. already sent, or upon being sent)
         @Volatile
         private var maxStreamDataAssigned = 0L
-
-        fun increaseMaxStreamDataAllowed(maxStreamData: Long): Boolean {
-            var streamWasBlocked = false
-            if (maxStreamDataAllowed != Settings.UNREGISTER) {
-                // If frames are received out of order, the new max can be smaller than the current value.
-                if (maxStreamData > maxStreamDataAllowed) {
-                    if (maxStreamDataAssigned != Settings.UNREGISTER) {
-                        streamWasBlocked = maxStreamDataAssigned == maxStreamDataAllowed
-                                && connection.maxDataAssigned() != connection.maxDataAllowed()
-                        maxStreamDataAllowed = maxStreamData
-                    }
-                }
-            }
-            return streamWasBlocked
-        }
 
 
         val flowControlLimit: Long

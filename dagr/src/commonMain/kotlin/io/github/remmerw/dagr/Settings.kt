@@ -76,15 +76,8 @@ internal object Settings {
 
     const val INITIAL_RTT: Int = 500
 
-    const val DEFAULT_ACTIVE_CONNECTION_ID_LIMIT: Int = 2 // default init value
-    const val DEFAULT_MAX_ACK_DELAY: Int = 25 // default init value
-    const val DEFAULT_ACK_DELAY_EXPONENT: Int = 3 // default init value
-    const val DEFAULT_MAX_UDP_PAYLOAD_SIZE: Int = 65527 // default init value
-
-    const val ACTIVE_CONNECTION_ID_LIMIT: Int = 4 // all other remote libp2p clients have same value
     const val MAX_ACK_DELAY: Int = 26
-    const val ACK_DELAY_EXPONENT: Int = 3
-    const val MAX_UDP_PAYLOAD_SIZE: Int = 1452
+
     const val MAX_STREAMS_BIDI: Int = 256
     const val MAX_STREAMS_UNI: Int = 256
     const val INITIAL_MAX_DATA: Long = 786432

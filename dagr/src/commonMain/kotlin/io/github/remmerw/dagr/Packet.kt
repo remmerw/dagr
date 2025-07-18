@@ -121,7 +121,7 @@ internal fun isAckEliciting(packet: Packet): Boolean {
 
 internal fun isInflightPacket(packet: Packet): Boolean {
     for (frame in packet.frames()) {
-        if (isAckEliciting(frame) || frame.frameType == FrameType.PaddingFrame) {
+        if (isAckEliciting(frame)) {
             return true
         }
     }

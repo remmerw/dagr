@@ -1,18 +1,16 @@
 package io.github.remmerw.dagr
 
 
-internal enum class BlockReason {
+internal enum class BlockReason { // todo remove
     DATA_BLOCKED,
     STREAM_DATA_BLOCKED,
     NOT_BLOCKED
 }
 
 internal enum class FrameType {
-    AckFrame, StreamFrame, ConnectionCloseFrame,
-    DataBlockedFrame, StreamDataBlockedFrame,
-    MaxDataFrame, PingFrame, PaddingFrame,
-    ResetStreamFrame, MaxStreamDataFrame, MaxStreamsFrame,
-    VerifyRequestFrame, VerifyResponseFrame,
-    StopSendingFrame, StreamsBlockedFrame
+    AckFrame, DataFrame, ConnectionCloseFrame,
+    DataBlockedFrame,
+    MaxDataFrame, PingFrame,
+    VerifyRequestFrame, VerifyResponseFrame
 }
 

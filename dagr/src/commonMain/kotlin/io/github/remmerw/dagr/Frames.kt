@@ -132,7 +132,7 @@ internal fun frameLength(streamId: Int, offset: Long, length: Int): Int {
             + length)
 }
 
-internal fun createStreamFrame(
+internal fun createDataFrame(
     streamId: Int, offset: Long, applicationData: ByteArray, fin: Boolean
 ): Frame {
     val frameLength = frameLength(streamId, offset, applicationData.size)
@@ -151,7 +151,7 @@ internal fun createStreamFrame(
     buffer.write(applicationData)
     require(buffer.size.toInt() == frameLength)
 
-    return Frame(FrameType.StreamFrame, buffer.readByteArray())
+    return Frame(FrameType.DataFrame, buffer.readByteArray())
 }
 
 /**
@@ -198,20 +198,6 @@ internal fun createDataBlockedFrame(streamDataLimit: Long): Frame {
     return Frame(FrameType.DataBlockedFrame, buffer.readByteArray())
 }
 
-/**
- * Represents a stream data blocked frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-stream_data_blocked-frames)
- */
-internal fun createStreamDataBlockedFrame(streamId: Int, streamDataLimit: Long): Frame {
-    val length = (1 + bytesNeeded(streamId.toLong())
-            + bytesNeeded(streamDataLimit))
-    val buffer = Buffer()
-    buffer.writeByte(0x15.toByte())
-    encode(streamId, buffer)
-    encode(streamDataLimit, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.StreamDataBlockedFrame, buffer.readByteArray())
-}
 
 internal fun createMaxDataFrame(maxData: Long): Frame {
     val length = 1 + bytesNeeded(maxData)
@@ -226,59 +212,6 @@ private fun createPingFrame(): Frame {
     val buffer = Buffer()
     buffer.writeByte(0x01.toByte())
     return Frame(FrameType.PingFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a reset stream frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-reset_stream-frames)
- */
-internal fun createResetStreamFrame(streamId: Int, errorCode: Long, finalSize: Long): Frame {
-    val length = (1
-            + bytesNeeded(streamId.toLong())
-            + bytesNeeded(errorCode)
-            + bytesNeeded(finalSize))
-    val buffer = Buffer()
-    buffer.writeByte(0x04.toByte())
-    encode(streamId, buffer)
-    encode(errorCode, buffer)
-    encode(finalSize, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.ResetStreamFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a max stream data frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-max_stream_data-frames)
- */
-internal fun createMaxStreamDataFrame(streamId: Int, maxData: Long): Frame {
-    val length = 1 +
-            bytesNeeded(streamId.toLong()) +
-            bytesNeeded(maxData)
-    val buffer = Buffer()
-
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-max_stream_data-frames
-    // "The MAX_STREAM_DATA frame (payloadType=0x11)..."
-    buffer.writeByte(0x11.toByte())
-    encode(streamId, buffer)
-    encode(maxData, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.MaxStreamDataFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a max streams frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-max_streams-frames)
- */
-internal fun createMaxStreamsFrame(
-    maxStreams: Long,
-    appliesToBidirectional: Boolean
-): Frame {
-    val length = 1 + bytesNeeded(maxStreams)
-    val buffer = Buffer()
-    buffer.writeByte((if (appliesToBidirectional) 0x12 else 0x13).toByte())
-    encode(maxStreams, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.MaxStreamsFrame, buffer.readByteArray())
 }
 
 internal fun createVerifyRequestFrame(token: ByteArray): Frame {
@@ -299,39 +232,6 @@ internal fun createVerifyResponseFrame(signature: ByteArray): Frame {
 
 
 /**
- * Represents a stop sending frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-stop_sending-frames)
- */
-internal fun createStopSendingFrame(streamId: Int, errorCode: Long): Frame {
-    val length = (1 + bytesNeeded(streamId.toLong()) + bytesNeeded(errorCode))
-    val buffer = Buffer()
-    buffer.writeByte(0x05.toByte())
-    encode(streamId, buffer)
-    encode(errorCode, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.StopSendingFrame, buffer.readByteArray())
-}
-
-/**
- * Represents a streams blocked frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-streams_blocked-frames)
- */
-@Suppress("unused")
-internal fun createStreamsBlockedFrame(bidirectional: Boolean, streamLimit: Int): Frame {
-    val length = 1 +
-            bytesNeeded(streamLimit.toLong())
-    val buffer = Buffer()
-    // https://www.rfc-editor.org/rfc/rfc9000.html#name-streams_blocked-frames
-    // "A STREAMS_BLOCKED frame of payloadType 0x16 is used to indicate reaching the bidirectional stream limit, and a
-    // STREAMS_BLOCKED frame of payloadType 0x17 is used to indicate reaching the unidirectional stream limit."
-    buffer.writeByte(if (bidirectional) 0x16.toByte() else 0x17.toByte())
-    encode(streamLimit, buffer)
-    require(buffer.size.toInt() == length)
-    return Frame(FrameType.StreamsBlockedFrame, buffer.readByteArray())
-}
-
-
-/**
  * Returns whether the frame is ack eliciting
  * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-terms-and-definitions)
  * "Ack-eliciting packet: A QUIC packet that contains frames other than ACK, PADDING, and CONNECTION_CLOSE."
@@ -341,7 +241,7 @@ internal fun createStreamsBlockedFrame(bidirectional: Boolean, streamLimit: Int)
 
 internal fun isAckEliciting(frame: Frame): Boolean {
     return when (frame.frameType) {
-        FrameType.AckFrame, FrameType.PaddingFrame, FrameType.ConnectionCloseFrame -> false
+        FrameType.AckFrame, FrameType.ConnectionCloseFrame -> false
         else -> true
     }
 }
