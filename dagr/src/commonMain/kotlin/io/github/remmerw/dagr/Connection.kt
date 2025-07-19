@@ -125,7 +125,7 @@ abstract class Connection(
     }
 
 
-    suspend fun process(closing: ConnectionCloseFrame) {
+    suspend fun process(closing: CloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
@@ -186,11 +186,13 @@ abstract class Connection(
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
+            delay(100)
+
             sendLostPackets()
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
 
-            delay(Settings.MAX_DELAY.toLong())
+
         }
     }
 

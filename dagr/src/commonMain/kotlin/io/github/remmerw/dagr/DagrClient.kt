@@ -151,21 +151,22 @@ internal class DagrClient internal constructor(
                         }
                     }
 
-                    0x05.toByte() -> {
+                    0x05.toByte() -> { // close frame
                         source.readLong() // ignore
-                        process(parseConnectionCloseFrame(source))
+                        process(parseCloseFrame(source))
                         packetIdleProcessed()
                     }
 
-                    0x01.toByte() -> {
+                    0x01.toByte() -> { // ping frame
                         val packetNumber = source.readLong()
                         sendAck(packetNumber)
                         packetIdleProcessed()
                     }
 
-                    0x02.toByte() -> {
-                        val packetNumber = source.readLong()
-                        processAckFrameReceived(packetNumber)
+                    0x02.toByte() -> { // ack frame
+                        source.readLong() // packet number
+                        val pn = source.readLong()
+                        processAckFrameReceived(pn)
                         packetIdleProcessed()
                     }
 

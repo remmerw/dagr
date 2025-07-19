@@ -3,10 +3,10 @@ package io.github.remmerw.dagr
 import kotlinx.io.Source
 
 
-fun parseConnectionCloseFrame(source: Source): ConnectionCloseFrame {
+fun parseCloseFrame(source: Source): CloseFrame {
     val errorCode = source.readLong()
 
-    return ConnectionCloseFrame(errorCode)
+    return CloseFrame(errorCode)
 }
 
 fun parseDataFrame(source: Source): DataFrame {
@@ -17,7 +17,7 @@ fun parseDataFrame(source: Source): DataFrame {
     return DataFrame(isFinal, offset, length, source)
 }
 
-data class ConnectionCloseFrame(
+data class CloseFrame(
     val errorCode: Long
 ) {
 

@@ -78,7 +78,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         val type = source.readByte()
         when (type) {
             0x00.toByte() -> { // 0 Verify Request
-                processInitPackage(source, remoteAddress)
+                processVerifyRequestPackage(source, remoteAddress)
             }
 
             else -> {
@@ -87,10 +87,10 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
     }
 
-    private suspend fun processInitPackage(source: Source, remoteAddress: InetSocketAddress) {
+    private suspend fun processVerifyRequestPackage(source: Source, remoteAddress: InetSocketAddress) {
 
         if (!connections.contains(remoteAddress)) {
-            source.readLong()
+            val packetNumber = source.readLong()
             val id = source.readByteArray(32) // 32 hash Size of PeerId
             val remotePeerId = PeerId(id)
             val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
@@ -115,7 +115,12 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             connection.state(State.Connected)
 
+            connection.sendAck(packetNumber)
+
             val signature = sign(keys, remoteToken)
+
+
+
 
             val packet = createVerifyResponsePacket(
                 connection.fetchPackageNumber(),
@@ -143,18 +148,19 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                     connection.packetIdleProcessed()
                 }
 
-                0x05.toByte() -> {
-                    connection.process(parseConnectionCloseFrame(source))
+                0x05.toByte() -> { // close frame
+                    connection.process(parseCloseFrame(source))
                     connection.packetIdleProcessed()
                 }
 
-                0x01.toByte() -> {
+                0x01.toByte() -> { // ping frame
                     connection.sendAck(packetNumber)
                     connection.packetIdleProcessed()
                 }
 
-                0x02.toByte() -> {
-                    connection.processAckFrameReceived(packetNumber)
+                0x02.toByte() -> { // ack frame
+                    val pn = source.readLong()
+                    connection.processAckFrameReceived(pn)
                     connection.packetIdleProcessed()
                 }
 
