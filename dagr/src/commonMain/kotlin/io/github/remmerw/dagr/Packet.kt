@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
+import kotlinx.io.Source
 import kotlinx.io.readByteArray
 
 
@@ -75,6 +76,30 @@ private data class AppPacket(
         return isAckEliciting
     }
 
+}
+
+internal fun createAppDataPacket(
+    packetNumber: Long, ackEliciting: Boolean,
+    source: Source, offset: Long,
+    length: Int, fin: Boolean
+): Packet {
+    val buffer = Buffer()
+    buffer.writeByte(1.toByte())
+    buffer.writeLong(packetNumber)
+
+    buffer.writeByte(0x03.toByte())
+    buffer.writeLong(offset)
+    buffer.writeInt(length)
+    if (fin) {
+        buffer.writeByte(1.toByte())
+    } else {
+        buffer.writeByte(0.toByte())
+    }
+    val data = source.readByteArray(length)
+    buffer.write(data)
+
+    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
 }
 
 internal fun createAppPacket(packetNumber: Long, ackEliciting: Boolean, frame: ByteArray): Packet {

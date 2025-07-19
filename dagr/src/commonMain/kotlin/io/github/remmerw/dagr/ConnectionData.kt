@@ -4,8 +4,7 @@ import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.core.remaining
 import io.ktor.utils.io.writeFully
-import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
+import kotlinx.io.Source
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -88,28 +87,21 @@ abstract class ConnectionData() :
     internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPackageNumber(): Long
 
-    suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
+    suspend fun write(source: Source, autoFlush: Boolean = true) {
         var offset = 0L
-        while (!buffer.exhausted()) {
-            val read = min(Settings.MAX_DATAGRAM_SIZE, buffer.remaining)
+        while (!source.exhausted()) {
+            val length = min(Settings.MAX_DATAGRAM_SIZE, source.remaining)
             var finalFrame = false
-            if (read < Settings.MAX_DATAGRAM_SIZE && autoFlush) {
+            if (length < Settings.MAX_DATAGRAM_SIZE && autoFlush) {
                 finalFrame = true
             }
 
-            // todo optimize from here
-            val byteArray = buffer.readByteArray(read.toInt())
-
-            val dataFrame = createDataFrame(
-                offset, byteArray, finalFrame
-            )
-            offset += read
-
-
-            val packet = createAppPacket(
+            val packet = createAppDataPacket(
                 fetchPackageNumber(),
-                true, dataFrame
+                true,
+                source, offset, length.toInt(), finalFrame
             )
+            offset += length
 
             sendPacket(packet)
         }

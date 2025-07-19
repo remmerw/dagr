@@ -23,7 +23,7 @@ fun parseVerifyResponseFrame(buffer: Source): VerifyResponseFrame {
 }
 
 fun parseDataFrame(buffer: Source): DataFrame {
-    val offset: Long  = buffer.readLong()
+    val offset: Long = buffer.readLong()
     val length: Int = buffer.readInt()
     val isFinal: Boolean = buffer.readByte() == 1.toByte()
 
@@ -89,10 +89,10 @@ internal fun createDataFrame(
     offset: Long, data: ByteArray, fin: Boolean
 ): ByteArray {
     val buffer = Buffer()
-    buffer.writeByte( 0x03.toByte())
+    buffer.writeByte(0x03.toByte())
     buffer.writeLong(offset)
     buffer.writeInt(data.size)
-    if(fin) {
+    if (fin) {
         buffer.writeByte(1.toByte())
     } else {
         buffer.writeByte(0.toByte())

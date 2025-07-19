@@ -106,8 +106,7 @@ abstract class Connection(
                     lossDetector().processAckFrameReceived(packetNumber)
                 }
 
-                0x03 ->
-                {
+                0x03 -> {
                     sendAck(packetNumber)
                     process(parseDataFrame(source))
                 }
