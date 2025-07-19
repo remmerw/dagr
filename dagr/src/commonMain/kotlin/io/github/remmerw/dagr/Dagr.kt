@@ -21,7 +21,7 @@ import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import kotlin.random.Random
 
-class Dagr(val keys: Keys, val responder: Responder) : Terminate {
+class Dagr(val keys: Keys, val responder: Responder) : Listener {
     private val selectorManager = SelectorManager(Dispatchers.IO)
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -77,8 +77,8 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private suspend fun process(source: Source, remoteAddress: InetSocketAddress) {
         val type = source.readByte()
         when (type) {
-            0x00.toByte() -> { // 0 Verify Request
-                processVerifyRequestPackage(source, remoteAddress)
+            0x00.toByte() -> { // Connect packet
+                processConnectPackage(source, remoteAddress)
             }
 
             else -> {
@@ -87,7 +87,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
     }
 
-    private suspend fun processVerifyRequestPackage(
+    private suspend fun processConnectPackage(
         source: Source,
         remoteAddress: InetSocketAddress
     ) {
@@ -109,7 +109,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
             val signature = sign(keys, remoteToken)
 
-            val packet = createVerifyResponsePacket(
+            val packet = createVerifyPacket(
                 connection.fetchPackageNumber(), signature
             )
 
@@ -176,7 +176,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
     }
 
-    override suspend fun shutdown() {
+    suspend fun shutdown() {
 
         try {
             connections.values.forEach { connection ->
@@ -205,15 +205,15 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
     }
 
-    override fun connections(peerId: PeerId): Set<Connection> {
+    fun connections(peerId: PeerId): Set<Connection> {
         return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
     }
 
-    override fun connections(): Set<Connection> {
+    fun connections(): Set<Connection> {
         return connections.values.toSet()
     }
 
-    override fun terminate(connection: Connection) {
+    override fun close(connection: Connection) {
         connections.remove(connection.remoteAddress())
         val job = jobs.remove(connection.remoteAddress())
         try {

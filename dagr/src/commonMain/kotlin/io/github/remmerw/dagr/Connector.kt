@@ -3,29 +3,25 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.PeerId
 import io.ktor.util.collections.ConcurrentSet
 
-interface Terminate {
-    fun terminate(connection: Connection)
-    suspend fun shutdown()
-
-    fun connections(): Set<Connection>
-    fun connections(peerId: PeerId): Set<Connection>
+interface Listener {
+    fun close(connection: Connection)
 }
 
-class Connector() : Terminate {
+class Connector() : Listener {
     private val connections: MutableSet<Connection> = ConcurrentSet()
 
 
-    override fun connections(): Set<Connection> {
+    fun connections(): Set<Connection> {
         return connections.toSet()
     }
 
-    override suspend fun shutdown() {
+    suspend fun shutdown() {
         connections.forEach { connection: Connection -> connection.close() }
         connections.clear()
 
     }
 
-    override fun connections(peerId: PeerId): Set<Connection> {
+    fun connections(peerId: PeerId): Set<Connection> {
         return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
     }
 
@@ -35,7 +31,7 @@ class Connector() : Terminate {
 
     }
 
-    override fun terminate(connection: Connection) {
+    override fun close(connection: Connection) {
         connections.remove(connection)
     }
 }

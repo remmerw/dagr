@@ -51,7 +51,7 @@ internal fun createDataPacket(
 }
 
 
-internal fun createVerifyResponsePacket(
+internal fun createVerifyPacket(
     packetNumber: Long,
     signature: ByteArray
 ): Packet {
@@ -65,7 +65,7 @@ internal fun createVerifyResponsePacket(
     return Packet(packetNumber, true, buffer.readByteArray())
 }
 
-internal fun createConnectionClosePacket(
+internal fun createClosePacket(
     packetNumber: Long,
     transportError: TransportError = TransportError(
         TransportError.Code.NO_ERROR
@@ -104,7 +104,7 @@ internal fun createPingPacket(
 }
 
 
-internal fun createVerifyRequestPacket(
+internal fun createConnectPacket(
     peerId: PeerId,
     packetNumber: Long,
     token: ByteArray

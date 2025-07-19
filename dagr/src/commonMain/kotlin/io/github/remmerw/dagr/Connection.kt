@@ -18,7 +18,7 @@ abstract class Connection(
     private val socket: BoundDatagramSocket,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
-    private val terminate: Terminate
+    private val listener: Listener
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -111,7 +111,7 @@ abstract class Connection(
         terminateLossDetector()
 
         sendPacket(
-            createConnectionClosePacket(
+            createClosePacket(
                 fetchPackageNumber(), transportError
             )
         )
@@ -141,7 +141,7 @@ abstract class Connection(
         // "Once its closing or draining state ends, an endpoint SHOULD discard all
         // connection state."
         super.terminate()
-        terminate.terminate(this)
+        listener.close(this)
         state(State.Closed)
     }
 

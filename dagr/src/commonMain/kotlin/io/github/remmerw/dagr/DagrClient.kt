@@ -24,8 +24,8 @@ internal class DagrClient internal constructor(
     val peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
-    private val connector: Connector
-) : Connection(socket, remotePeerId, remoteAddress, connector) {
+    listener: Listener
+) : Connection(socket, remotePeerId, remoteAddress, listener) {
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
@@ -48,7 +48,6 @@ internal class DagrClient internal constructor(
                     abortInitialize()
                     return@withTimeout null
                 }
-                connector.addConnection(this@DagrClient)
                 return@withTimeout this@DagrClient
             }
         } catch (_: Throwable) {
@@ -69,7 +68,7 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = createVerifyRequestPacket(
+        val packet = createConnectPacket(
             peerId, fetchPackageNumber(), token
         )
 
@@ -197,7 +196,11 @@ suspend fun connectDagr(
         val dagr = DagrClient(
             selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
         )
-        return dagr.connect(timeout)
+        val connection = dagr.connect(timeout)
+        if (connection != null) {
+            connector.addConnection(connection)
+        }
+        return connection
     } catch (_: Throwable) {
         selectorManager.close()
     }
