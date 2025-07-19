@@ -95,7 +95,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         if (!connections.contains(remoteAddress)) {
             val connection =
                 object : Connection(
-                    socket!!, keys.peerId,
+                    socket!!,
                     remotePeerId, remoteAddress, this
                 ) {
 
@@ -109,7 +109,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
                             val signature = sign(keys, remoteToken)
 
-                            val packet = AppPacket(
+                            val packet = createAppPacket(
                                 fetchPackageNumber(),
                                 true, createVerifyResponseFrame(signature)
                             )

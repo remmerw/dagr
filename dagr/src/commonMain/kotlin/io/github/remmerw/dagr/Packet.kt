@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 
 
 import kotlin.time.TimeSource
@@ -29,24 +30,17 @@ internal interface Packet {
 }
 
 @Suppress("ArrayInDataClass")
-data class InitPacket(
+private data class InitPacket(
     val peerId: PeerId,
     private val packetNumber: Long,
     private val isAckEliciting: Boolean,
-    private val frame: ByteArray
+    private val bytes: ByteArray
 ) :
     Packet {
 
-
     override fun generatePacketBytes(): Buffer {
         val buffer = Buffer()
-        buffer.writeByte(0.toByte())
-        buffer.write(peerId.hash)
-        buffer.writeLong(packetNumber)
-        buffer.write(frame)
-
-        require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-
+        buffer.write(bytes)
         return buffer
     }
 
@@ -61,13 +55,17 @@ data class InitPacket(
 }
 
 @Suppress("ArrayInDataClass")
-data class AppPacket(
+private data class AppPacket(
     private val packetNumber: Long,
     private val isAckEliciting: Boolean,
-    private val frame: ByteArray
+    private val bytes: ByteArray
 ) :
     Packet {
-
+    override fun generatePacketBytes(): Buffer {
+        val buffer = Buffer()
+        buffer.write(bytes)
+        return buffer
+    }
 
     override fun packetNumber(): Long {
         return packetNumber
@@ -77,14 +75,29 @@ data class AppPacket(
         return isAckEliciting
     }
 
-    override fun generatePacketBytes(): Buffer {
-        val buffer = Buffer()
-        buffer.writeByte(1.toByte())
-        buffer.writeLong(packetNumber)
-        buffer.write(frame)
+}
 
-        require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-        return buffer
+internal fun createAppPacket(packetNumber: Long, ackEliciting: Boolean, frame: ByteArray): Packet {
+    val buffer = Buffer()
+    buffer.writeByte(1.toByte())
+    buffer.writeLong(packetNumber)
+    buffer.write(frame)
 
-    }
+    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+}
+
+
+internal fun createInitPacket(
+    peerId: PeerId,
+    packetNumber: Long, ackEliciting: Boolean, frame: ByteArray
+): Packet {
+    val buffer = Buffer()
+    buffer.writeByte(0.toByte())
+    buffer.write(peerId.hash)
+    buffer.writeLong(packetNumber)
+    buffer.write(frame)
+
+    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    return InitPacket(peerId, packetNumber, ackEliciting, buffer.readByteArray())
 }

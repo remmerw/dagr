@@ -17,7 +17,6 @@ import kotlin.time.TimeSource
 
 abstract class Connection(
     private val socket: BoundDatagramSocket,
-    private val peerId: PeerId,
     private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val terminate: Terminate
@@ -60,7 +59,7 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                val packet = AppPacket(
+                val packet = createAppPacket(
                     fetchPackageNumber(),
                     true, PING
                 )
@@ -107,6 +106,12 @@ abstract class Connection(
                     lossDetector().processAckFrameReceived(packetNumber)
                 }
 
+                0x03 ->
+                {
+                    sendAck(packetNumber)
+                    process(parseDataFrame(source))
+                }
+
                 0x18 -> {
                     sendAck(packetNumber)
                     process(parseVerifyRequestFrame(source))
@@ -122,12 +127,7 @@ abstract class Connection(
 
 
                 else -> {
-                    if ((frameType >= 0x08) && (frameType <= 0x0f)) {
-                        sendAck(packetNumber)
-                        process(parseDataFrame(frameType, source))
-                    } else {
-                        error("Receipt a frame of unknown type $frameType")
-                    }
+                    error("Receipt a frame of unknown type $frameType")
                 }
             }
         }
@@ -136,7 +136,7 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        val packet = AppPacket(
+        val packet = createAppPacket(
             fetchPackageNumber(),
             false, createAckFrame(packetNumber)
         )
@@ -184,7 +184,7 @@ abstract class Connection(
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
 
         sendPacket(
-            AppPacket(
+            createAppPacket(
                 fetchPackageNumber(),
                 false, createConnectionCloseFrame(transportError)
             )

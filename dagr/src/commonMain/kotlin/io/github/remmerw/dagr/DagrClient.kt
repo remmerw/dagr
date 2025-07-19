@@ -24,7 +24,7 @@ internal class DagrClient internal constructor(
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     private val connector: Connector
-) : Connection(socket, peerId, remotePeerId, remoteAddress, connector) {
+) : Connection(socket, remotePeerId, remoteAddress, connector) {
 
     private val initializeDone = Semaphore(1, 1)
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
@@ -68,7 +68,7 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = InitPacket(
+        val packet = createInitPacket(
             peerId, fetchPackageNumber(),
             true, createVerifyRequestFrame(token)
         )

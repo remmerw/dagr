@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.ktor.utils.io.core.remaining
 import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
@@ -23,20 +22,10 @@ fun parseVerifyResponseFrame(buffer: Source): VerifyResponseFrame {
     return VerifyResponseFrame(signature)
 }
 
-fun parseDataFrame(type: Byte, buffer: Source): DataFrame {
-    val withOffset = ((type.toInt() and 0x04) == 0x04)
-    val withLength = ((type.toInt() and 0x02) == 0x02)
-    val isFinal = ((type.toInt() and 0x01) == 0x01)
-
-    var offset: Long = 0
-    if (withOffset) {
-        offset = parseLong(buffer)
-    }
-    val length = if (withLength) {
-        parseInt(buffer)
-    } else {
-        buffer.remaining.toInt()
-    }
+fun parseDataFrame(buffer: Source): DataFrame {
+    val offset: Long  = buffer.readLong()
+    val length: Int = buffer.readInt()
+    val isFinal: Boolean = buffer.readByte() == 1.toByte()
 
     val streamData = buffer.readByteArray(length)
 
@@ -96,30 +85,19 @@ internal fun createAckFrame(packet: Long): ByteArray {
 }
 
 
-internal fun frameLength(offset: Long, length: Int): Int {
-    return (1 // frame payloadType
-            + bytesNeeded(offset)
-            + bytesNeeded(length.toLong())
-            + length)
-}
-
 internal fun createDataFrame(
-    offset: Long, applicationData: ByteArray, fin: Boolean
+    offset: Long, data: ByteArray, fin: Boolean
 ): ByteArray {
-    val frameLength = frameLength(offset, applicationData.size)
-
     val buffer = Buffer()
-    val baseType = 0x08.toByte()
-    var frameType =
-        (baseType.toInt() or 0x04 or 0x02).toByte() // OFF-bit, LEN-bit, (no) FIN-bit
-    if (fin) {
-        frameType = (frameType.toInt() or 0x01).toByte()
+    buffer.writeByte( 0x03.toByte())
+    buffer.writeLong(offset)
+    buffer.writeInt(data.size)
+    if(fin) {
+        buffer.writeByte(1.toByte())
+    } else {
+        buffer.writeByte(0.toByte())
     }
-    buffer.writeByte(frameType)
-    encode(offset, buffer)
-    encode(applicationData.size, buffer)
-    buffer.write(applicationData)
-    require(buffer.size.toInt() == frameLength)
+    buffer.write(data)
 
     return buffer.readByteArray()
 }

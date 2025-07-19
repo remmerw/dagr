@@ -105,7 +105,8 @@ abstract class ConnectionData() :
             )
             offset += read
 
-            val packet = AppPacket(
+
+            val packet = createAppPacket(
                 fetchPackageNumber(),
                 true, dataFrame
             )
