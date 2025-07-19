@@ -202,9 +202,9 @@ abstract class Connection(
         val datagram = Datagram(buffer, remoteAddress)
 
         socket.send(datagram)
-        lastAction = TimeSource.Monotonic.markNow()
 
-        packetSent(PacketStatus(packet, lastAction))
+        lastAction = TimeSource.Monotonic.markNow()
+        packetSent(packet)
 
     }
 

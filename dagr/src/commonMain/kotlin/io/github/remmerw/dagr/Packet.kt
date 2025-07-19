@@ -1,18 +1,10 @@
 package io.github.remmerw.dagr
 
+
 import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
-
-
-import kotlin.time.TimeSource
-
-
-internal data class PacketStatus(
-    val packet: Packet,
-    val timeSent: TimeSource.Monotonic.ValueTimeMark
-)
 
 
 @Suppress("ArrayInDataClass")

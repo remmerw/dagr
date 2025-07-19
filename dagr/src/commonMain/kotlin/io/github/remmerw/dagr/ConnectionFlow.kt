@@ -6,7 +6,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 open class ConnectionFlow() {
 
-    private val packetSentLog: MutableMap<Long, PacketStatus> = ConcurrentMap()
+    private val packetSentLog: MutableMap<Long, Packet> = ConcurrentMap()
 
     @Volatile
     private var largestAcked = -1L
@@ -38,12 +38,10 @@ open class ConnectionFlow() {
         val result: MutableList<Packet> = mutableListOf()
 
 
-        packetSentLog.values.forEach { packetStatus ->
-            if (pnTooOld(packetStatus)) {
-                val packetStatus = packetSentLog.remove(
-                    packetStatus.packet.packetNumber
-                )
-                if (packetStatus != null) {
+        packetSentLog.keys.forEach { pn ->
+            if (pnTooOld(pn)) {
+                val packet = packetSentLog.remove(pn)
+                if (packet != null) {
                     // result.add(packetStatus.packet)
                 }
             }
@@ -52,25 +50,23 @@ open class ConnectionFlow() {
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun pnTooOld(packetStatus: PacketStatus): Boolean {
-        if (packetStatus.timeSent.elapsedNow().inWholeMilliseconds
-            > (Settings.INITIAL_RTT.toLong())
-        ) {
-            println("Loss too old packet $packetStatus")
+    private fun pnTooOld(pn: Long): Boolean {
+        if (pn < largestAcked - 3) {
+            println("Loss too old packet $pn")
             return true
         }
         return false
     }
 
 
-    internal fun packetSent(packetStatus: PacketStatus) {
+    internal fun packetSent(packet: Packet) {
         if (isStopped) {
             return
         }
 
-        if (packetStatus.packet.shouldBeAcked) {
+        if (packet.shouldBeAcked) {
             // During a reset operation, no new packets must be logged as sent.
-            packetSentLog[packetStatus.packet.packetNumber] = packetStatus
+            packetSentLog[packet.packetNumber] = packet
         }
     }
 
