@@ -67,7 +67,7 @@ open class ConnectionFlow() {
             return
         }
 
-        if (packetStatus.packet.isAckEliciting) {
+        if (packetStatus.packet.shouldBeAcked) {
             // During a reset operation, no new packets must be logged as sent.
             packetSentLog[packetStatus.packet.packetNumber] = packetStatus
         }

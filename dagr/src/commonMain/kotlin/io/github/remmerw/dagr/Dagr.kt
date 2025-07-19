@@ -87,21 +87,33 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
     }
 
-    private suspend fun processVerifyRequestPackage(source: Source, remoteAddress: InetSocketAddress) {
+    private suspend fun processVerifyRequestPackage(
+        source: Source,
+        remoteAddress: InetSocketAddress
+    ) {
 
-        if (!connections.contains(remoteAddress)) {
-            val packetNumber = source.readLong()
-            val id = source.readByteArray(32) // 32 hash Size of PeerId
-            val remotePeerId = PeerId(id)
-            val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
-
-            val connection = object : Connection(
+        val packetNumber = source.readLong()
+        val id = source.readByteArray(32) // 32 hash Size of PeerId
+        val remotePeerId = PeerId(id)
+        val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
+        val connection = connections.getOrPut(remoteAddress) {
+            object : Connection(
                 socket!!, remotePeerId,
                 remoteAddress, this
             ) {}
+        }
+        try {
+            connection.state(State.Connected)
 
-            connections.put(remoteAddress, connection)
+            connection.sendAck(packetNumber)
 
+            val signature = sign(keys, remoteToken)
+
+            val packet = createVerifyResponsePacket(
+                connection.fetchPackageNumber(), signature
+            )
+
+            connection.sendPacket(packet)
 
             jobs.put(remoteAddress, scope.launch {
                 connection.runRequester()
@@ -111,23 +123,9 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             handler.put(remoteAddress, scope.launch {
                 responder.handleConnection(connection)
             })
-
-
-            connection.state(State.Connected)
-
-            connection.sendAck(packetNumber)
-
-            val signature = sign(keys, remoteToken)
-
-
-
-
-            val packet = createVerifyResponsePacket(
-                connection.fetchPackageNumber(),
-                true, signature
-            )
-
-            connection.sendPacket(packet)
+        } catch (throwable: Throwable) {
+            debug(throwable)
+            connection.terminate()
         }
     }
 
@@ -139,35 +137,42 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
         val connection = connections[remoteAddress]
         if (connection != null) {
-            val packetNumber = source.readLong()
+            try {
+                val packetNumber = source.readLong()
 
-            when (type) {
-                0x03.toByte() -> { // data frame
-                    connection.sendAck(packetNumber)
-                    connection.process(parseDataFrame(source))
-                    connection.packetIdleProcessed()
-                }
+                when (type) {
+                    0x03.toByte() -> { // data frame
+                        connection.sendAck(packetNumber)
+                        connection.process(parseDataFrame(source))
+                        connection.packetIdleProcessed()
+                    }
 
-                0x05.toByte() -> { // close frame
-                    connection.process(parseCloseFrame(source))
-                    connection.packetIdleProcessed()
-                }
+                    0x05.toByte() -> { // close frame
+                        connection.process(parseCloseFrame(source))
+                        connection.packetIdleProcessed()
+                    }
 
-                0x01.toByte() -> { // ping frame
-                    connection.sendAck(packetNumber)
-                    connection.packetIdleProcessed()
-                }
+                    0x01.toByte() -> { // ping frame
+                        connection.sendAck(packetNumber)
+                        connection.packetIdleProcessed()
+                    }
 
-                0x02.toByte() -> { // ack frame
-                    val pn = source.readLong()
-                    connection.processAckFrameReceived(pn)
-                    connection.packetIdleProcessed()
-                }
+                    0x02.toByte() -> { // ack frame
+                        val packet = source.readLong()
+                        connection.processAckFrameReceived(packet)
+                        connection.packetIdleProcessed()
+                    }
 
-                else -> {
-                    debug("Not supported package")
+                    else -> {
+                        debug("Not supported package")
+                    }
                 }
+            } catch (throwable: Throwable){
+                debug(throwable)
+                connection.terminate()
             }
+        } else {
+            debug("No connection known")
         }
     }
 

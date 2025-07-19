@@ -70,8 +70,7 @@ internal class DagrClient internal constructor(
         }
 
         val packet = createVerifyRequestPacket(
-            peerId, fetchPackageNumber(),
-            true, token
+            peerId, fetchPackageNumber(), token
         )
 
         sendPacket(packet)
@@ -165,7 +164,7 @@ internal class DagrClient internal constructor(
 
                     0x02.toByte() -> { // ack frame
                         source.readLong() // packet number
-                        val pn = source.readLong()
+                        val pn = source.readLong() // packet
                         processAckFrameReceived(pn)
                         packetIdleProcessed()
                     }

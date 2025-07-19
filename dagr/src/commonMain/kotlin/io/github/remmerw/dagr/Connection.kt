@@ -59,8 +59,7 @@ abstract class Connection(
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
                 val packet = createPingPacket(
-                    fetchPackageNumber(),
-                    true
+                    fetchPackageNumber()
                 )
                 sendPacket(packet)
                 lastPing = TimeSource.Monotonic.markNow()
@@ -87,8 +86,7 @@ abstract class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(
-            fetchPackageNumber(),
-            false, packetNumber
+            fetchPackageNumber(), packetNumber
         )
         sendPacket(packet)
     }
@@ -114,8 +112,7 @@ abstract class Connection(
 
         sendPacket(
             createConnectionClosePacket(
-                fetchPackageNumber(),
-                false, transportError
+                fetchPackageNumber(), transportError
             )
         )
 

@@ -97,9 +97,8 @@ abstract class ConnectionData() :
             }
 
             val packet = createDataPacket(
-                fetchPackageNumber(),
-                true,
-                source, offset, length.toInt(), finalFrame
+                fetchPackageNumber(), source, offset,
+                length.toInt(), finalFrame
             )
             offset += length
 
