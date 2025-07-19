@@ -30,20 +30,20 @@ internal data class Packet(
 
 internal fun createDataPacket(
     packetNumber: Long,
-    source: Source, offset: Long,
-    length: Int, fin: Boolean
+    source: Source, offset: Int,
+    length: Short, fin: Boolean
 ): Packet {
     val buffer = Buffer()
     buffer.writeByte(0x03.toByte())
     buffer.writeLong(packetNumber)
-    buffer.writeLong(offset)
-    buffer.writeInt(length)
+    buffer.writeInt(offset)
+    buffer.writeShort(length)
     if (fin) {
         buffer.writeByte(1.toByte())
     } else {
         buffer.writeByte(0.toByte())
     }
-    val data = source.readByteArray(length)
+    val data = source.readByteArray(length.toInt())
     buffer.write(data)
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }

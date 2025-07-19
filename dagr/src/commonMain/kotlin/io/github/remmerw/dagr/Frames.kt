@@ -10,8 +10,8 @@ fun parseCloseFrame(source: Source): CloseFrame {
 }
 
 fun parseDataFrame(source: Source): DataFrame {
-    val offset: Long = source.readLong()
-    val length: Int = source.readInt()
+    val offset: Int = source.readInt()
+    val length: Short = source.readShort()
     val isFinal: Boolean = source.readByte() == 1.toByte()
 
     return DataFrame(isFinal, offset, length, source)
@@ -29,8 +29,8 @@ data class CloseFrame(
 
 data class DataFrame(
     val isFinal: Boolean,
-    val offset: Long,
-    val length: Int,
+    val offset: Int,
+    val length: Short,
     val source: Source
 ) :
     Comparable<DataFrame> {
@@ -42,7 +42,7 @@ data class DataFrame(
         }
     }
 
-    fun offsetLength(): Long {
+    fun offsetLength(): Int {
         return offset + length
     }
 }

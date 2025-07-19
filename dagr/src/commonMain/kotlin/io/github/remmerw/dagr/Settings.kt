@@ -10,7 +10,7 @@ internal object Settings {
     // The max datagram size is used for congestion window computations. An endpoint sets the
     // value of this variable based on its Path Maximum Transmission Unit (PMTU; see Section
     // 14.2 of [QUIC-TRANSPORT]), with a minimum value of 1200 bytes.
-    const val MAX_DATAGRAM_SIZE: Long = 1200
+    const val MAX_DATAGRAM_SIZE: Short = 1200
 
 
     // "In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP

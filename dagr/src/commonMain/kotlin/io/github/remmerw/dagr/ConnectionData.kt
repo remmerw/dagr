@@ -14,7 +14,7 @@ abstract class ConnectionData() :
 
     private val frames: MutableList<DataFrame> = mutableListOf() // no concurrency
 
-    private var processedToOffset: Long = 0 // no concurrency
+    private var processedToOffset: Int = 0 // no concurrency
 
     @OptIn(ExperimentalAtomicApi::class)
     private val reader: AtomicReference<ByteChannel?> = AtomicReference(null)
@@ -88,17 +88,19 @@ abstract class ConnectionData() :
     internal abstract suspend fun fetchPackageNumber(): Long
 
     suspend fun write(source: Source, autoFlush: Boolean = true) {
-        var offset = 0L
+        var offset = 0
         while (!source.exhausted()) {
-            val length = min(Settings.MAX_DATAGRAM_SIZE, source.remaining)
+            val length = min(
+                Settings.MAX_DATAGRAM_SIZE.toLong(),
+                source.remaining
+            ).toShort()
             var finalFrame = false
             if (length < Settings.MAX_DATAGRAM_SIZE && autoFlush) {
                 finalFrame = true
             }
 
             val packet = createDataPacket(
-                fetchPackageNumber(), source, offset,
-                length.toInt(), finalFrame
+                fetchPackageNumber(), source, offset, length, finalFrame
             )
             offset += length
 

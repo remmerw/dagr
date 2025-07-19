@@ -183,13 +183,11 @@ abstract class Connection(
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
-            delay(100)
-
             sendLostPackets()
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
 
-
+            delay(Settings.MAX_DELAY.toLong())
         }
     }
 
