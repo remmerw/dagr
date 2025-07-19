@@ -15,7 +15,12 @@ internal data class PacketStatus(
 )
 
 
-internal interface Packet {
+@Suppress("ArrayInDataClass")
+internal data class Packet(
+    val packetNumber: Long,
+    val isAckEliciting: Boolean,
+    val bytes: ByteArray
+) {
 
     /**
      * Returns whether the frame is ack eliciting
@@ -24,58 +29,11 @@ internal interface Packet {
      *
      * @return true when the frame is ack-eliciting
      */
-    fun isAckEliciting(): Boolean
-    fun packetNumber(): Long
-    fun generatePacketBytes(): Buffer
-
-}
-
-@Suppress("ArrayInDataClass")
-private data class InitPacket(
-    val peerId: PeerId,
-    private val packetNumber: Long,
-    private val isAckEliciting: Boolean,
-    private val bytes: ByteArray
-) :
-    Packet {
-
-    override fun generatePacketBytes(): Buffer {
+    fun generatePacketBytes(): Buffer {
         val buffer = Buffer()
         buffer.write(bytes)
         return buffer
     }
-
-    override fun isAckEliciting(): Boolean {
-        return isAckEliciting
-    }
-
-    override fun packetNumber(): Long {
-        return packetNumber
-    }
-
-}
-
-@Suppress("ArrayInDataClass")
-private data class AppPacket(
-    private val packetNumber: Long,
-    private val isAckEliciting: Boolean,
-    private val bytes: ByteArray
-) :
-    Packet {
-    override fun generatePacketBytes(): Buffer {
-        val buffer = Buffer()
-        buffer.write(bytes)
-        return buffer
-    }
-
-    override fun packetNumber(): Long {
-        return packetNumber
-    }
-
-    override fun isAckEliciting(): Boolean {
-        return isAckEliciting
-    }
-
 }
 
 internal fun createDataPacket(
@@ -97,17 +55,7 @@ internal fun createDataPacket(
     buffer.write(data)
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
-}
-
-internal fun createAppPacket(packetNumber: Long, ackEliciting: Boolean, frame: ByteArray): Packet {
-    val buffer = Buffer()
-    buffer.writeByte(1.toByte())
-    buffer.writeLong(packetNumber)
-    buffer.write(frame)
-
-    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
 }
 
 
@@ -123,7 +71,7 @@ internal fun createVerifyResponsePacket(
     buffer.write(signature)
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
 }
 
 internal fun createConnectionClosePacket(
@@ -139,8 +87,33 @@ internal fun createConnectionClosePacket(
     buffer.writeLong(transportError.errorCode())
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
 }
+
+
+internal fun createAckPacket(
+    packetNumber: Long,
+    ackEliciting: Boolean,
+    packet: Long
+): Packet {
+    val buffer = Buffer()
+    buffer.writeByte(0x02.toByte()) // only AckFrame of payloadType 0x02 is supported
+    buffer.writeLong(packetNumber)
+    buffer.writeLong(packet)
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
+}
+
+
+internal fun createPingPacket(
+    packetNumber: Long,
+    ackEliciting: Boolean
+): Packet {
+    val buffer = Buffer()
+    buffer.writeByte(0x01.toByte())
+    buffer.writeLong(packetNumber)
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
+}
+
 
 internal fun createVerifyRequestPacket(
     peerId: PeerId,
@@ -155,5 +128,5 @@ internal fun createVerifyRequestPacket(
     buffer.write(token)
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-    return InitPacket(peerId, packetNumber, ackEliciting, buffer.readByteArray())
+    return Packet(packetNumber, ackEliciting, buffer.readByteArray())
 }

@@ -140,7 +140,6 @@ internal class DagrClient internal constructor(
                             verify(remotePeerId(), token, signature)
 
                             state(State.Connected)
-                            discard(Level.INIT)
 
                             initializeDone.release()
                         } catch (throwable: Throwable) {
@@ -153,15 +152,25 @@ internal class DagrClient internal constructor(
                     }
 
                     0x05.toByte() -> {
+                        source.readLong() // ignore
                         process(parseConnectionCloseFrame(source))
                         packetIdleProcessed()
                     }
 
-                    else -> {
+                    0x01.toByte() -> {
                         val packetNumber = source.readLong()
-                        processPacket(Level.APP, source, packetNumber)
+                        sendAck(packetNumber)
+                        packetIdleProcessed()
+                    }
 
-                        // todo else debug("Probably hole punch detected $type")
+                    0x02.toByte() -> {
+                        val packetNumber = source.readLong()
+                        lossDetector().processAckFrameReceived(packetNumber)
+                        packetIdleProcessed()
+                    }
+
+                    else -> {
+                        debug("Probably hole punch detected $type")
                     }
                 }
             } catch (throwable: Throwable) {

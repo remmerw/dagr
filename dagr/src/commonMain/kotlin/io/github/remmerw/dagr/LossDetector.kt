@@ -5,7 +5,7 @@ import io.ktor.utils.io.InternalAPI
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-internal class LossDetector() {
+internal class LossDetector() { // todo remove to Connectionflow
     private val packetSentLog: MutableMap<Long, PacketStatus> = ConcurrentMap()
 
     @Volatile
@@ -21,7 +21,7 @@ internal class LossDetector() {
         }
 
         // During a reset operation, no new packets must be logged as sent.
-        packetSentLog[packet.packet.packetNumber()] = packet
+        packetSentLog[packet.packet.packetNumber] = packet
 
     }
 

@@ -114,7 +114,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
 
             connection.state(State.Connected)
-            connection.discard(Level.INIT)
 
             val signature = sign(keys, remoteToken)
 
@@ -149,8 +148,18 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                     connection.packetIdleProcessed()
                 }
 
+                0x01.toByte() -> {
+                    connection.sendAck(packetNumber)
+                    connection.packetIdleProcessed()
+                }
+
+                0x02.toByte() -> {
+                    connection.lossDetector().processAckFrameReceived(packetNumber)
+                    connection.packetIdleProcessed()
+                }
+
                 else -> {
-                    connection.processPacket(Level.APP, source, packetNumber)
+                    debug("Not supported package")
                 }
             }
         }

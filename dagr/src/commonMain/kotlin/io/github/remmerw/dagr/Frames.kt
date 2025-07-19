@@ -1,8 +1,6 @@
 package io.github.remmerw.dagr
 
-import kotlinx.io.Buffer
 import kotlinx.io.Source
-import kotlinx.io.readByteArray
 
 
 fun parseConnectionCloseFrame(source: Source): ConnectionCloseFrame {
@@ -50,20 +48,5 @@ data class DataFrame(
 }
 
 
-internal val PING = createPingFrame()
-
-internal fun createAckFrame(packet: Long): ByteArray {
-    val buffer = Buffer()
-    buffer.writeByte(0x02.toByte()) // only AckFrame of payloadType 0x02 is supported
-    buffer.writeLong(packet)
-    return buffer.readByteArray()
-}
-
-
-private fun createPingFrame(): ByteArray {
-    val buffer = Buffer()
-    buffer.writeByte(0x01.toByte())
-    return buffer.readByteArray()
-}
 
 

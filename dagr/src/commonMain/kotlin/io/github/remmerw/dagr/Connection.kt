@@ -7,7 +7,6 @@ import io.ktor.network.sockets.InetSocketAddress
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.io.Source
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
@@ -59,9 +58,9 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                val packet = createAppPacket(
+                val packet = createPingPacket(
                     fetchPackageNumber(),
-                    true, PING
+                    true
                 )
                 sendPacket(packet)
                 lastPing = TimeSource.Monotonic.markNow()
@@ -86,58 +85,12 @@ abstract class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun processFrames(source: Source, packetNumber: Long) {
-
-        var frameType: Byte
-
-        while (!source.exhausted()) {
-            // https://tools.ietf.org/html/draft-ietf-quic-transport-16#section-12.4
-            // "Each frame begins with a Frame Type, indicating its payloadType,
-            // followed by additional payloadType-dependent fields"
-            frameType = source.readByte()
-
-            when (frameType.toInt()) {
-                0x01 ->  // ping frame nothing to parse
-                    sendAck(packetNumber)
-
-                0x02 ->  // isAckEliciting = false
-                {
-                    val packetNumber = source.readLong()
-                    lossDetector().processAckFrameReceived(packetNumber)
-                }
-
-
-                else -> {
-                    error("Receipt a frame of unknown type $frameType")
-                }
-            }
-        }
-    }
-
-
-    @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        val packet = createAppPacket(
+        val packet = createAckPacket(
             fetchPackageNumber(),
-            false, createAckFrame(packetNumber)
+            false, packetNumber
         )
         sendPacket(packet)
-    }
-
-    internal suspend fun processPacket(
-        level: Level, source: Source, packetNumber: Long,
-    ) {
-
-        if (isDiscarded(level)) {
-            return
-        }
-
-        if (!state.isClosing) {
-
-            processFrames(source, packetNumber)
-
-            packetIdleProcessed()
-        }
     }
 
     internal suspend fun process(dataFrame: DataFrame) {
