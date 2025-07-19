@@ -79,7 +79,6 @@ internal class DagrClient internal constructor(
 
     private suspend fun abortInitialize() {
         state(State.Closing)
-        clearRequests()
         terminate()
     }
 

@@ -3,9 +3,8 @@ package io.github.remmerw.dagr
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.core.remaining
-import io.ktor.utils.io.writeFully
+import io.ktor.utils.io.writeSource
 import kotlinx.io.Source
-import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
@@ -14,9 +13,6 @@ abstract class ConnectionData() :
     ConnectionFlow() {
 
     private val frames: MutableList<DataFrame> = mutableListOf() // no concurrency
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val reset = AtomicBoolean(false)
 
     private var processedToOffset: Long = 0 // no concurrency
 
@@ -30,7 +26,7 @@ abstract class ConnectionData() :
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun broadcast() {
-        var bytesRead = 0
+        //var bytesRead = 0
 
         val iterator = frames.iterator()
         var isFinal = false
@@ -40,9 +36,8 @@ abstract class ConnectionData() :
             if (frame.offset <= processedToOffset) {
                 val upToOffset = frame.offsetLength()
                 if (upToOffset >= processedToOffset) {
-                    bytesRead += frame.length
 
-                    reader.load()?.writeFully(frame.bytes)
+                    reader.load()?.writeSource(frame.source)
 
                     processedToOffset = frame.offsetLength()
 
@@ -61,27 +56,33 @@ abstract class ConnectionData() :
 
         if (frames.isEmpty()) {
             if (isFinal) {
-                reader.load()?.flush() // todo ??
                 resetReading()
             }
         }
     }
 
-    fun resetReading() {
+    @OptIn(ExperimentalAtomicApi::class)
+    suspend fun resetReading() {
+        reader.load()?.flush()
         frames.clear()
         processedToOffset = 0
     }
 
 
-    open suspend fun close() { // todo
-        terminate()
-    }
-
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal open suspend fun terminate() {
-        reset.compareAndSet(expectedValue = false, newValue = true)
-        reader.load()?.close() // TODO ??
+    override suspend fun terminate() {
+        super.terminate()
+        try {
+            resetReading()
+        } catch (throwable: Throwable){
+            debug(throwable)
+        }
+        try {
+            reader.load()?.close()
+        } catch (throwable: Throwable){
+            debug(throwable)
+        }
     }
 
     internal abstract suspend fun sendPacket(packet: Packet)

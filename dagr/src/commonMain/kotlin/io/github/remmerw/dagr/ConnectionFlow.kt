@@ -25,16 +25,12 @@ open class ConnectionFlow() {
     }
 
 
-    /**
-     * Stop sending packets, but don't shutdown yet, so connection close can be sent.
-     */
-    fun clearRequests() {
-
-        // No more retransmissions either
-        stopRecovery()
+    internal fun terminateLossDetector() {
+        lossDetector().terminate()
     }
 
-    open suspend fun cleanup() {
+    open suspend fun terminate() {
+        terminateLossDetector()
         for (level in Level.levels()) {
             discard(level)
         }
@@ -52,8 +48,4 @@ open class ConnectionFlow() {
         return lostDetector.detectLostPackets()
     }
 
-    private fun stopRecovery() {
-        lossDetector().stop()
-
-    }
 }

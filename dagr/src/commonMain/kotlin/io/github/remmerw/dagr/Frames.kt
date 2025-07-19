@@ -22,14 +22,12 @@ fun parseVerifyResponseFrame(buffer: Source): VerifyResponseFrame {
     return VerifyResponseFrame(signature)
 }
 
-fun parseDataFrame(buffer: Source): DataFrame {
-    val offset: Long = buffer.readLong()
-    val length: Int = buffer.readInt()
-    val isFinal: Boolean = buffer.readByte() == 1.toByte()
+fun parseDataFrame(source: Source): DataFrame {
+    val offset: Long = source.readLong()
+    val length: Int = source.readInt()
+    val isFinal: Boolean = source.readByte() == 1.toByte()
 
-    val streamData = buffer.readByteArray(length)
-
-    return DataFrame(isFinal, offset, length, streamData)
+    return DataFrame(isFinal, offset, length, source)
 }
 
 data class ConnectionCloseFrame(
@@ -53,12 +51,11 @@ data class VerifyResponseFrame(
 )
 
 
-@Suppress("ArrayInDataClass")
 data class DataFrame(
     val isFinal: Boolean,
     val offset: Long,
     val length: Int,
-    val bytes: ByteArray
+    val source: Source
 ) :
     Comparable<DataFrame> {
     override fun compareTo(other: DataFrame): Int {
@@ -84,31 +81,6 @@ internal fun createAckFrame(packet: Long): ByteArray {
     return buffer.readByteArray()
 }
 
-
-internal fun createDataFrame(
-    offset: Long, data: ByteArray, fin: Boolean
-): ByteArray {
-    val buffer = Buffer()
-    buffer.writeByte(0x03.toByte())
-    buffer.writeLong(offset)
-    buffer.writeInt(data.size)
-    if (fin) {
-        buffer.writeByte(1.toByte())
-    } else {
-        buffer.writeByte(0.toByte())
-    }
-    buffer.write(data)
-
-    return buffer.readByteArray()
-}
-
-/**
- * Represents a connection close frame.
- * [...](https://www.rfc-editor.org/rfc/rfc9000.html#name-connection_close-frames)
- */
-/**
- * Creates a connection close frame for a normal connection close without errors
- */
 internal fun createConnectionCloseFrame(
     transportError: TransportError = TransportError(
         TransportError.Code.NO_ERROR

@@ -35,7 +35,7 @@ internal class LossDetector() {
         packetSentLog.remove(packetNumber)
     }
 
-    fun stop() {
+    fun terminate() {
         isStopped = true
         packetSentLog.clear()
     }

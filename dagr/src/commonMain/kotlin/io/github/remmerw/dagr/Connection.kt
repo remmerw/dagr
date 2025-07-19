@@ -180,7 +180,7 @@ abstract class Connection(
 
         disableKeepAlive()
 
-        clearRequests() // all outgoing messages are cleared -> purpose send connection close
+        terminateLossDetector()
 
         sendPacket(
             createAppPacket(
@@ -190,8 +190,6 @@ abstract class Connection(
 
         )
 
-
-        // "After sending a CONNECTION_CLOSE frame, an endpoint immediately enters the closing state;"
         state(State.Closing)
 
         terminate()
@@ -206,7 +204,6 @@ abstract class Connection(
             if (closing.hasError()) {
                 debug("Connection closed with code " + closing.errorCode)
             }
-            clearRequests()
 
             terminate()
         }
@@ -217,12 +214,12 @@ abstract class Connection(
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         // "Once its closing or draining state ends, an endpoint SHOULD discard all
         // connection state."
-        super.cleanup()
+        super.terminate()
         terminate.terminate(this)
         state(State.Closed)
     }
 
-    override suspend fun close() {
+    suspend fun close() {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         sendCloseFrame(TransportError(TransportError.Code.NO_ERROR))
     }
