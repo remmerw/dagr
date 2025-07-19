@@ -123,49 +123,57 @@ internal class DagrClient internal constructor(
                 when (type) {
                     0x03.toByte() -> { // data frame
                         val packetNumber = source.readLong()
-                        sendAck(packetNumber)
-                        process(parseDataFrame(source))
-                        packetIdleProcessed()
+                        if (packetProtector(packetNumber, true)) {
+                            process(parseDataFrame(source))
+                            packetProcessed()
+                        }
                     }
 
                     0x04.toByte() -> { // verify frame
                         val packetNumber = source.readLong()
-                        sendAck(packetNumber)
-                        val signature = source.readByteArray(Settings.SIGNATURE_SIZE)
+                        if (packetProtector(packetNumber, true)) {
+                            val signature = source.readByteArray(Settings.SIGNATURE_SIZE)
 
 
-                        try {
-                            verify(remotePeerId(), token, signature)
+                            try {
+                                verify(remotePeerId(), token, signature)
 
-                            state(State.Connected)
+                                state(State.Connected)
 
-                            initializeDone.release()
-                        } catch (throwable: Throwable) {
-                            debug("Verification failed " + throwable.message)
+                                initializeDone.release()
+                            } catch (throwable: Throwable) {
+                                debug("Verification failed " + throwable.message)
 
-                            sendCloseFrame(
-                                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-                            )
+                                sendCloseFrame(
+                                    TransportError(TransportError.Code.PROTOCOL_VIOLATION)
+                                )
+                            }
+                            packetProcessed()
                         }
                     }
 
                     0x05.toByte() -> { // close frame
-                        source.readLong() // ignore
-                        process(parseCloseFrame(source))
-                        packetIdleProcessed()
+                        val packetNumber = source.readLong() // ignore
+                        if (packetProtector(packetNumber, false)) {
+                            process(parseCloseFrame(source))
+                            packetProcessed()
+                        }
                     }
 
                     0x01.toByte() -> { // ping frame
                         val packetNumber = source.readLong()
-                        sendAck(packetNumber)
-                        packetIdleProcessed()
+                        if (packetProtector(packetNumber, true)) {
+                            packetProcessed()
+                        }
                     }
 
                     0x02.toByte() -> { // ack frame
-                        source.readLong() // packet number
-                        val pn = source.readLong() // packet
-                        processAckFrameReceived(pn)
-                        packetIdleProcessed()
+                        val packetNumber = source.readLong() // packet number
+                        if (packetProtector(packetNumber, false)) {
+                            val pn = source.readLong() // packet
+                            processAckFrameReceived(pn)
+                            packetProcessed()
+                        }
                     }
 
                     else -> {
@@ -175,10 +183,8 @@ internal class DagrClient internal constructor(
             } catch (throwable: Throwable) {
                 debug(throwable)
             }
-
         }
     }
-
 }
 
 suspend fun connectDagr(

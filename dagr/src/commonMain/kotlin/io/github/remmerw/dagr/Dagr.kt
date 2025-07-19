@@ -93,6 +93,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
     ) {
 
         val packetNumber = source.readLong()
+
         val id = source.readByteArray(32) // 32 hash Size of PeerId
         val remotePeerId = PeerId(id)
         val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
@@ -103,26 +104,27 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
             ) {}
         }
         try {
-            connection.state(State.Connected)
+            if (connection.packetProtector(packetNumber, true)) {
+                connection.state(State.Connected)
 
-            connection.sendAck(packetNumber)
+                val signature = sign(keys, remoteToken)
 
-            val signature = sign(keys, remoteToken)
+                val packet = createVerifyPacket(
+                    connection.fetchPackageNumber(), signature
+                )
 
-            val packet = createVerifyPacket(
-                connection.fetchPackageNumber(), signature
-            )
+                connection.sendPacket(packet)
 
-            connection.sendPacket(packet)
-
-            jobs.put(remoteAddress, scope.launch {
-                connection.runRequester()
-            })
+                jobs.put(remoteAddress, scope.launch {
+                    connection.runRequester()
+                })
 
 
-            handler.put(remoteAddress, scope.launch {
-                responder.handleConnection(connection)
-            })
+                handler.put(remoteAddress, scope.launch {
+                    responder.handleConnection(connection)
+                })
+                connection.packetProcessed()
+            }
         } catch (throwable: Throwable) {
             debug(throwable)
             connection.terminate()
@@ -142,25 +144,31 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
 
                 when (type) {
                     0x03.toByte() -> { // data frame
-                        connection.sendAck(packetNumber)
-                        connection.process(parseDataFrame(source))
-                        connection.packetIdleProcessed()
+                        if (connection.packetProtector(packetNumber, true)) {
+                            connection.process(parseDataFrame(source))
+                            connection.packetProcessed()
+                        }
                     }
 
                     0x05.toByte() -> { // close frame
-                        connection.process(parseCloseFrame(source))
-                        connection.packetIdleProcessed()
+                        if (connection.packetProtector(packetNumber, false)) {
+                            connection.process(parseCloseFrame(source))
+                            connection.packetProcessed()
+                        }
                     }
 
                     0x01.toByte() -> { // ping frame
-                        connection.sendAck(packetNumber)
-                        connection.packetIdleProcessed()
+                        if (connection.packetProtector(packetNumber, true)) {
+                            connection.packetProcessed()
+                        }
                     }
 
                     0x02.toByte() -> { // ack frame
-                        val packet = source.readLong()
-                        connection.processAckFrameReceived(packet)
-                        connection.packetIdleProcessed()
+                        if (connection.packetProtector(packetNumber, false)) {
+                            val packet = source.readLong()
+                            connection.processAckFrameReceived(packet)
+                            connection.packetProcessed()
+                        }
                     }
 
                     else -> {

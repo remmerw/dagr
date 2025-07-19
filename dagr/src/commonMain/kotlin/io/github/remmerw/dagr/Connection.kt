@@ -22,7 +22,7 @@ abstract class Connection(
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val packetNumberGenerator: AtomicLong = AtomicLong(0)
+    private val localPacket: AtomicLong = AtomicLong(0)
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -36,6 +36,18 @@ abstract class Connection(
     @Volatile
     private var state = State.Created
 
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val remotePacket: AtomicLong = AtomicLong(-1)
+
+    suspend fun packetProtector(packetNumber: Long, shouldSendAck: Boolean): Boolean {
+
+        if (shouldSendAck) {
+            sendAck(packetNumber)
+        }
+
+        return true
+    }
 
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
@@ -84,7 +96,7 @@ abstract class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun sendAck(packetNumber: Long) {
+    private suspend fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(
             fetchPackageNumber(), packetNumber
         )
@@ -171,7 +183,7 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal fun packetIdleProcessed() {
+    internal fun packetProcessed() {
         lastAction = TimeSource.Monotonic.markNow()
     }
 
@@ -210,7 +222,7 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     override suspend fun fetchPackageNumber(): Long {
-        return packetNumberGenerator.incrementAndFetch()
+        return localPacket.incrementAndFetch()
     }
 
     override suspend fun sendPacket(packet: Packet) {
