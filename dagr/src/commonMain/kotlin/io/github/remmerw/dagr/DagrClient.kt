@@ -14,6 +14,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.readByteArray
 import kotlin.random.Random
 
 
@@ -68,9 +69,9 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = createInitPacket(
+        val packet = createVerifyRequestPacket(
             peerId, fetchPackageNumber(),
-            true, createVerifyRequestFrame(token)
+            true, token
         )
 
         sendPacket(packet)
@@ -80,32 +81,6 @@ internal class DagrClient internal constructor(
     private suspend fun abortInitialize() {
         state(State.Closing)
         terminate()
-    }
-
-    override suspend fun process(verifyFrame: VerifyRequestFrame) {
-        // not yet supported (maybe in the future)
-    }
-
-
-    override suspend fun process(verifyFrame: VerifyResponseFrame) {
-
-
-        val remoteSignature = verifyFrame.signature
-
-        try {
-            verify(remotePeerId(), token, remoteSignature)
-
-            state(State.Connected)
-            discard(Level.INIT)
-
-            initializeDone.release()
-        } catch (throwable: Throwable) {
-            debug("Verification failed " + throwable.message)
-
-            sendCloseFrame(
-                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-            )
-        }
     }
 
 
@@ -139,21 +114,60 @@ internal class DagrClient internal constructor(
     private suspend fun runReceiver(): Unit = coroutineScope {
         while (isActive) {
             val receivedPacket = socket.receive()
+            if (state().isClosing) {
+                break
+            }
             try {
                 val source = receivedPacket.packet
 
                 val type = source.readByte()
-                if (type == 1.toByte()) {
-                    // only APP packages allowed
-                    val packetNumber = source.readLong()
 
-                    processPacket(Level.APP, source, packetNumber)
-                } else {
-                    debug("Probably hole punch detected $type")
+                when (type) {
+                    0x03.toByte() -> { // data frame
+                        val packetNumber = source.readLong()
+                        sendAck(packetNumber)
+                        process(parseDataFrame(source))
+                        packetIdleProcessed()
+                    }
+
+                    0x04.toByte() -> { // verify frame
+                        val packetNumber = source.readLong()
+                        sendAck(packetNumber)
+                        val signature = source.readByteArray(Settings.SIGNATURE_SIZE)
+
+
+                        try {
+                            verify(remotePeerId(), token, signature)
+
+                            state(State.Connected)
+                            discard(Level.INIT)
+
+                            initializeDone.release()
+                        } catch (throwable: Throwable) {
+                            debug("Verification failed " + throwable.message)
+
+                            sendCloseFrame(
+                                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
+                            )
+                        }
+                    }
+
+                    0x05.toByte() -> {
+                        process(parseConnectionCloseFrame(source))
+                        packetIdleProcessed()
+                    }
+
+                    else -> {
+                        val packetNumber = source.readLong()
+                        processPacket(Level.APP, source, packetNumber)
+
+                        // todo else debug("Probably hole punch detected $type")
+                    }
                 }
             } catch (throwable: Throwable) {
                 debug(throwable)
             }
+
         }
     }
 

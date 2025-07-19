@@ -77,60 +77,28 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private suspend fun process(source: Source, remoteAddress: InetSocketAddress) {
         val type = source.readByte()
         when (type) {
-            0.toByte() -> { // 0 INIT
+            0x00.toByte() -> { // 0 Verify Request
                 processInitPackage(source, remoteAddress)
             }
 
-            1.toByte() -> { // 1 APP
-                processAppPackage(source, remoteAddress)
+            else -> {
+                processAppPackage(type, source, remoteAddress)
             }
         }
     }
 
     private suspend fun processInitPackage(source: Source, remoteAddress: InetSocketAddress) {
-        val id = source.readByteArray(32) // 32 hash Size of PeerId
-        val remotePeerId = PeerId(id)
-        val packetNumber = source.readLong()
 
         if (!connections.contains(remoteAddress)) {
-            val connection =
-                object : Connection(
-                    socket!!,
-                    remotePeerId, remoteAddress, this
-                ) {
+            source.readLong()
+            val id = source.readByteArray(32) // 32 hash Size of PeerId
+            val remotePeerId = PeerId(id)
+            val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
 
-
-                    override suspend fun process(verifyFrame: VerifyRequestFrame) {
-                        val remoteToken = verifyFrame.token
-                        try {
-
-                            state(State.Connected)
-                            discard(Level.INIT)
-
-                            val signature = sign(keys, remoteToken)
-
-                            val packet = createAppPacket(
-                                fetchPackageNumber(),
-                                true, createVerifyResponseFrame(signature)
-                            )
-
-                            sendPacket(packet)
-
-                        } catch (throwable: Throwable) {
-                            debug("Verification failed " + throwable.message)
-
-                            sendCloseFrame(
-                                TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-                            )
-                        }
-                    }
-
-                    override suspend fun process(verifyFrame: VerifyResponseFrame) {
-                        // not yet supported (maybe in the future)
-                    }
-
-
-                }
+            val connection = object : Connection(
+                socket!!, remotePeerId,
+                remoteAddress, this
+            ) {}
 
             connections.put(remoteAddress, connection)
 
@@ -145,16 +113,46 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             })
 
 
-            connection.processPacket(Level.INIT, source, packetNumber)
+            connection.state(State.Connected)
+            connection.discard(Level.INIT)
+
+            val signature = sign(keys, remoteToken)
+
+            val packet = createVerifyResponsePacket(
+                connection.fetchPackageNumber(),
+                true, signature
+            )
+
+            connection.sendPacket(packet)
         }
     }
 
-    private suspend fun processAppPackage(source: Source, remoteAddress: InetSocketAddress) {
+    private suspend fun processAppPackage(
+        type: Byte,
+        source: Source,
+        remoteAddress: InetSocketAddress
+    ) {
 
         val connection = connections[remoteAddress]
         if (connection != null) {
             val packetNumber = source.readLong()
-            connection.processPacket(Level.APP, source, packetNumber)
+
+            when (type) {
+                0x03.toByte() -> { // data frame
+                    connection.sendAck(packetNumber)
+                    connection.process(parseDataFrame(source))
+                    connection.packetIdleProcessed()
+                }
+
+                0x05.toByte() -> {
+                    connection.process(parseConnectionCloseFrame(source))
+                    connection.packetIdleProcessed()
+                }
+
+                else -> {
+                    connection.processPacket(Level.APP, source, packetNumber)
+                }
+            }
         }
     }
 

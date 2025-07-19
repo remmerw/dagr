@@ -106,24 +106,6 @@ abstract class Connection(
                     lossDetector().processAckFrameReceived(packetNumber)
                 }
 
-                0x03 -> {
-                    sendAck(packetNumber)
-                    process(parseDataFrame(source))
-                }
-
-                0x18 -> {
-                    sendAck(packetNumber)
-                    process(parseVerifyRequestFrame(source))
-                }
-
-                0x19 -> {
-                    sendAck(packetNumber)
-                    process(parseVerifyResponseFrame(source))
-                }
-
-                0x1c, 0x1d ->  // isAckEliciting is false;
-                    process(parseConnectionCloseFrame(source))
-
 
                 else -> {
                     error("Receipt a frame of unknown type $frameType")
@@ -158,12 +140,7 @@ abstract class Connection(
         }
     }
 
-
-    internal abstract suspend fun process(verifyFrame: VerifyRequestFrame)
-    internal abstract suspend fun process(verifyFrame: VerifyResponseFrame)
-
-
-    private suspend fun process(dataFrame: DataFrame) {
+    internal suspend fun process(dataFrame: DataFrame) {
         try {
             processDataFrame(dataFrame)
         } catch (transportError: TransportError) {
@@ -183,11 +160,10 @@ abstract class Connection(
         terminateLossDetector()
 
         sendPacket(
-            createAppPacket(
+            createConnectionClosePacket(
                 fetchPackageNumber(),
-                false, createConnectionCloseFrame(transportError)
+                false, transportError
             )
-
         )
 
         state(State.Closing)
@@ -196,7 +172,7 @@ abstract class Connection(
     }
 
 
-    private suspend fun process(closing: ConnectionCloseFrame) {
+    suspend fun process(closing: ConnectionCloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
@@ -245,7 +221,7 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun packetIdleProcessed() {
+    internal fun packetIdleProcessed() {
         lastAction = TimeSource.Monotonic.markNow()
     }
 
@@ -300,18 +276,5 @@ abstract class Connection(
         return remotePeerId
     }
 
-
-    enum class State {
-        Created,
-        Connected,
-        Closing,
-        Closed;
-
-        val isClosing: Boolean
-            get() = this == Closing
-
-        val isConnected: Boolean
-            get() = this == Connected
-    }
 
 }

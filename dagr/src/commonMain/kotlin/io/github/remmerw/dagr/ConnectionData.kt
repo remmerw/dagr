@@ -69,18 +69,17 @@ abstract class ConnectionData() :
     }
 
 
-
     @OptIn(ExperimentalAtomicApi::class)
     override suspend fun terminate() {
         super.terminate()
         try {
             resetReading()
-        } catch (throwable: Throwable){
+        } catch (throwable: Throwable) {
             debug(throwable)
         }
         try {
             reader.load()?.close()
-        } catch (throwable: Throwable){
+        } catch (throwable: Throwable) {
             debug(throwable)
         }
     }
@@ -97,7 +96,7 @@ abstract class ConnectionData() :
                 finalFrame = true
             }
 
-            val packet = createAppDataPacket(
+            val packet = createDataPacket(
                 fetchPackageNumber(),
                 true,
                 source, offset, length.toInt(), finalFrame

@@ -78,16 +78,14 @@ private data class AppPacket(
 
 }
 
-internal fun createAppDataPacket(
+internal fun createDataPacket(
     packetNumber: Long, ackEliciting: Boolean,
     source: Source, offset: Long,
     length: Int, fin: Boolean
 ): Packet {
     val buffer = Buffer()
-    buffer.writeByte(1.toByte())
-    buffer.writeLong(packetNumber)
-
     buffer.writeByte(0x03.toByte())
+    buffer.writeLong(packetNumber)
     buffer.writeLong(offset)
     buffer.writeInt(length)
     if (fin) {
@@ -113,15 +111,48 @@ internal fun createAppPacket(packetNumber: Long, ackEliciting: Boolean, frame: B
 }
 
 
-internal fun createInitPacket(
+internal fun createVerifyResponsePacket(
+    packetNumber: Long,
+    ackEliciting: Boolean,
+    signature: ByteArray
+): Packet {
+    require(signature.size == Settings.SIGNATURE_SIZE) { "Invalid size of signature" }
+    val buffer = Buffer()
+    buffer.writeByte(0x04.toByte())
+    buffer.writeLong(packetNumber)
+    buffer.write(signature)
+
+    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+}
+
+internal fun createConnectionClosePacket(
+    packetNumber: Long, ackEliciting: Boolean,
+    transportError: TransportError = TransportError(
+        TransportError.Code.NO_ERROR
+    )
+): Packet {
+
+    val buffer = Buffer()
+    buffer.writeByte(0x05.toByte())
+    buffer.writeLong(packetNumber)
+    buffer.writeLong(transportError.errorCode())
+
+    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    return AppPacket(packetNumber, ackEliciting, buffer.readByteArray())
+}
+
+internal fun createVerifyRequestPacket(
     peerId: PeerId,
-    packetNumber: Long, ackEliciting: Boolean, frame: ByteArray
+    packetNumber: Long,
+    ackEliciting: Boolean,
+    token: ByteArray
 ): Packet {
     val buffer = Buffer()
-    buffer.writeByte(0.toByte())
-    buffer.write(peerId.hash)
+    buffer.writeByte(0x00.toByte())
     buffer.writeLong(packetNumber)
-    buffer.write(frame)
+    buffer.write(peerId.hash)
+    buffer.write(token)
 
     require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
     return InitPacket(peerId, packetNumber, ackEliciting, buffer.readByteArray())
