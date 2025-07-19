@@ -3,10 +3,9 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertNull
 
 class CloseStreamTest {
 
@@ -18,37 +17,33 @@ class CloseStreamTest {
         val serverPeerId = serverKeys.peerId
 
 
-        val server = newDagr(serverKeys, 4444, object : Responder {
-            override suspend fun data(
-                connection: Connection,
-                data: ByteArray
+        val server = newDagr(serverKeys, 0, object : Responder {
+            override suspend fun handleConnection(
+                connection: Connection
             ) {
                 connection.close()
             }
         }
 
         )
-        val remoteAddress = server.address()
+        val remoteAddress = server.localAddress()
         val connector = Connector()
         val clientKeys = generateKeys()
         val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
-        connection.connect(1)
-
-        val buffer = Buffer()
-        buffer.write("Solar".encodeToByteArray())
-        val response = connection.request(1, buffer)
-
-        assertEquals(response.size, 0)
-        assertTrue(!connection.isConnected)
+        assertNull(
+            connectDagr(
+                clientPeerId, serverPeerId,
+                remoteAddress, connector, 1
+            )
+        )
 
         assertEquals(server.connections().size, 0)
+        assertEquals(connector.connections().size, 0)
 
-        connection.close()
+        connector.shutdown()
         server.shutdown()
     }
-
 
 
 }

@@ -4,7 +4,6 @@ import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -18,21 +17,24 @@ class TimeoutTest {
         val serverPeerId = serverKeys.peerId
 
         val server = newDagr(serverKeys, 1111, object : Responder {
-            override suspend fun data(
-                connection: Connection,
-                data: ByteArray
+            override suspend fun handleConnection(
+                connection: Connection
             ) {
             }
         }
 
         )
-        val remoteAddress = server.address()
+        val remoteAddress = server.localAddress()
         val connector = Connector()
         val clientKeys = generateKeys()
         val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
-        connection.connect(1)
+        val connection = checkNotNull(
+            connectDagr(
+                clientPeerId,
+                serverPeerId, remoteAddress, connector, 1
+            )
+        )
 
 
         assertEquals(connector.connections().size, 1)

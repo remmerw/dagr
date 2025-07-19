@@ -27,6 +27,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
+    private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private var socket: BoundDatagramSocket? = null
 
     suspend fun startup(port: Int) {
@@ -38,6 +39,11 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             runReceiver()
         }
 
+    }
+
+    fun localAddress(): InetSocketAddress {
+        require(socket != null) { "Server is not yet started" }
+        return socket?.localAddress as InetSocketAddress
     }
 
     suspend fun punching(isa: InetSocketAddress): Boolean {
@@ -52,10 +58,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             debug("Error Punching " + throwable.message)
             return false
         }
-    }
-
-    fun address(): InetSocketAddress {
-        return socket!!.localAddress as InetSocketAddress
     }
 
     private suspend fun runReceiver(): Unit = coroutineScope {
@@ -123,17 +125,19 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                     }
 
 
-                    override fun responder(): Responder? {
-                        return responder
-                    }
                 }
 
             connections.put(remoteAddress, connection)
 
-            val job = scope.launch {
+
+            jobs.put(remoteAddress, scope.launch {
                 connection.runRequester()
-            }
-            jobs.put(remoteAddress, job)
+            })
+
+
+            handler.put(remoteAddress, scope.launch {
+                responder.handleConnection(connection)
+            })
 
 
             connection.processPacket(Level.INIT, source, packetNumber)
@@ -192,6 +196,12 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         val job = jobs.remove(connection.remoteAddress())
         try {
             job?.cancel()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+        val handle = handler.remove(connection.remoteAddress())
+        try {
+            handle?.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
         }

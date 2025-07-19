@@ -1,11 +1,13 @@
 package io.github.remmerw.dagr
 
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.core.remaining
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.withTimeout
+import io.ktor.utils.io.writeFully
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
 
@@ -13,15 +15,21 @@ abstract class ConnectionData() :
     ConnectionFlow() {
 
     private val frames: MutableList<DataFrame> = mutableListOf() // no concurrency
-    private val readingBuffer = Buffer()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val reset = AtomicBoolean(false)
 
-    private val requestFinish = Semaphore(1, 1)
-
     private var processedToOffset: Long = 0 // no concurrency
 
+    @OptIn(ExperimentalAtomicApi::class)
+    private val reader: AtomicReference<ByteChannel?> = AtomicReference(null)
+
+    @OptIn(ExperimentalAtomicApi::class)
+    fun openReadChannel(): ByteReadChannel = ByteChannel(false).also { channel ->
+        reader.store(channel)
+    }
+
+    @OptIn(ExperimentalAtomicApi::class)
     private suspend fun broadcast() {
         var bytesRead = 0
 
@@ -35,7 +43,7 @@ abstract class ConnectionData() :
                 if (upToOffset >= processedToOffset) {
                     bytesRead += frame.length
 
-                    readingBuffer.write(frame.bytes)
+                    reader.load()?.writeFully(frame.bytes)
 
                     processedToOffset = frame.offsetLength()
 
@@ -54,12 +62,8 @@ abstract class ConnectionData() :
 
         if (frames.isEmpty()) {
             if (isFinal) {
-                if (responder() == null) {
-                    requestFinish.release()
-                } else {
-                    responder()!!.data(this as Connection, readingBuffer.readByteArray())
-                    resetReading()
-                }
+                reader.load()?.flush() // todo ??
+                resetReading()
             }
         }
     }
@@ -67,11 +71,10 @@ abstract class ConnectionData() :
     fun resetReading() {
         frames.clear()
         processedToOffset = 0
-        readingBuffer.clear()
     }
 
 
-    open suspend fun close() {
+    open suspend fun close() { // todo
         terminate()
     }
 
@@ -79,12 +82,7 @@ abstract class ConnectionData() :
     @OptIn(ExperimentalAtomicApi::class)
     internal open suspend fun terminate() {
         reset.compareAndSet(expectedValue = false, newValue = true)
-        readingBuffer.clear()
-
-        try {
-            requestFinish.release()
-        } catch (_: Throwable) {
-        }
+        reader.load()?.close() // TODO ??
     }
 
     internal abstract suspend fun sendFrame(level: Level, isAckEliciting: Boolean, frame: ByteArray)
@@ -110,29 +108,6 @@ abstract class ConnectionData() :
         }
     }
 
-
-    // this is a blocking request with the given timeout [fin is written, no more writing data allowed]
-    suspend fun request(timeout: Long, data: Buffer): ByteArray {
-        write(data)
-
-        try {
-            return withTimeout(timeout * 1000L) {
-                requestFinish.acquire()
-                response().readByteArray()
-            }
-        } catch (throwable: Throwable) {
-            debug(throwable)
-            close()
-            return byteArrayOf()
-        } finally {
-            resetReading()
-        }
-    }
-
-    private fun response(): Buffer {
-        return readingBuffer
-    }
-
     private fun addFrame(frame: DataFrame): Boolean {
         if (frame.offset >= processedToOffset) {
             return frames.add(frame)
@@ -141,9 +116,6 @@ abstract class ConnectionData() :
             return false
         }
     }
-
-
-    abstract fun responder(): Responder?
 
 
     internal suspend fun processDataFrame(frame: DataFrame) {

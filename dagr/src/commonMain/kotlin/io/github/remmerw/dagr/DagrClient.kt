@@ -17,7 +17,7 @@ import kotlinx.coroutines.withTimeout
 import kotlin.random.Random
 
 
-class DagrClient internal constructor(
+internal class DagrClient internal constructor(
     private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
     peerId: PeerId,
@@ -30,30 +30,31 @@ class DagrClient internal constructor(
     private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    suspend fun connect(timeout: Int) {
+    suspend fun connect(timeout: Int): Connection? {
 
         try {
             startInitialize()
-        } catch (throwable: Throwable) {
+        } catch (_: Throwable) {
             abortInitialize()
-            throw Exception("Error : " + throwable.message)
+            return null
         }
 
         try {
-            withTimeout(timeout * 1000L) {
-
+            return withTimeout(timeout * 1000L) {
                 initializeDone.acquire()
 
                 if (state() != State.Connected) {
                     abortInitialize()
-                    throw Exception("Handshake error state is " + state())
+                    return@withTimeout null
                 }
                 connector.addConnection(this@DagrClient)
+                return@withTimeout this@DagrClient
             }
-        } catch (throwable: Throwable) {
+        } catch (_: Throwable) {
             abortInitialize()
-            throw throwable
+            return null
         }
+
     }
 
 
@@ -104,10 +105,6 @@ class DagrClient internal constructor(
     }
 
 
-    fun address(): InetSocketAddress {
-        return socket.localAddress as InetSocketAddress
-    }
-
     override suspend fun terminate() {
         super.terminate()
 
@@ -157,26 +154,28 @@ class DagrClient internal constructor(
 
     }
 
-
-    override fun responder(): Responder? {
-        return null // not yet supported (only uni directional connections)
-    }
-
 }
 
-suspend fun newDagrClient(
+suspend fun connectDagr(
     peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
-    connector: Connector
-): DagrClient {
+    connector: Connector,
+    timeout: Int
+): Connection? {
     val selectorManager = SelectorManager(Dispatchers.IO)
-    val socket = aSocket(selectorManager).udp().bind(
-        InetSocketAddress("::", 0)
-    )
-    return DagrClient(
-        selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
-    )
+    try {
+        val socket = aSocket(selectorManager).udp().bind(
+            InetSocketAddress("::", 0)
+        )
+        val dagr = DagrClient(
+            selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
+        )
+        return dagr.connect(timeout)
+    } catch (_: Throwable) {
+        selectorManager.close()
+    }
+    return null
 }
 
 

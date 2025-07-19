@@ -43,6 +43,9 @@ abstract class Connection(
         return remoteAddress
     }
 
+    fun localAddress(): InetSocketAddress {
+        return socket.localAddress as InetSocketAddress
+    }
 
     fun state(): State {
         return state

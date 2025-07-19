@@ -3,5 +3,5 @@ package io.github.remmerw.dagr
 
 interface Responder {
 
-    suspend fun data(connection: Connection, data: ByteArray)
+    suspend fun handleConnection(connection: Connection)
 }

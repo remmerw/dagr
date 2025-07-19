@@ -1,13 +1,15 @@
 package io.github.remmerw.dagr
 
 import io.github.remmerw.borr.generateKeys
+import io.ktor.utils.io.readByteArray
+import io.ktor.utils.io.readLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class DagrMultipleTest {
 
@@ -18,39 +20,50 @@ class DagrMultipleTest {
         val serverKeys = generateKeys()
 
         val serverPeerId = serverKeys.peerId
+        val dataSize = UShort.MAX_VALUE.toInt()
 
-        var serverData : ByteArray? = null
-        val clientText = "Hello World"
-        val server = newDagr(serverKeys, 7777, object : Responder {
-            override suspend fun data(
-                connection: Connection,
-                data: ByteArray
+        var serverData: ByteArray? = null
+
+        val server = newDagr(serverKeys, 0, object : Responder {
+            override suspend fun handleConnection(
+                connection: Connection
             ) {
-                assertEquals(data.decodeToString(), clientText)
+                val reader = connection.openReadChannel()
+                while (true) {
+                    reader.readLong() // nothing to do
 
-                val buffer = Buffer()
-                serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
-                buffer.write(serverData)
-                connection.write(buffer)
+                    val buffer = Buffer()
+                    serverData = Random.nextBytes(dataSize)
+                    buffer.write(serverData)
+                    connection.write(buffer)
+                }
             }
         }
 
         )
-        val remoteAddress = server.address()
+        val remoteAddress = server.localAddress()
         val connector = Connector()
         val clientKeys = generateKeys()
         val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
-        connection.connect(1)
+        val connection =
+            assertNotNull(
+                connectDagr(
+                    clientPeerId, serverPeerId,
+                    remoteAddress, connector, 1
+                )
+            )
 
 
+        val readChannel = connection.openReadChannel()
         repeat(1000) {
             val buffer = Buffer()
-            buffer.write(clientText.encodeToByteArray())
-            val response = connection.request(1, buffer)
+            buffer.writeLong(0)
+            connection.write(buffer)
 
-            assertContentEquals(response,serverData)
+
+            val data = readChannel.readByteArray(dataSize)
+            assertContentEquals(data, serverData)
         }
 
         connection.close()

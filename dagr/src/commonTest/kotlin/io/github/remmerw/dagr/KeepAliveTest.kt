@@ -4,9 +4,9 @@ import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class KeepAliveTest {
 
@@ -17,22 +17,26 @@ class KeepAliveTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 3333, object : Responder {
-            override suspend fun data(
-                connection: Connection,
-                data: ByteArray
+        val server = newDagr(serverKeys, 0, object : Responder {
+            override suspend fun handleConnection(
+                connection: Connection
             ) {
             }
         }
 
         )
-        val remoteAddress = server.address()
+        val remoteAddress = server.localAddress()
         val connector = Connector()
         val clientKeys = generateKeys()
         val clientPeerId = clientKeys.peerId
 
-        val connection = newDagrClient(clientPeerId, serverPeerId, remoteAddress, connector)
-        connection.connect(1)
+        val connection = assertNotNull(
+            connectDagr(
+                clientPeerId,
+                serverPeerId, remoteAddress, connector, 1
+            )
+        )
+
         connection.enableKeepAlive()
 
         assertEquals(connector.connections().size, 1)
