@@ -54,7 +54,7 @@ abstract class Connection(
             if (diff > 1) {
                 val newEntries = diff.toInt() - 1 // -1 because of current packetNumber
 
-                println("New missed packets $newEntries")
+                debug("New missed packets $newEntries")
 
                 repeat(newEntries) { i ->
                     missingPackets.add(i + 1 + oldValue) // + 1 because zero based
@@ -75,12 +75,12 @@ abstract class Connection(
             return if (missingPackets.remove(packetNumber)) {
                 // missing packet detected
                 // ack is already send so everything is fine
-                println("detect a really missing packet $packetNumber")
+                debug("detect a really missing packet $packetNumber")
                 true
             } else {
                 // a package with this number has already been send
                 // so no further actions (indicate by the false)
-                println("packet $packetNumber has already been processed")
+                debug("packet $packetNumber has already been processed")
                 false
             }
         }

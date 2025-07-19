@@ -51,8 +51,8 @@ open class ConnectionFlow() {
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun pnTooOld(pn: Long): Boolean {
-        if (pn < largestAcked - 3) {
-            println("Loss too old packet $pn")
+        if (pn < largestAcked - Settings.LACKED_PACKETS) {
+            debug("Loss too old packet $pn")
             return true
         }
         return false
