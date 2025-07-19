@@ -239,19 +239,9 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun packetIdleProcessed() {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-31#section-10.1
-        // "An endpoint restarts its idle timer when a packet from its peer is received
-        // and processed successfully."
         lastAction = TimeSource.Monotonic.markNow()
-
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun packetIdleSent(packet: Packet) {
-        if (packet.isAckEliciting()) {
-            lastAction = TimeSource.Monotonic.markNow()
-        }
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     suspend fun runRequester(): Unit = coroutineScope {
@@ -278,11 +268,11 @@ abstract class Connection(
         val buffer = packet.generatePacketBytes()
         val datagram = Datagram(buffer, remoteAddress)
 
-        val timeSent = TimeSource.Monotonic.markNow()
         socket.send(datagram)
+        lastAction = TimeSource.Monotonic.markNow()
 
-        packetSent(PacketStatus(packet, timeSent))
-        packetIdleSent(packet)
+        packetSent(PacketStatus(packet, lastAction))
+
     }
 
     @OptIn(ExperimentalAtomicApi::class)
