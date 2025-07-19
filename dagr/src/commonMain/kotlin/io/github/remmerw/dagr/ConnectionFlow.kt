@@ -41,9 +41,10 @@ open class ConnectionFlow() {
         packetSentLog.values.forEach { packetStatus ->
             if (pnTooOld(packetStatus)) {
                 val packetStatus = packetSentLog.remove(
-                    packetStatus.packet.packetNumber)
+                    packetStatus.packet.packetNumber
+                )
                 if (packetStatus != null) {
-                   // result.add(packetStatus.packet)
+                    // result.add(packetStatus.packet)
                 }
             }
         }

@@ -167,7 +167,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                         debug("Not supported package")
                     }
                 }
-            } catch (throwable: Throwable){
+            } catch (throwable: Throwable) {
                 debug(throwable)
                 connection.terminate()
             }
