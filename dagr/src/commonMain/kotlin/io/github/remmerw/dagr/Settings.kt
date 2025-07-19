@@ -18,7 +18,7 @@ internal object Settings {
     //   this results in a QUIC maximum packet size of 1232 bytes for IPv6 and
     //   1252 bytes for IPv4."
     // As it is not know (yet) whether running over IP4 or IP6, take the smallest of the two:
-    const val MAX_PACKAGE_SIZE: Int = 1232
+    const val MAX_PACKET_SIZE: Int = 1232
     const val MAX_DELAY: Int = 100
     const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000

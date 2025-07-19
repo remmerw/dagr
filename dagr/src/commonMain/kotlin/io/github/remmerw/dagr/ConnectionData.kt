@@ -85,7 +85,7 @@ abstract class ConnectionData() :
     }
 
     internal abstract suspend fun sendPacket(packet: Packet)
-    internal abstract suspend fun fetchPackageNumber(): Long
+    internal abstract suspend fun fetchPacketNumber(): Long
 
     suspend fun write(source: Source, autoFlush: Boolean = true) {
         var offset = 0
@@ -100,7 +100,7 @@ abstract class ConnectionData() :
             }
 
             val packet = createDataPacket(
-                fetchPackageNumber(), source, offset, length, finalFrame
+                fetchPacketNumber(), source, offset, length, finalFrame
             )
             offset += length
 

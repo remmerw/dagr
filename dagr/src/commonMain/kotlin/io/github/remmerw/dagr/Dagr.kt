@@ -78,16 +78,16 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
         val type = source.readByte()
         when (type) {
             0x00.toByte() -> { // Connect packet
-                processConnectPackage(source, remoteAddress)
+                processConnectPacket(source, remoteAddress)
             }
 
             else -> {
-                processAppPackage(type, source, remoteAddress)
+                processPacket(type, source, remoteAddress)
             }
         }
     }
 
-    private suspend fun processConnectPackage(
+    private suspend fun processConnectPacket(
         source: Source,
         remoteAddress: InetSocketAddress
     ) {
@@ -110,7 +110,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
                 val signature = sign(keys, remoteToken)
 
                 val packet = createVerifyPacket(
-                    connection.fetchPackageNumber(), signature
+                    connection.fetchPacketNumber(), signature
                 )
 
                 connection.sendPacket(packet)
@@ -131,7 +131,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
         }
     }
 
-    private suspend fun processAppPackage(
+    private suspend fun processPacket(
         type: Byte,
         source: Source,
         remoteAddress: InetSocketAddress
@@ -172,7 +172,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
                     }
 
                     else -> {
-                        debug("Not supported package")
+                        debug("Not supported packet")
                     }
                 }
             } catch (throwable: Throwable) {

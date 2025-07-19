@@ -70,7 +70,7 @@ abstract class Connection(
 
             return true
         } else {
-            // check if package number is in the missing packets
+            // check if packet number is in the missing packets
 
             return if (missingPackets.remove(packetNumber)) {
                 // missing packet detected
@@ -78,7 +78,7 @@ abstract class Connection(
                 debug("detect a really missing packet $packetNumber")
                 true
             } else {
-                // a package with this number has already been send
+                // a packet with this number has already been send
                 // so no further actions (indicate by the false)
                 debug("packet $packetNumber has already been processed")
                 false
@@ -108,7 +108,7 @@ abstract class Connection(
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
                 val packet = createPingPacket(
-                    fetchPackageNumber()
+                    fetchPacketNumber()
                 )
                 sendPacket(packet)
                 lastPing = TimeSource.Monotonic.markNow()
@@ -135,7 +135,7 @@ abstract class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(
-            fetchPackageNumber(), packetNumber
+            fetchPacketNumber(), packetNumber
         )
         sendPacket(packet)
     }
@@ -161,7 +161,7 @@ abstract class Connection(
 
         sendPacket(
             createClosePacket(
-                fetchPackageNumber(), transportError
+                fetchPacketNumber(), transportError
             )
         )
 
@@ -258,7 +258,7 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun fetchPackageNumber(): Long {
+    override suspend fun fetchPacketNumber(): Long {
         return localPacketNumber.incrementAndFetch()
     }
 

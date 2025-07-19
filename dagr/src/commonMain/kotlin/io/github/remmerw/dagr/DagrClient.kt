@@ -69,7 +69,7 @@ internal class DagrClient internal constructor(
         }
 
         val packet = createConnectPacket(
-            peerId, fetchPackageNumber(), token
+            peerId, fetchPacketNumber(), token
         )
 
         sendPacket(packet)

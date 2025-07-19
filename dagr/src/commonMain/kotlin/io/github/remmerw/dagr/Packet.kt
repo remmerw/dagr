@@ -38,7 +38,7 @@ internal fun createDataPacket(
     val data = source.readByteArray(length.toInt())
     buffer.write(data)
 
-    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
     return Packet(packetNumber, true, buffer.readByteArray())
 }
 
@@ -53,7 +53,7 @@ internal fun createVerifyPacket(
     buffer.writeLong(packetNumber)
     buffer.write(signature)
 
-    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
     return Packet(packetNumber, true, buffer.readByteArray())
 }
 
@@ -69,7 +69,7 @@ internal fun createClosePacket(
     buffer.writeLong(packetNumber)
     buffer.writeLong(transportError.errorCode())
 
-    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
     return Packet(packetNumber, false, buffer.readByteArray())
 }
 
@@ -107,6 +107,6 @@ internal fun createConnectPacket(
     buffer.write(peerId.hash)
     buffer.write(token)
 
-    require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
     return Packet(packetNumber, true, buffer.readByteArray())
 }
