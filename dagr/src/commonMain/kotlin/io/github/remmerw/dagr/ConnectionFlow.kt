@@ -42,7 +42,7 @@ open class ConnectionFlow() {
             if (pnTooOld(pn)) {
                 val packet = packetSentLog.remove(pn)
                 if (packet != null) {
-                    // result.add(packetStatus.packet)
+                    result.add(packet)
                 }
             }
         }
