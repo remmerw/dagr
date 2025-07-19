@@ -85,7 +85,8 @@ abstract class ConnectionData() :
         reader.load()?.close() // TODO ??
     }
 
-    internal abstract suspend fun sendFrame(level: Level, isAckEliciting: Boolean, frame: ByteArray)
+    internal abstract suspend fun sendPacket(packet: Packet)
+    internal abstract suspend fun fetchPackageNumber(): Long
 
     suspend fun write(buffer: Buffer, autoFlush: Boolean = true) {
         var offset = 0L
@@ -104,7 +105,12 @@ abstract class ConnectionData() :
             )
             offset += read
 
-            sendFrame(Level.APP, true, dataFrame)
+            val packet = AppPacket(
+                fetchPackageNumber(),
+                true, dataFrame
+            )
+
+            sendPacket(packet)
         }
     }
 

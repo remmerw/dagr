@@ -60,7 +60,11 @@ abstract class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                sendFrame(Level.APP, true, PING)
+                val packet = AppPacket(
+                    fetchPackageNumber(),
+                    true, PING
+                )
+                sendPacket(packet)
                 lastPing = TimeSource.Monotonic.markNow()
             }
         }
@@ -132,7 +136,11 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun sendAck(packetNumber: Long) {
-        sendFrame(Level.APP, false, createAckFrame(packetNumber))
+        val packet = AppPacket(
+            fetchPackageNumber(),
+            false, createAckFrame(packetNumber)
+        )
+        sendPacket(packet)
     }
 
     internal suspend fun processPacket(
@@ -175,9 +183,12 @@ abstract class Connection(
 
         clearRequests() // all outgoing messages are cleared -> purpose send connection close
 
-        sendFrame(
-            Level.APP, false,
-            createConnectionCloseFrame(transportError)
+        sendPacket(
+            AppPacket(
+                fetchPackageNumber(),
+                false, createConnectionCloseFrame(transportError)
+            )
+
         )
 
 
@@ -276,14 +287,11 @@ abstract class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun sendFrame(level: Level, isAckEliciting: Boolean, frame: ByteArray) {
-        val packetNumber = packetNumberGenerator.incrementAndFetch()
+    override suspend fun fetchPackageNumber(): Long {
+        return packetNumberGenerator.incrementAndFetch()
+    }
 
-        val packet = if (level == Level.APP) {
-            Packet.AppPacket(packetNumber, isAckEliciting, frame)
-        } else {
-            Packet.InitPacket(peerId, packetNumber, isAckEliciting, frame)
-        }
+    override suspend fun sendPacket(packet: Packet) {
         try {
             send(packet)
         } catch (throwable: Throwable) {

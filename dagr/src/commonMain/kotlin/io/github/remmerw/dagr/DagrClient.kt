@@ -20,7 +20,7 @@ import kotlin.random.Random
 internal class DagrClient internal constructor(
     private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
-    peerId: PeerId,
+    val peerId: PeerId,
     remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     private val connector: Connector
@@ -68,7 +68,12 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        sendFrame(Level.INIT, true, createVerifyRequestFrame(token))
+        val packet = InitPacket(
+            peerId, fetchPackageNumber(),
+            true, createVerifyRequestFrame(token)
+        )
+
+        sendPacket(packet)
     }
 
 
@@ -151,7 +156,6 @@ internal class DagrClient internal constructor(
                 debug(throwable)
             }
         }
-
     }
 
 }

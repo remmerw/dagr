@@ -26,65 +26,65 @@ internal interface Packet {
     fun packetNumber(): Long
     fun generatePacketBytes(): Buffer
 
-    @Suppress("ArrayInDataClass")
-    data class InitPacket(
-        val peerId: PeerId,
-        private val packetNumber: Long,
-        private val isAckEliciting: Boolean,
-        private val frame: ByteArray
-    ) :
-        Packet {
-
-
-        override fun generatePacketBytes(): Buffer {
-            val buffer = Buffer()
-            buffer.writeByte(0.toByte())
-            buffer.write(peerId.hash)
-            buffer.writeLong(packetNumber)
-            buffer.write(frame)
-
-            require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-
-            return buffer
-        }
-
-        override fun isAckEliciting(): Boolean {
-            return isAckEliciting
-        }
-
-        override fun packetNumber(): Long {
-            return packetNumber
-        }
-
-    }
-
-    @Suppress("ArrayInDataClass")
-    data class AppPacket(
-        private val packetNumber: Long,
-        private val isAckEliciting: Boolean,
-        private val frame: ByteArray
-    ) :
-        Packet {
-
-
-        override fun packetNumber(): Long {
-            return packetNumber
-        }
-
-        override fun isAckEliciting(): Boolean {
-            return isAckEliciting
-        }
-
-        override fun generatePacketBytes(): Buffer {
-            val buffer = Buffer()
-            buffer.writeByte(1.toByte())
-            buffer.writeLong(packetNumber)
-            buffer.write(frame)
-
-            require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
-            return buffer
-
-        }
-    }
 }
 
+@Suppress("ArrayInDataClass")
+data class InitPacket(
+    val peerId: PeerId,
+    private val packetNumber: Long,
+    private val isAckEliciting: Boolean,
+    private val frame: ByteArray
+) :
+    Packet {
+
+
+    override fun generatePacketBytes(): Buffer {
+        val buffer = Buffer()
+        buffer.writeByte(0.toByte())
+        buffer.write(peerId.hash)
+        buffer.writeLong(packetNumber)
+        buffer.write(frame)
+
+        require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+
+        return buffer
+    }
+
+    override fun isAckEliciting(): Boolean {
+        return isAckEliciting
+    }
+
+    override fun packetNumber(): Long {
+        return packetNumber
+    }
+
+}
+
+@Suppress("ArrayInDataClass")
+data class AppPacket(
+    private val packetNumber: Long,
+    private val isAckEliciting: Boolean,
+    private val frame: ByteArray
+) :
+    Packet {
+
+
+    override fun packetNumber(): Long {
+        return packetNumber
+    }
+
+    override fun isAckEliciting(): Boolean {
+        return isAckEliciting
+    }
+
+    override fun generatePacketBytes(): Buffer {
+        val buffer = Buffer()
+        buffer.writeByte(1.toByte())
+        buffer.writeLong(packetNumber)
+        buffer.write(frame)
+
+        require(buffer.size <= Settings.MAX_PACKAGE_SIZE) { "Invalid packet size" }
+        return buffer
+
+    }
+}
