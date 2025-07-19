@@ -70,8 +70,8 @@ abstract class ConnectionData() :
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun terminate() {
-        super.terminate()
+    open suspend fun terminate() {
+        terminateLossDetector()
         try {
             resetReading()
         } catch (throwable: Throwable) {

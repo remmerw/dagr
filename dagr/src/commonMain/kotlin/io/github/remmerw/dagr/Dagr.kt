@@ -49,7 +49,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
     suspend fun punching(isa: InetSocketAddress): Boolean {
         try {
             val buffer = Buffer()
-            buffer.writeByte(Random.nextInt(2, 75).toByte())
+            buffer.writeByte(Random.nextInt(10, 75).toByte())
             buffer.write(Random.nextBytes(Random.nextInt(25, 75)))
             val datagram = Datagram(buffer, isa)
             socket!!.send(datagram)
@@ -154,7 +154,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
                 }
 
                 0x02.toByte() -> {
-                    connection.lossDetector().processAckFrameReceived(packetNumber)
+                    connection.processAckFrameReceived(packetNumber)
                     connection.packetIdleProcessed()
                 }
 

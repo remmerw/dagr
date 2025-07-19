@@ -165,7 +165,7 @@ internal class DagrClient internal constructor(
 
                     0x02.toByte() -> {
                         val packetNumber = source.readLong()
-                        lossDetector().processAckFrameReceived(packetNumber)
+                        processAckFrameReceived(packetNumber)
                         packetIdleProcessed()
                     }
 
