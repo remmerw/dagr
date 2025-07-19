@@ -23,4 +23,6 @@ internal object Settings {
     const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000
 
+    const val MISSED_PACKETS: Int = 25
+
 }

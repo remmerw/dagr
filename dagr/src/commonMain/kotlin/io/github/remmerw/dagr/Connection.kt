@@ -22,7 +22,7 @@ abstract class Connection(
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val localPacket: AtomicLong = AtomicLong(0)
+    private val localPacketNumber: AtomicLong = AtomicLong(0)
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -35,18 +35,55 @@ abstract class Connection(
 
     @Volatile
     private var state = State.Created
-
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val remotePacket: AtomicLong = AtomicLong(-1)
+    private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
+    private var remotePacketNumber: Long = 0 // no concurrency
 
     suspend fun packetProtector(packetNumber: Long, shouldSendAck: Boolean): Boolean {
 
         if (shouldSendAck) {
             sendAck(packetNumber)
         }
+        val oldValue = remotePacketNumber
+        if (packetNumber > remotePacketNumber) {
+            // standard use case [everything is fine]
+            remotePacketNumber = packetNumber
 
-        return true
+            // just check if there is a gap and add them to missing packets
+
+            val diff = packetNumber - oldValue
+            if (diff > 1) {
+                val newEntries = diff.toInt() - 1 // -1 because of current packetNumber
+
+                println("New missed packets $newEntries")
+
+                repeat(newEntries) { i ->
+                    missingPackets.add(i + 1 + oldValue) // + 1 because zero based
+                }
+
+                // check if missingPackets is bigger then 25 (just close the connection)
+                if (missingPackets.size > Settings.MISSED_PACKETS) {
+                    debug("To many missed packets, just closing")
+                    close()
+                    return false
+                }
+            }
+
+            return true
+        } else {
+            // check if package number is in the missing packets
+
+            return if (missingPackets.remove(packetNumber)) {
+                // missing packet detected
+                // ack is already send so everything is fine
+                println("detect a really missing packet $packetNumber")
+                true
+            } else {
+                // a package with this number has already been send
+                // so no further actions (indicate by the false)
+                println("packet $packetNumber has already been processed")
+                false
+            }
+        }
     }
 
     fun remoteAddress(): InetSocketAddress {
@@ -222,7 +259,7 @@ abstract class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     override suspend fun fetchPackageNumber(): Long {
-        return localPacket.incrementAndFetch()
+        return localPacketNumber.incrementAndFetch()
     }
 
     override suspend fun sendPacket(packet: Packet) {
