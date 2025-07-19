@@ -32,7 +32,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
 
     suspend fun startup(port: Int) {
         socket = aSocket(selectorManager).udp().bind(
-            InetSocketAddress("::", port)
+            localAddress = InetSocketAddress("::", port)
         )
 
         scope.launch {
@@ -164,12 +164,6 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
         }
 
         try {
-            selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-
-        try {
             scope.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
@@ -181,6 +175,11 @@ class Dagr(val keys: Keys, val responder: Responder) : Terminate {
             debug(throwable)
         }
 
+        try {
+            selectorManager.close()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
     }
 
     override fun connections(peerId: PeerId): Set<Connection> {

@@ -114,12 +114,6 @@ internal class DagrClient internal constructor(
         }
 
         try {
-            selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-
-        try {
             scope.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
@@ -127,6 +121,12 @@ internal class DagrClient internal constructor(
 
         try {
             socket.close()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
+        try {
+            selectorManager.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -166,7 +166,7 @@ suspend fun connectDagr(
     val selectorManager = SelectorManager(Dispatchers.IO)
     try {
         val socket = aSocket(selectorManager).udp().bind(
-            InetSocketAddress("::", 0)
+            localAddress = InetSocketAddress("::", 0)
         )
         val dagr = DagrClient(
             selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
