@@ -65,6 +65,7 @@ abstract class ConnectionData() :
                 if (upToOffset >= processedToOffset) {
 
                     reader.load()?.writeSource(frame.source)
+                    reader.load()?.flush()
 
                     processedToOffset = frame.offsetLength()
 
