@@ -238,12 +238,12 @@ open class Connection(
     }
 
     private suspend fun sendLostPackets() {
-        lossDetection().forEach { packet -> send(packet) }
+        lossDetection().forEach { packet -> sendPacket(packet) }
     }
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun send(packet: Packet) {
+    override suspend fun sendPacket(packet: Packet) {
         val buffer = packet.generatePacketBytes()
         val datagram = Datagram(buffer, remoteAddress)
 
@@ -257,13 +257,4 @@ open class Connection(
     override suspend fun fetchPacketNumber(): Long {
         return localPacketNumber.incrementAndFetch()
     }
-
-    override suspend fun sendPacket(packet: Packet) {
-        try {
-            send(packet)
-        } catch (throwable: Throwable) {
-            throwable.printStackTrace()
-        }
-    }
-
 }
