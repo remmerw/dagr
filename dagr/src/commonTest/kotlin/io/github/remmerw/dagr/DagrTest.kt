@@ -1,13 +1,12 @@
 package io.github.remmerw.dagr
 
-import io.ktor.utils.io.readByteArray
-import io.ktor.utils.io.readLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 class DagrTest {
@@ -21,11 +20,11 @@ class DagrTest {
             override suspend fun accept(
                 connection: Connection
             ) {
-                val reader = connection.openReadChannel()
 
 
                 while (true) {
-                    reader.readLong() // nothing to do
+                    val cid = connection.readLong() // nothing to do
+                    assertEquals(cid, 1L)
 
                     val buffer = Buffer()
                     buffer.write(serverData)
@@ -46,15 +45,14 @@ class DagrTest {
         )
 
 
-        val readChannel = connection.openReadChannel()
 
 
         val buffer = Buffer()
-        buffer.writeLong(0)
+        buffer.writeLong(1)
         connection.writeBuffer(buffer)
 
 
-        val data = readChannel.readByteArray(serverData.size)
+        val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
 
         connection.close()
@@ -72,10 +70,11 @@ class DagrTest {
             override suspend fun accept(
                 connection: Connection
             ) {
-                val reader = connection.openReadChannel()
+
 
                 while (true) {
-                    reader.readLong() // nothing to do
+                    val cid = connection.readLong() // nothing to do
+                    assertEquals(cid, 0L)
 
                     val buffer = Buffer()
                     buffer.write(serverData)
@@ -94,14 +93,14 @@ class DagrTest {
             )
 
 
-        val readChannel = connection.openReadChannel()
+
 
         val buffer = Buffer()
         buffer.writeLong(0)
         connection.writeBuffer(buffer)
 
 
-        val data = readChannel.readByteArray(serverData.size)
+        val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
 
 
