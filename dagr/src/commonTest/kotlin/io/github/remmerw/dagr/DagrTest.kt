@@ -3,7 +3,6 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.generateKeys
 import io.ktor.utils.io.readByteArray
 import io.ktor.utils.io.readLong
-import io.ktor.utils.io.writeBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
@@ -28,7 +27,6 @@ class DagrTest {
                 connection: Connection
             ) {
                 val reader = connection.openReadChannel()
-                val writer = connection.openWriteChannel(true)
 
 
                 while (true) {
@@ -36,7 +34,7 @@ class DagrTest {
 
                     val buffer = Buffer()
                     buffer.write(serverData)
-                    writer.writeBuffer(buffer)
+                    connection.writeBuffer(buffer)
                 }
             }
         }
@@ -56,12 +54,11 @@ class DagrTest {
 
 
         val readChannel = connection.openReadChannel()
-        val writer = connection.openWriteChannel(true)
 
 
         val buffer = Buffer()
         buffer.writeLong(0)
-        writer.writeBuffer(buffer)
+        connection.writeBuffer(buffer)
 
 
         val data = readChannel.readByteArray(serverData.size)
@@ -86,13 +83,13 @@ class DagrTest {
                 connection: Connection
             ) {
                 val reader = connection.openReadChannel()
-                val writer = connection.openWriteChannel(true)
+
                 while (true) {
                     reader.readLong() // nothing to do
 
                     val buffer = Buffer()
                     buffer.write(serverData)
-                    writer.writeBuffer(buffer)
+                    connection.writeBuffer(buffer)
                 }
             }
         }
@@ -113,10 +110,10 @@ class DagrTest {
 
 
         val readChannel = connection.openReadChannel()
-        val writer = connection.openWriteChannel(true)
+
         val buffer = Buffer()
         buffer.writeLong(0)
-        writer.writeBuffer(buffer)
+        connection.writeBuffer(buffer)
 
 
         val data = readChannel.readByteArray(serverData.size)

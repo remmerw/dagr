@@ -12,7 +12,6 @@ import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.math.min
 import kotlin.time.TimeSource
 
 abstract class Connection(
@@ -233,24 +232,12 @@ abstract class Connection(
         // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
-            readoutWriter()
             sendLostPackets()
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
-            delayed()
 
-        }
-    }
+            delay(Settings.MAX_DELAY.toLong())
 
-    suspend fun delayed() {
-        try {
-            val time = min(
-                lastAction.elapsedNow().inWholeMilliseconds,
-                Settings.MAX_DELAY.toLong()
-            )
-            delay(time)
-        } catch (throwable: Throwable) {
-            debug(throwable)
         }
     }
 
@@ -264,10 +251,10 @@ abstract class Connection(
         val buffer = packet.generatePacketBytes()
         val datagram = Datagram(buffer, remoteAddress)
 
-        socket.send(datagram)
-
-        lastAction = TimeSource.Monotonic.markNow()
         packetSent(packet)
+        socket.send(datagram)
+        lastAction = TimeSource.Monotonic.markNow()
+
 
     }
 

@@ -2,9 +2,6 @@ package io.github.remmerw.dagr
 
 
 import io.github.remmerw.borr.PeerId
-import io.ktor.utils.io.ByteChannel
-import io.ktor.utils.io.availableForRead
-import io.ktor.utils.io.readByteArray
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
@@ -22,12 +19,12 @@ internal data class Packet(
     }
 }
 
-internal suspend fun createDataPacket(
-    channel: ByteChannel, packetNumber: Long,
+internal fun createDataPacket(
+    sink: Buffer, packetNumber: Long,
     offset: Int, length: Short,
 ): Packet {
-    val data = channel.readByteArray(length.toInt())
-    val fin = channel.availableForRead == 0
+    val data = sink.readByteArray(length.toInt())
+    val fin = length < Settings.MAX_DATAGRAM_SIZE
     val buffer = Buffer()
     buffer.writeByte(0x03.toByte())
     buffer.writeLong(packetNumber)

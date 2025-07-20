@@ -2,12 +2,11 @@ package io.github.remmerw.dagr
 
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.ByteWriteChannel
-import io.ktor.utils.io.availableForRead
 import io.ktor.utils.io.writeSource
+import kotlinx.io.Buffer
+import kotlinx.io.RawSource
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.math.min
 
 abstract class ConnectionData() :
     ConnectionFlow() {
@@ -19,8 +18,6 @@ abstract class ConnectionData() :
     @OptIn(ExperimentalAtomicApi::class)
     private val reader: AtomicReference<ByteChannel?> = AtomicReference(null)
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private val writer: AtomicReference<ByteChannel?> = AtomicReference(null)
 
     @OptIn(ExperimentalAtomicApi::class)
     fun openReadChannel(): ByteReadChannel = ByteChannel(false).also { channel ->
@@ -28,43 +25,32 @@ abstract class ConnectionData() :
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun readoutWriter() {
+    suspend fun writeBuffer(buffer: RawSource) {
 
-        val channel: ByteChannel? = writer.load()
-        if (channel != null) {
-            while (!channel.isClosedForRead) {
-                if (channel.availableForRead == 0) {
-                    channel.awaitContent()
-                    continue
-                }
 
-                // readout everything in the channel
-                var offset = 0
-                do {
-                    val length = min(
-                        Settings.MAX_DATAGRAM_SIZE.toInt(), channel.availableForRead
-                    )
+        // readout everything in the channel
+        val sink = Buffer()
+        var offset = 0
+        do {
 
-                    if (length > 0) {
-                        val packet = createDataPacket(
-                            channel,
-                            fetchPacketNumber(), offset, length.toShort()
-                        )
-                        offset += length
+            val length = buffer.readAtMostTo(
+                sink,
+                Settings.MAX_DATAGRAM_SIZE.toLong()
+            ).toInt()
 
-                        sendPacket(packet)
-                    }
+            if (length > 0) {
+                val packet = createDataPacket(
+                    sink,
+                    fetchPacketNumber(), offset, length.toShort()
+                )
+                offset += length
 
-                } while (channel.availableForRead > 0)
+                sendPacket(packet)
             }
-        }
-    }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    fun openWriteChannel(autoFlush: Boolean = true): ByteWriteChannel =
-        ByteChannel(autoFlush).also { channel ->
-            writer.store(channel)
-        }
+        } while (length > 0)
+
+    }
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun broadcast() {
@@ -120,11 +106,6 @@ abstract class ConnectionData() :
         }
         try {
             reader.load()?.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-        try {
-            writer.load()?.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
