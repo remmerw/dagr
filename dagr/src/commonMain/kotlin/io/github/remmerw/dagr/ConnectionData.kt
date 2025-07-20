@@ -2,9 +2,9 @@ package io.github.remmerw.dagr
 
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.core.remaining
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.availableForRead
 import io.ktor.utils.io.writeSource
-import kotlinx.io.Source
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.min
@@ -20,13 +20,54 @@ abstract class ConnectionData() :
     private val reader: AtomicReference<ByteChannel?> = AtomicReference(null)
 
     @OptIn(ExperimentalAtomicApi::class)
+    private val writer: AtomicReference<ByteChannel?> = AtomicReference(null)
+
+    @OptIn(ExperimentalAtomicApi::class)
     fun openReadChannel(): ByteReadChannel = ByteChannel(false).also { channel ->
         reader.store(channel)
     }
 
     @OptIn(ExperimentalAtomicApi::class)
+    suspend fun readoutWriter() {
+
+        val channel: ByteChannel? = writer.load()
+        if (channel != null) {
+            while (!channel.isClosedForRead) {
+                if (channel.availableForRead == 0) {
+                    channel.awaitContent()
+                    continue
+                }
+
+                // readout everything in the channel
+                var offset = 0
+                do {
+                    val length = min(
+                        Settings.MAX_DATAGRAM_SIZE.toInt(), channel.availableForRead
+                    )
+
+                    if (length > 0) {
+                        val packet = createDataPacket(
+                            channel,
+                            fetchPacketNumber(), offset, length.toShort()
+                        )
+                        offset += length
+
+                        sendPacket(packet)
+                    }
+
+                } while (channel.availableForRead > 0)
+            }
+        }
+    }
+
+    @OptIn(ExperimentalAtomicApi::class)
+    fun openWriteChannel(autoFlush: Boolean = true): ByteWriteChannel =
+        ByteChannel(autoFlush).also { channel ->
+            writer.store(channel)
+        }
+
+    @OptIn(ExperimentalAtomicApi::class)
     private suspend fun broadcast() {
-        //var bytesRead = 0
 
         val iterator = frames.iterator()
         var isFinal = false
@@ -82,11 +123,17 @@ abstract class ConnectionData() :
         } catch (throwable: Throwable) {
             debug(throwable)
         }
+        try {
+            writer.load()?.close()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
     }
 
     internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPacketNumber(): Long
 
+    /*
     suspend fun write(source: Source, autoFlush: Boolean = true) {
         var offset = 0
         while (!source.exhausted()) {
@@ -106,7 +153,7 @@ abstract class ConnectionData() :
 
             sendPacket(packet)
         }
-    }
+    }*/
 
     private fun addFrame(frame: DataFrame): Boolean {
         if (frame.offset >= processedToOffset) {

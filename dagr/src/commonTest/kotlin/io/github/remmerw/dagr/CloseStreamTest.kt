@@ -4,7 +4,6 @@ import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,8 +18,8 @@ class CloseStreamTest {
         val serverPeerId = serverKeys.peerId
 
 
-        val server = newDagr(serverKeys, 0, object : Responder {
-            override suspend fun handleConnection(
+        val server = newDagr(serverKeys, 0, object : Acceptor {
+            override suspend fun accept(
                 connection: Connection
             ) {
                 println("Connection close")
@@ -41,11 +40,9 @@ class CloseStreamTest {
                 remoteAddress, connector, 1
             )
         )
-        val buffer = Buffer()
-        buffer.writeInt(5)
-        connection.write(buffer)
 
-        delay(20)
+        delay(10) // just for settling
+
         assertTrue(!connection.isConnected)
 
         assertEquals(server.connections().size, 0)

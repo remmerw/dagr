@@ -3,6 +3,7 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.generateKeys
 import io.ktor.utils.io.readByteArray
 import io.ktor.utils.io.readLong
+import io.ktor.utils.io.writeBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
@@ -24,18 +25,19 @@ class DagrMultipleTest {
 
         var serverData: ByteArray? = null
 
-        val server = newDagr(serverKeys, 0, object : Responder {
-            override suspend fun handleConnection(
+        val server = newDagr(serverKeys, 0, object : Acceptor {
+            override suspend fun accept(
                 connection: Connection
             ) {
                 val reader = connection.openReadChannel()
+                val writer = connection.openWriteChannel()
                 while (true) {
                     reader.readLong() // nothing to do
 
                     val buffer = Buffer()
                     serverData = Random.nextBytes(dataSize)
                     buffer.write(serverData)
-                    connection.write(buffer)
+                    writer.writeBuffer(buffer)
                 }
             }
         }
@@ -56,10 +58,11 @@ class DagrMultipleTest {
 
 
         val readChannel = connection.openReadChannel()
+        val writer = connection.openWriteChannel()
         repeat(1000) {
             val buffer = Buffer()
             buffer.writeLong(0)
-            connection.write(buffer)
+            writer.writeBuffer(buffer)
 
 
             val data = readChannel.readByteArray(dataSize)

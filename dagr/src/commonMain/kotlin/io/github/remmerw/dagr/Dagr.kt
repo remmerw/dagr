@@ -21,9 +21,8 @@ import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import kotlin.random.Random
 
-class Dagr(val keys: Keys, val responder: Responder) : Listener {
+class Dagr(val keys: Keys, val responder: Acceptor) : Listener {
     private val selectorManager = SelectorManager(Dispatchers.IO)
-
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
@@ -121,7 +120,7 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
 
 
                 handler.put(remoteAddress, scope.launch {
-                    responder.handleConnection(connection)
+                    responder.accept(connection)
                 })
                 connection.packetProcessed()
             }
@@ -238,8 +237,8 @@ class Dagr(val keys: Keys, val responder: Responder) : Listener {
     }
 }
 
-suspend fun newDagr(keys: Keys, port: Int, responder: Responder): Dagr {
-    val dagr = Dagr(keys, responder)
+suspend fun newDagr(keys: Keys, port: Int, acceptor: Acceptor): Dagr {
+    val dagr = Dagr(keys, acceptor)
 
     dagr.startup(port)
 

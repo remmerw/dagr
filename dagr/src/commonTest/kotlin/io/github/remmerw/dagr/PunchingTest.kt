@@ -17,8 +17,8 @@ class PunchingTest {
 
         val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 2222, object : Responder {
-            override suspend fun handleConnection(
+        val server = newDagr(serverKeys, 2222, object : Acceptor {
+            override suspend fun accept(
                 connection: Connection
             ) {
             }

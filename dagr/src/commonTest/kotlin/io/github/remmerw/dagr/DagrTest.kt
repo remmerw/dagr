@@ -3,6 +3,7 @@ package io.github.remmerw.dagr
 import io.github.remmerw.borr.generateKeys
 import io.ktor.utils.io.readByteArray
 import io.ktor.utils.io.readLong
+import io.ktor.utils.io.writeBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
@@ -22,17 +23,20 @@ class DagrTest {
 
         val serverData = "Moin".encodeToByteArray()
 
-        val server = newDagr(serverKeys, 0, object : Responder {
-            override suspend fun handleConnection(
+        val server = newDagr(serverKeys, 0, object : Acceptor {
+            override suspend fun accept(
                 connection: Connection
             ) {
                 val reader = connection.openReadChannel()
+                val writer = connection.openWriteChannel(true)
+
+
                 while (true) {
                     reader.readLong() // nothing to do
 
                     val buffer = Buffer()
                     buffer.write(serverData)
-                    connection.write(buffer)
+                    writer.writeBuffer(buffer)
                 }
             }
         }
@@ -52,14 +56,16 @@ class DagrTest {
 
 
         val readChannel = connection.openReadChannel()
+        val writer = connection.openWriteChannel(true)
+
+
         val buffer = Buffer()
         buffer.writeLong(0)
-        connection.write(buffer)
+        writer.writeBuffer(buffer)
 
 
         val data = readChannel.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
-
 
         connection.close()
         server.shutdown()
@@ -75,17 +81,18 @@ class DagrTest {
 
         val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
 
-        val server = newDagr(serverKeys, 0, object : Responder {
-            override suspend fun handleConnection(
+        val server = newDagr(serverKeys, 0, object : Acceptor {
+            override suspend fun accept(
                 connection: Connection
             ) {
                 val reader = connection.openReadChannel()
+                val writer = connection.openWriteChannel(true)
                 while (true) {
                     reader.readLong() // nothing to do
 
                     val buffer = Buffer()
                     buffer.write(serverData)
-                    connection.write(buffer)
+                    writer.writeBuffer(buffer)
                 }
             }
         }
@@ -106,9 +113,10 @@ class DagrTest {
 
 
         val readChannel = connection.openReadChannel()
+        val writer = connection.openWriteChannel(true)
         val buffer = Buffer()
         buffer.writeLong(0)
-        connection.write(buffer)
+        writer.writeBuffer(buffer)
 
 
         val data = readChannel.readByteArray(serverData.size)
