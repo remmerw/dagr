@@ -19,21 +19,12 @@ internal data class Packet(
 }
 
 internal fun createDataPacket(
-    sink: Buffer, packetNumber: Long,
-    offset: Int, length: Short,
+    sink: Buffer, packetNumber: Long
 ): Packet {
-    val data = sink.readByteArray(length.toInt())
-    val fin = length < Settings.MAX_DATAGRAM_SIZE
+    val data = sink.readByteArray()
     val buffer = Buffer()
     buffer.writeByte(0x03.toByte())
     buffer.writeLong(packetNumber)
-    buffer.writeInt(offset)
-    buffer.writeShort(length)
-    if (fin) {
-        buffer.writeByte(1.toByte())
-    } else {
-        buffer.writeByte(0.toByte())
-    }
     buffer.write(data)
 
     require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }

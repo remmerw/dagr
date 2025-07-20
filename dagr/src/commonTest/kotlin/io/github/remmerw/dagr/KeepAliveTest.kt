@@ -13,7 +13,7 @@ class KeepAliveTest {
     fun keepAlive(): Unit = runBlocking(Dispatchers.IO) {
 
 
-        val server = newDagr( 0, object : Acceptor {
+        val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {
@@ -26,7 +26,8 @@ class KeepAliveTest {
 
 
         val connection = assertNotNull(
-            connectDagr( remoteAddress, connector, 1
+            connectDagr(
+                remoteAddress, connector, 1
             )
         )
 

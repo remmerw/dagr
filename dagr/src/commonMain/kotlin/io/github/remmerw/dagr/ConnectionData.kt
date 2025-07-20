@@ -5,15 +5,16 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.writeSource
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
+import kotlinx.io.Source
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 abstract class ConnectionData() :
     ConnectionFlow() {
 
-    private val frames: MutableList<DataFrame> = mutableListOf() // no concurrency
+    private val frames: MutableMap<Long, Source> = mutableMapOf()// no concurrency
 
-    private var processedToOffset: Int = 0 // no concurrency
+    private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
 
     @OptIn(ExperimentalAtomicApi::class)
     private val reader: AtomicReference<ByteChannel?> = AtomicReference(null)
@@ -30,20 +31,15 @@ abstract class ConnectionData() :
 
         // readout everything in the channel
         val sink = Buffer()
-        var offset = 0
-        do {
 
+        do {
             val length = buffer.readAtMostTo(
                 sink,
                 Settings.MAX_DATAGRAM_SIZE.toLong()
-            ).toInt()
+            )
 
             if (length > 0) {
-                val packet = createDataPacket(
-                    sink,
-                    fetchPacketNumber(), offset, length.toShort()
-                )
-                offset += length
+                val packet = createDataPacket(sink, fetchPacketNumber())
 
                 sendPacket(packet)
             }
@@ -53,47 +49,26 @@ abstract class ConnectionData() :
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun broadcast() {
+    private suspend fun evaluateFrames() {
 
-        val iterator = frames.iterator()
-        var isFinal = false
-        while (iterator.hasNext()) {
-            val frame = iterator.next()
+        val pn = frames.keys.minOrNull()
 
-            if (frame.offset <= processedToOffset) {
-                val upToOffset = frame.offsetLength()
-                if (upToOffset >= processedToOffset) {
-
-                    reader.load()?.writeSource(frame.source)
-                    reader.load()?.flush()
-
-                    processedToOffset = frame.offsetLength()
-
-                    if (frame.isFinal) {
-                        isFinal = true
-                    }
-                    iterator.remove()
-
+        if (pn != null) {
+            if (pn == processedPacket + 1) {
+                val source = frames.remove(pn)!!
+                appendSource(source)
+                if (!frames.isEmpty()) {
+                    evaluateFrames()
                 }
-            } else {
-                break
-            }
-        }
-
-
-
-        if (frames.isEmpty()) {
-            if (isFinal) {
-                resetReading()
             }
         }
     }
+
 
     @OptIn(ExperimentalAtomicApi::class)
     suspend fun resetReading() {
         reader.load()?.flush()
         frames.clear()
-        processedToOffset = 0
     }
 
 
@@ -115,16 +90,26 @@ abstract class ConnectionData() :
     internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPacketNumber(): Long
 
+    internal suspend fun processData(packetNumber: Long, source: Source) {
+        if (packetNumber > processedPacket) {
 
-    internal fun addFrame(frame: DataFrame): Boolean {
-        if (frame.offset >= processedToOffset) {
-            return frames.add(frame)
+            if (packetNumber == processedPacket + 1) {
+                appendSource(source)
+            } else {
+                frames.put(packetNumber, source)
+                evaluateFrames() // this blocks the parsing of further packets
+            }
         } else {
-            debug("Frame not added $frame")
-            return false
+            debug("Data frame not added $packetNumber")
         }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
+    private suspend fun appendSource(source: Source) {
+        reader.load()?.writeSource(source)
+        reader.load()?.flush()
+        processedPacket++
+    }
 
 }
 

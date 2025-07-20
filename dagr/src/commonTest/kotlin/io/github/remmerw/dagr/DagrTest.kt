@@ -68,7 +68,7 @@ class DagrTest {
 
         val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
 
-        val server = newDagr( 0, object : Acceptor {
+        val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {

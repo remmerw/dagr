@@ -13,8 +13,7 @@ class PunchingTest {
     fun testPunching(): Unit = runBlocking(Dispatchers.IO) {
 
 
-
-        val server = newDagr( 0, object : Acceptor {
+        val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {

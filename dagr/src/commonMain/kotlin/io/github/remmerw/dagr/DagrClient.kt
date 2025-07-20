@@ -125,21 +125,22 @@ internal class DagrClient internal constructor(
                             packetProcessed()
                         }
                     }
+
                     0x03.toByte() -> { // data frame
                         val packetNumber = source.readLong()
                         if (packetProtector(packetNumber, true)) {
-                            process(parseDataFrame(source))
-                            packetProcessed()
-                        }
-                    }
-                    0x04.toByte() -> { // close frame
-                        val packetNumber = source.readLong() // ignore
-                        if (packetProtector(packetNumber, false)) {
-                            process(parseCloseFrame(source))
+                            processData(packetNumber, source)
                             packetProcessed()
                         }
                     }
 
+                    0x04.toByte() -> { // close frame
+                        val packetNumber = source.readLong() // ignore
+                        if (packetProtector(packetNumber, false)) {
+                            processData(parseCloseFrame(source))
+                            packetProcessed()
+                        }
+                    }
 
 
                     else -> {

@@ -12,7 +12,6 @@ class TimeoutTest {
     fun timeout(): Unit = runBlocking(Dispatchers.IO) {
 
 
-
         val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
@@ -23,7 +22,7 @@ class TimeoutTest {
         )
         val remoteAddress = server.localAddress()
         val connector = Connector()
-      0
+        0
         val connection = checkNotNull(
             connectDagr(remoteAddress, connector, 1)
         )

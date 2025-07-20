@@ -88,21 +88,22 @@ class Dagr(val responder: Acceptor) : Listener {
                     connection.packetProcessed()
                 }
             }
+
             0x03.toByte() -> { // data frame
                 val packetNumber = source.readLong()
                 if (connection.packetProtector(packetNumber, true)) {
-                    connection.process(parseDataFrame(source))
-                    connection.packetProcessed()
-                }
-            }
-            0x04.toByte() -> { // close frame
-                val packetNumber = source.readLong()
-                if (connection.packetProtector(packetNumber, false)) {
-                    connection.process(parseCloseFrame(source))
+                    connection.processData(packetNumber, source)
                     connection.packetProcessed()
                 }
             }
 
+            0x04.toByte() -> { // close frame
+                val packetNumber = source.readLong()
+                if (connection.packetProtector(packetNumber, false)) {
+                    connection.processData(parseCloseFrame(source))
+                    connection.packetProcessed()
+                }
+            }
 
 
             else -> {

@@ -67,7 +67,7 @@ open class Connection(
             }
 
             return true
-        } else if(packetNumber > Settings.PAKET_OFFSET){
+        } else if (packetNumber > Settings.PAKET_OFFSET) {
             // check if packet number is in the missing packets
 
             return if (missingPackets.remove(packetNumber)) {
@@ -136,13 +136,6 @@ open class Connection(
         sendPacket(packet)
     }
 
-    internal suspend fun process(dataFrame: DataFrame) {
-        val added = addFrame(dataFrame)
-        if (added) {
-            broadcast() // this blocks the parsing of further packets
-        }
-    }
-
 
     internal suspend fun sendCloseFrame(transportError: TransportError) {
         if (state.isClosed) {
@@ -155,14 +148,14 @@ open class Connection(
         terminateLossDetector()
 
         sendPacket(
-            createClosePacket( transportError)
+            createClosePacket(transportError)
         )
 
         terminate()
     }
 
 
-    suspend fun process(closing: CloseFrame) {
+    suspend fun processData(closing: CloseFrame) {
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
