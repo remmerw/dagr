@@ -129,7 +129,6 @@ class Dagr(val responder: Acceptor) : Listener {
             responder.accept(newConnection)
         })
         newConnection.state(State.Connected)
-        println("New connection")
         return newConnection
     }
 
