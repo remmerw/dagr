@@ -1,7 +1,6 @@
 package io.github.remmerw.dagr
 
 
-import io.github.remmerw.borr.PeerId
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
@@ -42,20 +41,6 @@ internal fun createDataPacket(
 }
 
 
-internal fun createVerifyPacket(
-    packetNumber: Long,
-    signature: ByteArray
-): Packet {
-    require(signature.size == Settings.SIGNATURE_SIZE) { "Invalid size of signature" }
-    val buffer = Buffer()
-    buffer.writeByte(0x04.toByte())
-    buffer.writeLong(packetNumber)
-    buffer.write(signature)
-
-    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
-    return Packet(packetNumber, true, buffer.readByteArray())
-}
-
 internal fun createClosePacket(
     packetNumber: Long,
     transportError: TransportError = TransportError(
@@ -94,18 +79,3 @@ internal fun createPingPacket(
     return Packet(packetNumber, true, buffer.readByteArray())
 }
 
-
-internal fun createConnectPacket(
-    peerId: PeerId,
-    packetNumber: Long,
-    token: ByteArray
-): Packet {
-    val buffer = Buffer()
-    buffer.writeByte(0x00.toByte())
-    buffer.writeLong(packetNumber)
-    buffer.write(peerId.hash)
-    buffer.write(token)
-
-    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
-    return Packet(packetNumber, true, buffer.readByteArray())
-}

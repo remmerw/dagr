@@ -1,7 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.PeerId
-import io.github.remmerw.borr.verify
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.InetSocketAddress
@@ -14,21 +12,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
-import kotlinx.io.readByteArray
-import kotlin.random.Random
 
 
 internal class DagrClient internal constructor(
     private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
-    val peerId: PeerId,
-    remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     listener: Listener
-) : Connection(socket, remotePeerId, remoteAddress, listener) {
+) : Connection(socket, remoteAddress, listener) {
 
     private val initializeDone = Semaphore(1, 1)
-    private val token = Random.nextBytes(Settings.TOKEN_SIZE)
     private val scope = CoroutineScope(Dispatchers.IO)
 
     suspend fun connect(timeout: Int): Connection? {
@@ -68,9 +61,7 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = createConnectPacket(
-            peerId, fetchPacketNumber(), token
-        )
+        val packet = createPingPacket(fetchPacketNumber())
 
         sendPacket(packet)
     }
@@ -120,6 +111,11 @@ internal class DagrClient internal constructor(
 
                 val type = source.readByte()
 
+                if (state() == State.Created) {
+                    state(State.Connected)
+                    initializeDone.release()
+                }
+
                 when (type) {
                     0x03.toByte() -> { // data frame
                         val packetNumber = source.readLong()
@@ -129,28 +125,6 @@ internal class DagrClient internal constructor(
                         }
                     }
 
-                    0x04.toByte() -> { // verify frame
-                        val packetNumber = source.readLong()
-                        if (packetProtector(packetNumber, true)) {
-                            val signature = source.readByteArray(Settings.SIGNATURE_SIZE)
-
-
-                            try {
-                                verify(remotePeerId(), token, signature)
-
-                                state(State.Connected)
-
-                                initializeDone.release()
-                            } catch (throwable: Throwable) {
-                                debug("Verification failed " + throwable.message)
-
-                                sendCloseFrame(
-                                    TransportError(TransportError.Code.PROTOCOL_VIOLATION)
-                                )
-                            }
-                            packetProcessed()
-                        }
-                    }
 
                     0x05.toByte() -> { // close frame
                         val packetNumber = source.readLong() // ignore
@@ -161,6 +135,7 @@ internal class DagrClient internal constructor(
                     }
 
                     0x01.toByte() -> { // ping frame
+
                         val packetNumber = source.readLong()
                         if (packetProtector(packetNumber, true)) {
                             packetProcessed()
@@ -188,8 +163,6 @@ internal class DagrClient internal constructor(
 }
 
 suspend fun connectDagr(
-    peerId: PeerId,
-    remotePeerId: PeerId,
     remoteAddress: InetSocketAddress,
     connector: Connector,
     timeout: Int
@@ -200,7 +173,7 @@ suspend fun connectDagr(
             localAddress = InetSocketAddress("::", 0)
         )
         val dagr = DagrClient(
-            selectorManager, socket, peerId, remotePeerId, remoteAddress, connector
+            selectorManager, socket, remoteAddress, connector
         )
         val connection = dagr.connect(timeout)
         if (connection != null) {

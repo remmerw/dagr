@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.PeerId
 import io.ktor.util.collections.ConcurrentSet
 
 interface Listener {
@@ -19,10 +18,6 @@ class Connector() : Listener {
         connections.forEach { connection: Connection -> connection.close() }
         connections.clear()
 
-    }
-
-    fun connections(peerId: PeerId): Set<Connection> {
-        return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
     }
 
     fun addConnection(connection: Connection) {

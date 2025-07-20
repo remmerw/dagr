@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.generateKeys
 import io.ktor.utils.io.readByteArray
 import io.ktor.utils.io.readLong
 import kotlinx.coroutines.Dispatchers
@@ -17,14 +16,11 @@ class DagrMultipleTest {
     @Test
     fun testDagrMultiple(): Unit = runBlocking(Dispatchers.IO) {
 
-        val serverKeys = generateKeys()
-
-        val serverPeerId = serverKeys.peerId
         val dataSize = UShort.MAX_VALUE.toInt()
 
         var serverData: ByteArray? = null
 
-        val server = newDagr(serverKeys, 0, object : Acceptor {
+        val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {
@@ -44,13 +40,11 @@ class DagrMultipleTest {
         )
         val remoteAddress = server.localAddress()
         val connector = Connector()
-        val clientKeys = generateKeys()
-        val clientPeerId = clientKeys.peerId
+
 
         val connection =
             assertNotNull(
                 connectDagr(
-                    clientPeerId, serverPeerId,
                     remoteAddress, connector, 1
                 )
             )

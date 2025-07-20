@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.PeerId
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.Datagram
 import io.ktor.network.sockets.InetSocketAddress
@@ -14,9 +13,8 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
-abstract class Connection(
+open class Connection(
     private val socket: BoundDatagramSocket,
-    private val remotePeerId: PeerId,
     private val remoteAddress: InetSocketAddress,
     private val listener: Listener
 ) : ConnectionData() {
@@ -270,11 +268,5 @@ abstract class Connection(
             throwable.printStackTrace()
         }
     }
-
-
-    fun remotePeerId(): PeerId {
-        return remotePeerId
-    }
-
 
 }

@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -12,11 +11,9 @@ class TimeoutTest {
     @Test
     fun timeout(): Unit = runBlocking(Dispatchers.IO) {
 
-        val serverKeys = generateKeys()
 
-        val serverPeerId = serverKeys.peerId
 
-        val server = newDagr(serverKeys, 1111, object : Acceptor {
+        val server = newDagr(0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {
@@ -26,21 +23,14 @@ class TimeoutTest {
         )
         val remoteAddress = server.localAddress()
         val connector = Connector()
-        val clientKeys = generateKeys()
-        val clientPeerId = clientKeys.peerId
-
+      0
         val connection = checkNotNull(
-            connectDagr(
-                clientPeerId,
-                serverPeerId, remoteAddress, connector, 1
-            )
+            connectDagr(remoteAddress, connector, 1)
         )
 
 
         assertEquals(connector.connections().size, 1)
         assertEquals(server.connections().size, 1)
-        assertEquals(connector.connections().first().remotePeerId(), serverPeerId)
-        assertEquals(server.connections().first().remotePeerId(), clientPeerId)
 
         delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
         // now it should be no connections

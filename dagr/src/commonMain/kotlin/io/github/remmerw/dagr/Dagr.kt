@@ -1,8 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.Keys
-import io.github.remmerw.borr.PeerId
-import io.github.remmerw.borr.sign
 import io.ktor.network.selector.SelectorManager
 import io.ktor.network.sockets.BoundDatagramSocket
 import io.ktor.network.sockets.Datagram
@@ -18,10 +15,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.Buffer
 import kotlinx.io.Source
-import kotlinx.io.readByteArray
 import kotlin.random.Random
 
-class Dagr(val keys: Keys, val responder: Acceptor) : Listener {
+class Dagr(val responder: Acceptor) : Listener {
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
@@ -75,112 +71,65 @@ class Dagr(val keys: Keys, val responder: Acceptor) : Listener {
 
     private suspend fun process(source: Source, remoteAddress: InetSocketAddress) {
         val type = source.readByte()
+        val connection = receiveConnection(remoteAddress)
         when (type) {
-            0x00.toByte() -> { // Connect packet
-                processConnectPacket(source, remoteAddress)
+            0x03.toByte() -> { // data frame
+                val packetNumber = source.readLong()
+                if (connection.packetProtector(packetNumber, true)) {
+                    connection.process(parseDataFrame(source))
+                    connection.packetProcessed()
+                }
+            }
+
+            0x05.toByte() -> { // close frame
+                val packetNumber = source.readLong()
+                if (connection.packetProtector(packetNumber, false)) {
+                    connection.process(parseCloseFrame(source))
+                    connection.packetProcessed()
+                }
+            }
+
+            0x01.toByte() -> { // ping frame
+                val packetNumber = source.readLong()
+                if (connection.packetProtector(packetNumber, true)) {
+                    connection.packetProcessed()
+                }
+            }
+
+            0x02.toByte() -> { // ack frame
+                val packetNumber = source.readLong()
+                if (connection.packetProtector(packetNumber, false)) {
+                    val packet = source.readLong()
+                    connection.processAckFrameReceived(packet)
+                    connection.packetProcessed()
+                }
             }
 
             else -> {
-                processPacket(type, source, remoteAddress)
+                debug("Not supported packet")
             }
         }
     }
 
-    private suspend fun processConnectPacket(
-        source: Source,
-        remoteAddress: InetSocketAddress
-    ) {
-
-        val packetNumber = source.readLong()
-
-        val id = source.readByteArray(32) // 32 hash Size of PeerId
-        val remotePeerId = PeerId(id)
-        val remoteToken = source.readByteArray(Settings.TOKEN_SIZE)
-        val connection = connections.getOrPut(remoteAddress) {
-            object : Connection(
-                socket!!, remotePeerId,
-                remoteAddress, this
-            ) {}
-        }
-        try {
-            if (connection.packetProtector(packetNumber, true)) {
-                connection.state(State.Connected)
-
-                val signature = sign(keys, remoteToken)
-
-                val packet = createVerifyPacket(
-                    connection.fetchPacketNumber(), signature
-                )
-
-                connection.sendPacket(packet)
-
-                jobs.put(remoteAddress, scope.launch {
-                    connection.runRequester()
-                })
-
-
-                handler.put(remoteAddress, scope.launch {
-                    responder.accept(connection)
-                })
-                connection.packetProcessed()
-            }
-        } catch (throwable: Throwable) {
-            debug(throwable)
-            connection.terminate()
-        }
-    }
-
-    private suspend fun processPacket(
-        type: Byte,
-        source: Source,
-        remoteAddress: InetSocketAddress
-    ) {
-
+    private fun receiveConnection(remoteAddress: InetSocketAddress): Connection {
         val connection = connections[remoteAddress]
         if (connection != null) {
-            try {
-                val packetNumber = source.readLong()
-
-                when (type) {
-                    0x03.toByte() -> { // data frame
-                        if (connection.packetProtector(packetNumber, true)) {
-                            connection.process(parseDataFrame(source))
-                            connection.packetProcessed()
-                        }
-                    }
-
-                    0x05.toByte() -> { // close frame
-                        if (connection.packetProtector(packetNumber, false)) {
-                            connection.process(parseCloseFrame(source))
-                            connection.packetProcessed()
-                        }
-                    }
-
-                    0x01.toByte() -> { // ping frame
-                        if (connection.packetProtector(packetNumber, true)) {
-                            connection.packetProcessed()
-                        }
-                    }
-
-                    0x02.toByte() -> { // ack frame
-                        if (connection.packetProtector(packetNumber, false)) {
-                            val packet = source.readLong()
-                            connection.processAckFrameReceived(packet)
-                            connection.packetProcessed()
-                        }
-                    }
-
-                    else -> {
-                        debug("Not supported packet")
-                    }
-                }
-            } catch (throwable: Throwable) {
-                debug(throwable)
-                connection.terminate()
-            }
-        } else {
-            debug("No connection known")
+            return connection
         }
+
+        val newConnection = Connection(socket!!, remoteAddress, this)
+
+
+        jobs.put(remoteAddress, scope.launch {
+            newConnection.runRequester()
+        })
+
+
+        handler.put(remoteAddress, scope.launch {
+            responder.accept(newConnection)
+        })
+        newConnection.state(State.Connected)
+        return newConnection
     }
 
     suspend fun shutdown() {
@@ -212,10 +161,6 @@ class Dagr(val keys: Keys, val responder: Acceptor) : Listener {
         }
     }
 
-    fun connections(peerId: PeerId): Set<Connection> {
-        return connections().filter { connection -> connection.remotePeerId() == peerId }.toSet()
-    }
-
     fun connections(): Set<Connection> {
         return connections.values.toSet()
     }
@@ -237,8 +182,8 @@ class Dagr(val keys: Keys, val responder: Acceptor) : Listener {
     }
 }
 
-suspend fun newDagr(keys: Keys, port: Int, acceptor: Acceptor): Dagr {
-    val dagr = Dagr(keys, acceptor)
+suspend fun newDagr(port: Int, acceptor: Acceptor): Dagr {
+    val dagr = Dagr(acceptor)
 
     dagr.startup(port)
 

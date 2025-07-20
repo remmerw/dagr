@@ -1,6 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.github.remmerw.borr.generateKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -13,12 +12,8 @@ class CloseStreamTest {
     @Test
     fun testClose(): Unit = runBlocking(Dispatchers.IO) {
 
-        val serverKeys = generateKeys()
 
-        val serverPeerId = serverKeys.peerId
-
-
-        val server = newDagr(serverKeys, 0, object : Acceptor {
+        val server = newDagr( 0, object : Acceptor {
             override suspend fun accept(
                 connection: Connection
             ) {
@@ -30,13 +25,10 @@ class CloseStreamTest {
         )
         val remoteAddress = server.localAddress()
         val connector = Connector()
-        val clientKeys = generateKeys()
-        val clientPeerId = clientKeys.peerId
 
 
         val connection = checkNotNull(
             connectDagr(
-                clientPeerId, serverPeerId,
                 remoteAddress, connector, 1
             )
         )
