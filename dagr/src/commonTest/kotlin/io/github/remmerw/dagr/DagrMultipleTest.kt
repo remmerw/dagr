@@ -2,7 +2,6 @@ package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -23,38 +22,30 @@ class DagrMultipleTest {
             override suspend fun accept(
                 connection: Connection
             ) {
-
-
                 while (true) {
                     val cid = connection.readLong() // nothing to do
                     assertEquals(cid, 0L)
 
-                    val buffer = Buffer()
                     serverData = Random.nextBytes(dataSize)
-                    buffer.write(serverData)
-                    connection.writeBuffer(buffer)
+                    connection.writeByteArray(serverData)
                 }
             }
         }
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
 
 
         val connection =
             assertNotNull(
                 connectDagr(
-                    remoteAddress, connector, 1
+                    remoteAddress, 1
                 )
             )
 
 
         repeat(1000) {
-            val buffer = Buffer()
-            buffer.writeLong(0)
-            connection.writeBuffer(buffer)
-
+            connection.writeLong(0)
 
             val data = connection.readByteArray(dataSize)
             assertContentEquals(data, serverData)

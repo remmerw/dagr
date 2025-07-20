@@ -24,12 +24,10 @@ class CloseStreamTest {
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
-
 
         val connection = checkNotNull(
             connectDagr(
-                remoteAddress, connector, 1
+                remoteAddress, 1
             )
         )
 
@@ -38,9 +36,8 @@ class CloseStreamTest {
         assertTrue(!connection.isConnected)
 
         assertEquals(server.connections().size, 0)
-        assertEquals(connector.connections().size, 0)
 
-        connector.shutdown()
+        connection.close()
         server.shutdown()
     }
 

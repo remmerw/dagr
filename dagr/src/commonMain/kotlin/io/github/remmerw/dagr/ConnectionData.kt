@@ -7,6 +7,7 @@ import io.ktor.utils.io.writeSource
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
 import kotlinx.io.Source
+import kotlinx.io.readByteArray
 
 abstract class ConnectionData() :
     ConnectionFlow() {
@@ -15,6 +16,33 @@ abstract class ConnectionData() :
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val reader = ByteChannel(true)
+
+    suspend fun writeLong(value: Long) {
+        val packetNumber = fetchPacketNumber()
+        val buffer = Buffer()
+        buffer.writeByte(0x03.toByte())
+        buffer.writeLong(packetNumber)
+        buffer.writeLong(value)
+        sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+
+    }
+
+    suspend fun writeByteArray(data: ByteArray) {
+
+        for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE.toInt()) {
+            val endIndex = kotlin.math.min(
+                chunk + Settings.MAX_DATAGRAM_SIZE, data.size
+            )
+
+            val packetNumber = fetchPacketNumber()
+            val buffer = Buffer()
+            buffer.writeByte(0x03.toByte())
+            buffer.writeLong(packetNumber)
+            buffer.write(data, chunk, endIndex)
+            sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+        }
+    }
+
     suspend fun writeBuffer(buffer: RawSource) {
 
 
@@ -28,7 +56,9 @@ abstract class ConnectionData() :
             )
 
             if (length > 0) {
-                val packet = createDataPacket(sink, fetchPacketNumber())
+                val packet = createDataPacket(
+                    fetchPacketNumber(), sink.readByteArray()
+                )
 
                 sendPacket(packet)
             }
@@ -89,11 +119,11 @@ abstract class ConnectionData() :
         processedPacket++
     }
 
-    suspend fun readLong() : Long {
-       return reader.readLong()
+    suspend fun readLong(): Long {
+        return reader.readLong()
     }
 
-    suspend fun readByteArray(count:Int) : ByteArray {
+    suspend fun readByteArray(count: Int): ByteArray {
         return reader.readByteArray(count)
     }
 

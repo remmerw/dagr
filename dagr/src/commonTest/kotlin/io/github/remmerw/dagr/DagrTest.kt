@@ -35,16 +35,13 @@ class DagrTest {
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
 
 
         val connection = assertNotNull(
             connectDagr(
-                remoteAddress, connector, 1
+                remoteAddress, 1
             )
         )
-
-
 
 
         val buffer = Buffer()
@@ -85,14 +82,11 @@ class DagrTest {
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
 
         val connection =
             assertNotNull(
-                connectDagr(remoteAddress, connector, 1)
+                connectDagr(remoteAddress, 1)
             )
-
-
 
 
         val buffer = Buffer()

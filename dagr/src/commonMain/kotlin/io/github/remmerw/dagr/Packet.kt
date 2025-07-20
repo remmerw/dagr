@@ -19,9 +19,8 @@ internal data class Packet(
 }
 
 internal fun createDataPacket(
-    sink: Buffer, packetNumber: Long
+    packetNumber: Long, data: ByteArray
 ): Packet {
-    val data = sink.readByteArray()
     val buffer = Buffer()
     buffer.writeByte(0x03.toByte())
     buffer.writeLong(packetNumber)

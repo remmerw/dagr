@@ -18,7 +18,7 @@ internal class DagrClient internal constructor(
     private val selectorManager: SelectorManager,
     private val socket: BoundDatagramSocket,
     remoteAddress: InetSocketAddress,
-    listener: Listener
+    listener: Listener,
 ) : Connection(socket, remoteAddress, listener) {
 
     private val initializeDone = Semaphore(1, 1)
@@ -156,8 +156,11 @@ internal class DagrClient internal constructor(
 
 suspend fun connectDagr(
     remoteAddress: InetSocketAddress,
-    connector: Connector,
-    timeout: Int
+    timeout: Int,
+    listener: Listener = object : Listener {
+        override fun close(connection: Connection) {
+        }
+    }
 ): Connection? {
     val selectorManager = SelectorManager(Dispatchers.IO)
     try {
@@ -165,13 +168,9 @@ suspend fun connectDagr(
             localAddress = InetSocketAddress("::", 0)
         )
         val dagr = DagrClient(
-            selectorManager, socket, remoteAddress, connector
+            selectorManager, socket, remoteAddress, listener
         )
-        val connection = dagr.connect(timeout)
-        if (connection != null) {
-            connector.addConnection(connection)
-        }
-        return connection
+        return dagr.connect(timeout)
     } catch (_: Throwable) {
         selectorManager.close()
     }

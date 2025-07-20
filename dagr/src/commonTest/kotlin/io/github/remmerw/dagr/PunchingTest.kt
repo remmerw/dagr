@@ -22,12 +22,11 @@ class PunchingTest {
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
 
 
         val connection = assertNotNull(
             connectDagr(
-                remoteAddress, connector, 1
+                remoteAddress, 1
             )
         )
 

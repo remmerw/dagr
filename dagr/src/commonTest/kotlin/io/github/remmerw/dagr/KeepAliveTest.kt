@@ -22,18 +22,16 @@ class KeepAliveTest {
 
         )
         val remoteAddress = server.localAddress()
-        val connector = Connector()
 
 
         val connection = assertNotNull(
             connectDagr(
-                remoteAddress, connector, 1
+                remoteAddress, 1
             )
         )
 
         connection.enableKeepAlive()
 
-        assertEquals(connector.connections().size, 1)
         assertEquals(server.connections().size, 1)
 
 
@@ -41,7 +39,6 @@ class KeepAliveTest {
         // now it should be no connections
 
         assertEquals(server.connections().size, 1)
-        assertEquals(connector.connections().size, 1)
 
 
         connection.close()
