@@ -88,10 +88,10 @@ internal class DagrClient internal constructor(
     }
 
     private suspend fun runReceiver(): Unit = coroutineScope {
-        val data = ByteArray(1500)
+        val data = ByteArray(Settings.MAX_PACKET_SIZE)
         while (isActive) {
 
-            val receivedPacket = DatagramPacket(data, 1500)
+            val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
             socket.receive(receivedPacket)
             if (state().isClosed) {
                 break

@@ -115,7 +115,7 @@ abstract class ConnectionData() :
     }
 
     private suspend fun appendSource(source: Source) {
-        reader.writeSource(source)
+        reader.writeSource(source) // todo byteArray instead of source
         processedPacket++
     }
 
