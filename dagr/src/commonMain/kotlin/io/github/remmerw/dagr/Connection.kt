@@ -160,8 +160,6 @@ open class Connection(
             )
         )
 
-        state(State.Closed)
-
         terminate()
     }
 
@@ -181,16 +179,12 @@ open class Connection(
 
 
     override suspend fun terminate() {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
-        // "Once its closing or draining state ends, an endpoint SHOULD discard all
-        // connection state."
         super.terminate()
         listener.close(this)
         state(State.Closed)
     }
 
     suspend fun close() {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2
         sendCloseFrame(TransportError(TransportError.Code.NO_ERROR))
     }
 
