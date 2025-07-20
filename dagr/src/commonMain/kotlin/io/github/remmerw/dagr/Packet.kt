@@ -48,12 +48,12 @@ internal fun createClosePacket(
 ): Packet {
 
     val buffer = Buffer()
-    buffer.writeByte(0x05.toByte())
-    buffer.writeLong(5)
+    buffer.writeByte(0x04.toByte())
+    buffer.writeLong(4)
     buffer.writeLong(transportError.errorCode())
 
     require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
-    return Packet(5, false, buffer.readByteArray())
+    return Packet(4, false, buffer.readByteArray())
 }
 
 
