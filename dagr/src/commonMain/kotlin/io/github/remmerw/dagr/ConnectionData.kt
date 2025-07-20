@@ -53,7 +53,7 @@ abstract class ConnectionData() :
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun broadcast() {
+    internal suspend fun broadcast() {
 
         val iterator = frames.iterator()
         var isFinal = false
@@ -115,29 +115,8 @@ abstract class ConnectionData() :
     internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPacketNumber(): Long
 
-    /*
-    suspend fun write(source: Source, autoFlush: Boolean = true) {
-        var offset = 0
-        while (!source.exhausted()) {
-            val length = min(
-                Settings.MAX_DATAGRAM_SIZE.toLong(),
-                source.remaining
-            ).toShort()
-            var finalFrame = false
-            if (length < Settings.MAX_DATAGRAM_SIZE && autoFlush) {
-                finalFrame = true
-            }
 
-            val packet = createDataPacket(
-                fetchPacketNumber(), source, offset, length, finalFrame
-            )
-            offset += length
-
-            sendPacket(packet)
-        }
-    }*/
-
-    private fun addFrame(frame: DataFrame): Boolean {
+    internal fun addFrame(frame: DataFrame): Boolean {
         if (frame.offset >= processedToOffset) {
             return frames.add(frame)
         } else {
@@ -147,12 +126,5 @@ abstract class ConnectionData() :
     }
 
 
-    internal suspend fun processDataFrame(frame: DataFrame) {
-
-        val added = addFrame(frame)
-        if (added) {
-            broadcast() // this blocks the parsing of further packets
-        }
-    }
 }
 

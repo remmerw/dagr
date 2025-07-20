@@ -29,7 +29,7 @@ internal class DagrClient internal constructor(
         try {
             startInitialize()
         } catch (_: Throwable) {
-            abortInitialize()
+            terminate()
             return null
         }
 
@@ -38,13 +38,13 @@ internal class DagrClient internal constructor(
                 initializeDone.acquire()
 
                 if (state() != State.Connected) {
-                    abortInitialize()
+                    terminate()
                     return@withTimeout null
                 }
                 return@withTimeout this@DagrClient
             }
         } catch (_: Throwable) {
-            abortInitialize()
+            terminate()
             return null
         }
 
@@ -65,13 +65,6 @@ internal class DagrClient internal constructor(
 
         sendPacket(packet)
     }
-
-
-    private suspend fun abortInitialize() {
-        state(State.Closing)
-        terminate()
-    }
-
 
     override suspend fun terminate() {
         super.terminate()
@@ -103,7 +96,7 @@ internal class DagrClient internal constructor(
     private suspend fun runReceiver(): Unit = coroutineScope {
         while (isActive) {
             val receivedPacket = socket.receive()
-            if (state().isClosing) {
+            if (state().isClosed) {
                 break
             }
             try {

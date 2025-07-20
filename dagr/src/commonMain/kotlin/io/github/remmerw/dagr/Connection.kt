@@ -137,16 +137,15 @@ open class Connection(
     }
 
     internal suspend fun process(dataFrame: DataFrame) {
-        try {
-            processDataFrame(dataFrame)
-        } catch (transportError: TransportError) {
-            sendCloseFrame(transportError)
+        val added = addFrame(dataFrame)
+        if (added) {
+            broadcast() // this blocks the parsing of further packets
         }
     }
 
 
     internal suspend fun sendCloseFrame(transportError: TransportError) {
-        if (state.isClosing) {
+        if (state.isClosed) {
             debug("Immediate close ignored because already closing")
             return
         }
@@ -161,7 +160,7 @@ open class Connection(
             )
         )
 
-        state(State.Closing)
+        state(State.Closed)
 
         terminate()
     }
@@ -171,7 +170,7 @@ open class Connection(
         // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
         // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
         // which indicates that its peer is closing or draining."
-        if (!state.isClosing) {  // Can occur due to race condition (both peers closing simultaneously)
+        if (!state.isClosed) {  // Can occur due to race condition (both peers closing simultaneously)
             if (closing.hasError()) {
                 debug("Connection closed with code " + closing.errorCode)
             }
@@ -207,11 +206,7 @@ open class Connection(
 
             debug("Idle timeout: silently closing connection $remoteAddress")
 
-            sendCloseFrame(
-                TransportError(
-                    TransportError.Code.NO_ERROR
-                )
-            )
+            close()
         }
     }
 
