@@ -10,13 +10,7 @@ internal data class Packet(
     val packetNumber: Long,
     val shouldBeAcked: Boolean,
     val bytes: ByteArray
-) {
-    fun generatePacketBytes(): Buffer {
-        val buffer = Buffer()
-        buffer.write(bytes)
-        return buffer
-    }
-}
+)
 
 internal fun createDataPacket(
     packetNumber: Long, data: ByteArray

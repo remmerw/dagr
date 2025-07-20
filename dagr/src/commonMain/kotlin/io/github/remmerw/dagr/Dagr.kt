@@ -1,10 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.ktor.network.selector.SelectorManager
-import io.ktor.network.sockets.BoundDatagramSocket
-import io.ktor.network.sockets.Datagram
-import io.ktor.network.sockets.InetSocketAddress
-import io.ktor.network.sockets.aSocket
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,20 +10,22 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.Buffer
 import kotlinx.io.Source
+import kotlinx.io.readByteArray
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetSocketAddress
 import kotlin.random.Random
 
 class Dagr(val responder: Acceptor) : Listener {
-    private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
-    private var socket: BoundDatagramSocket? = null
+    private var socket: DatagramSocket? = null
 
-    suspend fun startup(port: Int) {
-        socket = aSocket(selectorManager).udp().bind(
-            localAddress = InetSocketAddress("::", port)
-        )
+    fun startup(port: Int) {
+        socket = DatagramSocket(port)
+
 
         scope.launch {
             runReceiver()
@@ -38,15 +35,20 @@ class Dagr(val responder: Acceptor) : Listener {
 
     fun localAddress(): InetSocketAddress {
         require(socket != null) { "Server is not yet started" }
-        return socket?.localAddress as InetSocketAddress
+        return InetSocketAddress(socket!!.localAddress, socket!!.localPort)
     }
 
-    suspend fun punching(isa: InetSocketAddress): Boolean {
+    fun punching(remoteAddress: InetSocketAddress): Boolean {
         try {
             val buffer = Buffer()
             buffer.writeByte(Random.nextInt(10, 75).toByte())
             buffer.write(Random.nextBytes(Random.nextInt(25, 75)))
-            val datagram = Datagram(buffer, isa)
+
+            val data = buffer.readByteArray()
+            val datagram = DatagramPacket(
+                data,
+                data.size, remoteAddress
+            )
             socket!!.send(datagram)
             return true
         } catch (throwable: Throwable) {
@@ -56,12 +58,24 @@ class Dagr(val responder: Acceptor) : Listener {
     }
 
     private suspend fun runReceiver(): Unit = coroutineScope {
+        val data = ByteArray(1500)
         while (isActive) {
-            val receivedPacket = socket!!.receive()
+
+            val receivedPacket = DatagramPacket(data, 1500)
+
+            socket!!.receive(receivedPacket)
             try {
+                val buffer = Buffer()
+                buffer.write(
+                    receivedPacket.data,
+                    0, receivedPacket.length
+                )
                 process(
-                    receivedPacket.packet,
-                    receivedPacket.address as InetSocketAddress
+                    buffer,
+                    InetSocketAddress(
+                        receivedPacket.address.hostName,
+                        receivedPacket.port
+                    )
                 )
             } catch (throwable: Throwable) {
                 debug(throwable)
@@ -154,12 +168,6 @@ class Dagr(val responder: Acceptor) : Listener {
         } catch (throwable: Throwable) {
             debug(throwable)
         }
-
-        try {
-            selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
     }
 
     fun connections(): Set<Connection> {
@@ -183,7 +191,7 @@ class Dagr(val responder: Acceptor) : Listener {
     }
 }
 
-suspend fun newDagr(port: Int, acceptor: Acceptor): Dagr {
+fun newDagr(port: Int, acceptor: Acceptor): Dagr {
     val dagr = Dagr(acceptor)
 
     dagr.startup(port)

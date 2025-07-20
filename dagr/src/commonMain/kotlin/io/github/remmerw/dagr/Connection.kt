@@ -1,11 +1,13 @@
 package io.github.remmerw.dagr
 
-import io.ktor.network.sockets.BoundDatagramSocket
-import io.ktor.network.sockets.Datagram
-import io.ktor.network.sockets.InetSocketAddress
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetSocketAddress
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
@@ -14,13 +16,15 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
 open class Connection(
-    private val socket: BoundDatagramSocket,
+    private val socket: DatagramSocket,
     private val remoteAddress: InetSocketAddress,
     private val listener: Listener
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
+
+    private val mutex = Mutex()
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -91,7 +95,7 @@ open class Connection(
     }
 
     fun localAddress(): InetSocketAddress {
-        return socket.localAddress as InetSocketAddress
+        return InetSocketAddress(socket.localAddress, socket.localPort)
     }
 
     fun state(): State {
@@ -224,13 +228,17 @@ open class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     override suspend fun sendPacket(packet: Packet) {
-        val buffer = packet.generatePacketBytes()
-        val datagram = Datagram(buffer, remoteAddress)
+        mutex.withLock {
+            val datagram = DatagramPacket(
+                packet.bytes,
+                packet.bytes.size, remoteAddress
+            )
 
-        packetSent(packet)
-        socket.send(datagram)
-        lastAction = TimeSource.Monotonic.markNow()
 
+            packetSent(packet)
+            socket.send(datagram)
+            lastAction = TimeSource.Monotonic.markNow()
+        }
     }
 
     @OptIn(ExperimentalAtomicApi::class)

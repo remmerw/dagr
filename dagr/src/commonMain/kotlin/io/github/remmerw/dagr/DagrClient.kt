@@ -1,9 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.ktor.network.selector.SelectorManager
-import io.ktor.network.sockets.BoundDatagramSocket
-import io.ktor.network.sockets.InetSocketAddress
-import io.ktor.network.sockets.aSocket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -12,11 +8,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.Buffer
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetSocketAddress
 
 
 internal class DagrClient internal constructor(
-    private val selectorManager: SelectorManager,
-    private val socket: BoundDatagramSocket,
+    private val socket: DatagramSocket,
     remoteAddress: InetSocketAddress,
     listener: Listener,
 ) : Connection(socket, remoteAddress, listener) {
@@ -86,21 +85,25 @@ internal class DagrClient internal constructor(
             debug(throwable)
         }
 
-        try {
-            selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
     }
 
     private suspend fun runReceiver(): Unit = coroutineScope {
+        val data = ByteArray(1500)
         while (isActive) {
-            val receivedPacket = socket.receive()
+
+            val receivedPacket = DatagramPacket(data, 1500)
+            socket.receive(receivedPacket)
             if (state().isClosed) {
                 break
             }
             try {
-                val source = receivedPacket.packet
+                val source = Buffer()
+                source.write(
+                    receivedPacket.data,
+                    0, receivedPacket.length
+                )
+
+                // val source = receivedPacket.packet
 
                 val type = source.readByte()
 
@@ -162,19 +165,9 @@ suspend fun connectDagr(
         }
     }
 ): Connection? {
-    val selectorManager = SelectorManager(Dispatchers.IO)
-    try {
-        val socket = aSocket(selectorManager).udp().bind(
-            localAddress = InetSocketAddress("::", 0)
-        )
-        val dagr = DagrClient(
-            selectorManager, socket, remoteAddress, listener
-        )
-        return dagr.connect(timeout)
-    } catch (_: Throwable) {
-        selectorManager.close()
-    }
-    return null
+    val socket = DatagramSocket()
+    val dagr = DagrClient(socket, remoteAddress, listener)
+    return dagr.connect(timeout)
 }
 
 
