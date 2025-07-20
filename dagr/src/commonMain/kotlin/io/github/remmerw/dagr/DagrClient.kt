@@ -61,7 +61,7 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = createPingPacket(fetchPacketNumber())
+        val packet = createPingPacket()
 
         sendPacket(packet)
     }
@@ -135,7 +135,6 @@ internal class DagrClient internal constructor(
                     }
 
                     0x01.toByte() -> { // ping frame
-
                         val packetNumber = source.readLong()
                         if (packetProtector(packetNumber, true)) {
                             packetProcessed()

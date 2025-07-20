@@ -71,11 +71,10 @@ internal fun createAckPacket(
 
 
 internal fun createPingPacket(
-    packetNumber: Long,
 ): Packet {
     val buffer = Buffer()
     buffer.writeByte(0x01.toByte())
-    buffer.writeLong(packetNumber)
-    return Packet(packetNumber, true, buffer.readByteArray())
+    buffer.writeLong(0)
+    return Packet(0, true, buffer.readByteArray())
 }
 

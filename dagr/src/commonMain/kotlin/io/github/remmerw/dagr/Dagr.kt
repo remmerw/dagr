@@ -118,7 +118,7 @@ class Dagr(val responder: Acceptor) : Listener {
         }
 
         val newConnection = Connection(socket!!, remoteAddress, this)
-
+        connections.put(remoteAddress, newConnection)
 
         jobs.put(remoteAddress, scope.launch {
             newConnection.runRequester()
@@ -129,6 +129,7 @@ class Dagr(val responder: Acceptor) : Listener {
             responder.accept(newConnection)
         })
         newConnection.state(State.Connected)
+        println("New connection")
         return newConnection
     }
 

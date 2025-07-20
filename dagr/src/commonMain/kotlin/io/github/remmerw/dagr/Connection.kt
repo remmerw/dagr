@@ -105,9 +105,7 @@ open class Connection(
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                val packet = createPingPacket(
-                    fetchPacketNumber()
-                )
+                val packet = createPingPacket()
                 sendPacket(packet)
                 lastPing = TimeSource.Monotonic.markNow()
             }
@@ -252,7 +250,6 @@ open class Connection(
         packetSent(packet)
         socket.send(datagram)
         lastAction = TimeSource.Monotonic.markNow()
-
 
     }
 
