@@ -20,7 +20,7 @@ open class Connection(
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
-    private val localPacketNumber: AtomicLong = AtomicLong(0)
+    private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
 
     @Volatile
     private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -34,7 +34,7 @@ open class Connection(
     @Volatile
     private var state = State.Created
     private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
-    private var remotePacketNumber: Long = 0 // no concurrency
+    private var remotePacketNumber: Long = Settings.PAKET_OFFSET // no concurrency
 
     suspend fun packetProtector(packetNumber: Long, shouldSendAck: Boolean): Boolean {
 
@@ -67,7 +67,7 @@ open class Connection(
             }
 
             return true
-        } else {
+        } else if(packetNumber > Settings.PAKET_OFFSET){
             // check if packet number is in the missing packets
 
             return if (missingPackets.remove(packetNumber)) {
@@ -81,6 +81,8 @@ open class Connection(
                 debug("packet $packetNumber has already been processed")
                 false
             }
+        } else {
+            return true
         }
     }
 
@@ -130,9 +132,7 @@ open class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun sendAck(packetNumber: Long) {
-        val packet = createAckPacket(
-            fetchPacketNumber(), packetNumber
-        )
+        val packet = createAckPacket(packetNumber)
         sendPacket(packet)
     }
 
@@ -155,9 +155,7 @@ open class Connection(
         terminateLossDetector()
 
         sendPacket(
-            createClosePacket(
-                fetchPacketNumber(), transportError
-            )
+            createClosePacket( transportError)
         )
 
         terminate()

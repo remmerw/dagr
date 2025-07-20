@@ -42,7 +42,6 @@ internal fun createDataPacket(
 
 
 internal fun createClosePacket(
-    packetNumber: Long,
     transportError: TransportError = TransportError(
         TransportError.Code.NO_ERROR
     )
@@ -50,23 +49,22 @@ internal fun createClosePacket(
 
     val buffer = Buffer()
     buffer.writeByte(0x05.toByte())
-    buffer.writeLong(packetNumber)
+    buffer.writeLong(5)
     buffer.writeLong(transportError.errorCode())
 
     require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
-    return Packet(packetNumber, false, buffer.readByteArray())
+    return Packet(5, false, buffer.readByteArray())
 }
 
 
 internal fun createAckPacket(
-    packetNumber: Long,
     packet: Long
 ): Packet {
     val buffer = Buffer()
     buffer.writeByte(0x02.toByte()) // only AckFrame of payloadType 0x02 is supported
-    buffer.writeLong(packetNumber)
+    buffer.writeLong(2)
     buffer.writeLong(packet)
-    return Packet(packetNumber, false, buffer.readByteArray())
+    return Packet(2, false, buffer.readByteArray())
 }
 
 
