@@ -264,6 +264,9 @@ open class Connection(
                     0x03.toByte() -> { // data frame
                         if (packetProtector(packetNumber)) {
                             val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
+                            require(source.size <= Settings.MAX_DATAGRAM_SIZE) {
+                                "Invalid datagram packet received"
+                            }
                             processData(packetNumber, source)
                             packetProcessed()
                         }
