@@ -51,16 +51,24 @@ internal class DagrClient internal constructor(
     private suspend fun startInitialize() {
 
         scope.launch {
-            val data = ByteArray(Settings.MAX_PACKET_SIZE)
-            while (isActive) {
+            try {
+                val data = ByteArray(Settings.MAX_PACKET_SIZE)
+                while (isActive) {
 
-                val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
-                socket.receive(receivedPacket)
+                    val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
+                    socket.receive(receivedPacket)
 
-                processDatagram(receivedPacket) {
-                    initializeDone.release()
+                    processDatagram(receivedPacket) {
+                        initializeDone.release()
+                    }
+
                 }
-
+            } catch (throwable: Throwable) {
+                if (socket.isConnected) {
+                    debug(throwable)
+                }
+            } finally {
+                terminate()
             }
         }
 

@@ -22,12 +22,17 @@ class DagrIterTest {
             override suspend fun accept(
                 connection: Connection
             ) {
-                while (true) {
-                    val cid = connection.readLong() // nothing to do
-                    assertEquals(cid, 0L)
+                try {
+                    while (true) {
+                        val cid = connection.readLong() // nothing to do
+                        assertEquals(cid, 0L)
 
-                    serverData = Random.nextBytes(dataSize)
-                    connection.writeByteArray(serverData)
+                        serverData = Random.nextBytes(dataSize)
+                        connection.writeByteArray(serverData)
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    connection.close()
                 }
             }
         }

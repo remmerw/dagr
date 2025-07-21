@@ -56,16 +56,24 @@ class Dagr(val responder: Acceptor) : Listener {
 
     private suspend fun runReceiver(): Unit = coroutineScope {
         val data = ByteArray(Settings.MAX_PACKET_SIZE)
-        while (isActive) {
+        try {
+            while (isActive) {
 
-            val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
+                val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
 
-            socket!!.receive(receivedPacket)
+                socket!!.receive(receivedPacket)
 
-            val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
-            val connection = receiveConnection(remoteAddress)
-            connection.processDatagram(receivedPacket) {}
+                val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
+                val connection = receiveConnection(remoteAddress)
+                connection.processDatagram(receivedPacket) {}
 
+            }
+        } catch (throwable: Throwable) {
+            if (socket?.isConnected == true) {
+                debug(throwable)
+            }
+        } finally {
+            shutdown()
         }
     }
 
@@ -85,7 +93,10 @@ class Dagr(val responder: Acceptor) : Listener {
 
 
         handler.put(remoteAddress, scope.launch {
-            responder.accept(newConnection)
+            try {
+                responder.accept(newConnection)
+            } catch (_: Throwable) {
+            }
         })
 
         return newConnection

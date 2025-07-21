@@ -156,9 +156,12 @@ open class Connection(
 
         terminateLossDetector()
 
-        sendPacket(createClosePacket())
-
-        terminate()
+        try {
+            sendPacket(createClosePacket())
+        } catch (_: Throwable) {
+        } finally {
+            terminate()
+        }
     }
 
 
@@ -250,6 +253,9 @@ open class Connection(
 
                     0x02.toByte() -> { // ack frame
                         require(packetNumber == 2L) { "Invalid packet number" }
+                        require(length == (Settings.DATAGRAM_MIN_SIZE + 8)) {
+                            "Invalid length for ack frame"
+                        }
                         val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
                         processAckFrameReceived(pn)
                         packetProcessed()
@@ -265,10 +271,6 @@ open class Connection(
 
                     0x04.toByte() -> { // close frame
                         require(packetNumber == 4L) { "Invalid packet number" }
-                        val errorCode = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                        if (errorCode > 0) {
-                            debug("Connection closed with code $errorCode")
-                        }
                         terminate()
                     }
 

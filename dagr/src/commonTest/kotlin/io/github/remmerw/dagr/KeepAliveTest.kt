@@ -18,9 +18,9 @@ class KeepAliveTest {
                 connection: Connection
             ) {
             }
-        }
+        })
 
-        )
+
         val remoteAddress = server.localAddress()
 
 

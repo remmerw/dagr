@@ -21,14 +21,18 @@ class DagrTest {
                 connection: Connection
             ) {
 
+                try {
+                    while (true) {
+                        val cid = connection.readLong()
+                        assertEquals(cid, 1L)
 
-                while (true) {
-                    val cid = connection.readLong() // nothing to do
-                    assertEquals(cid, 1L)
-
-                    val buffer = Buffer()
-                    buffer.write(serverData)
-                    connection.writeBuffer(buffer)
+                        val buffer = Buffer()
+                        buffer.write(serverData)
+                        connection.writeBuffer(buffer)
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    connection.close()
                 }
             }
         }
@@ -43,11 +47,7 @@ class DagrTest {
             )
         )
 
-
-        val buffer = Buffer()
-        buffer.writeLong(1)
-        connection.writeBuffer(buffer)
-
+        connection.writeLong(1)
 
         val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
@@ -68,14 +68,18 @@ class DagrTest {
                 connection: Connection
             ) {
 
+                try {
+                    while (true) {
+                        val cid = connection.readLong() // nothing to do
+                        assertEquals(cid, 0L)
 
-                while (true) {
-                    val cid = connection.readLong() // nothing to do
-                    assertEquals(cid, 0L)
-
-                    val buffer = Buffer()
-                    buffer.write(serverData)
-                    connection.writeBuffer(buffer)
+                        val buffer = Buffer()
+                        buffer.write(serverData)
+                        connection.writeBuffer(buffer)
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    connection.close()
                 }
             }
         }
