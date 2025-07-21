@@ -1,7 +1,9 @@
 package io.github.remmerw.dagr
 
 import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.readBuffer
 import io.ktor.utils.io.readByteArray
+import io.ktor.utils.io.readInt
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeByteArray
 import kotlinx.io.Buffer
@@ -22,6 +24,16 @@ abstract class ConnectionData() :
         buffer.writeByte(0x03.toByte())
         buffer.writeLong(packetNumber)
         buffer.writeLong(value)
+        sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+
+    }
+
+    suspend fun writeInt(value: Int) {
+        val packetNumber = fetchPacketNumber()
+        val buffer = Buffer()
+        buffer.writeByte(0x03.toByte())
+        buffer.writeLong(packetNumber)
+        buffer.writeInt(value)
         sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
 
     }
@@ -122,8 +134,16 @@ abstract class ConnectionData() :
         return reader.readLong()
     }
 
+    suspend fun readInt(): Int {
+        return reader.readInt()
+    }
+
     suspend fun readByteArray(count: Int): ByteArray {
         return reader.readByteArray(count)
+    }
+
+    suspend fun readBuffer(length: Int): Buffer {
+        return reader.readBuffer(length)
     }
 
 }

@@ -2,7 +2,6 @@
     <div>
         <img src="https://img.shields.io/maven-central/v/io.github.remmerw/asen" alt="Kotlin Maven Version" />
         <img src="https://img.shields.io/badge/Platform-Android-brightgreen.svg?logo=android" alt="Badge Android" />
-        <!--img src="https://img.shields.io/badge/Platform-iOS%20%2F%20macOS-lightgrey.svg?logo=apple" alt="Badge iOS" /-->
         <img src="https://img.shields.io/badge/Platform-JVM-8A2BE2.svg?logo=openjdk" alt="Badge JVM" />
     </div>
 </div>
@@ -43,8 +42,8 @@ kotlin {
 
                 try {
                     while (true) {
-                        val cid = connection.readLong() 
-                        assertEquals(cid, 1L)
+                        val cid = connection.readInt()
+                        assertEquals(cid, 1)
 
                         val buffer = Buffer()
                         buffer.write(serverData)
@@ -55,20 +54,15 @@ kotlin {
                     connection.close()
                 }
             }
-        }
-
-        )
+        })
+        
+        
         val remoteAddress = server.localAddress()
 
+        val connection = connectDagr(remoteAddress, 1)!!
 
-        val connection = assertNotNull(
-            connectDagr(
-                remoteAddress, 1
-            )
-        )
-        
-        connection.writeLong(1)
-        
+        connection.writeInt(1)
+
         val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
 

@@ -3,6 +3,7 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -23,8 +24,8 @@ class DagrTest {
 
                 try {
                     while (true) {
-                        val cid = connection.readLong()
-                        assertEquals(cid, 1L)
+                        val cid = connection.readInt()
+                        assertEquals(cid, 1)
 
                         val buffer = Buffer()
                         buffer.write(serverData)
@@ -35,22 +36,17 @@ class DagrTest {
                     connection.close()
                 }
             }
-        }
+        })
 
-        )
+
         val remoteAddress = server.localAddress()
 
+        val connection = connectDagr(remoteAddress, 1)!!
 
-        val connection = assertNotNull(
-            connectDagr(
-                remoteAddress, 1
-            )
-        )
+        connection.writeInt(1)
 
-        connection.writeLong(1)
-
-        val data = connection.readByteArray(serverData.size)
-        assertContentEquals(data, serverData)
+        val data = connection.readBuffer(serverData.size)
+        assertContentEquals(data.readByteArray(), serverData)
 
         connection.close()
         server.shutdown()
