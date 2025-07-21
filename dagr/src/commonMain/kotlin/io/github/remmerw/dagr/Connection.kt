@@ -27,7 +27,7 @@ open class Connection(
     private val mutex = Mutex()
 
     @Volatile
-    private var lastAction: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
+    private var remotePacketTimeStamp = TimeSource.Monotonic.markNow()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val enableKeepAlive = AtomicBoolean(false)
@@ -167,12 +167,12 @@ open class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun checkIdle() {
-        if (lastAction.elapsedNow().inWholeMilliseconds >
+        if (remotePacketTimeStamp.elapsedNow().inWholeMilliseconds >
             Settings.MAX_IDLE_TIMEOUT.toLong()
         ) {
 
             // just tor prevent that another close is scheduled
-            lastAction = TimeSource.Monotonic.markNow()
+            remotePacketTimeStamp = TimeSource.Monotonic.markNow()
 
             debug("Idle timeout: silently closing connection $remoteAddress")
 
@@ -181,8 +181,8 @@ open class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private fun packetProcessed() {
-        lastAction = TimeSource.Monotonic.markNow()
+    private fun remotePacketTimeStamp() {
+        remotePacketTimeStamp = TimeSource.Monotonic.markNow()
     }
 
 
@@ -215,7 +215,6 @@ open class Connection(
 
             packetSent(packet)
             socket.send(datagram)
-            lastAction = TimeSource.Monotonic.markNow()
         }
     }
 
@@ -225,8 +224,10 @@ open class Connection(
     }
 
 
-    internal suspend fun processDatagram(packet: DatagramPacket,
-                                         callbackConnected: () -> Unit) {
+    internal suspend fun processDatagram(
+        packet: DatagramPacket,
+        callbackConnected: () -> Unit
+    ) {
         if (state().isClosed) {
             return
         }
@@ -258,11 +259,13 @@ open class Connection(
 
         val type = data[0]
 
-        when(type){
+        when (type) {
             0x01.toByte(),
             0x02.toByte(),
             0x03.toByte(),
-            0x04.toByte()-> {}
+            0x04.toByte() -> {
+            }
+
             else -> {
                 debug("Probably hole punch detected $type")
                 return
@@ -285,7 +288,7 @@ open class Connection(
                     return
                 }
                 sendAck(packetNumber)
-                packetProcessed()
+                remotePacketTimeStamp()
             }
 
             0x02.toByte() -> { // ack frame
@@ -299,14 +302,14 @@ open class Connection(
                 }
                 val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
                 processAckFrameReceived(pn)
-                packetProcessed()
+                remotePacketTimeStamp()
             }
 
             0x03.toByte() -> { // data frame
                 if (packetProtector(packetNumber)) {
                     val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
                     processData(packetNumber, source)
-                    packetProcessed()
+                    remotePacketTimeStamp()
                 }
             }
 
