@@ -7,7 +7,7 @@
 </div>
 
 ## Dagr
-UDP Client-Server API (Simple TCP based on UDP)
+UDP Client-Server API (Simulates the TCP protocol implemented with UDP)
 
 
 
@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             ...
-            implementation("io.github.remmerw:dagr:0.0.5")
+            implementation("io.github.remmerw:dagr:0.0.6")
         }
         ...
     }
