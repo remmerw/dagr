@@ -82,7 +82,7 @@ abstract class ConnectionData() :
     }
 
 
-    internal open suspend fun terminate() {
+    internal open fun terminate() {
         terminateLossDetector()
         try {
             frames.clear()

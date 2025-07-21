@@ -31,18 +31,10 @@ internal fun createDataPacket(
 }
 
 
-internal fun createClosePacket(
-    transportError: TransportError = TransportError(
-        TransportError.Code.NO_ERROR
-    )
-): Packet {
-
+internal fun createClosePacket(): Packet {
     val buffer = Buffer()
     buffer.writeByte(0x04.toByte())
     buffer.writeLong(4)
-    buffer.writeLong(transportError.errorCode())
-
-    require(buffer.size <= Settings.MAX_PACKET_SIZE) { "Invalid packet size" }
     return Packet(4, false, buffer.readByteArray())
 }
 

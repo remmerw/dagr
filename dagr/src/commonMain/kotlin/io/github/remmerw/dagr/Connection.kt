@@ -40,7 +40,7 @@ open class Connection(
     private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
     private var remotePacketNumber: Long = Settings.PAKET_OFFSET // no concurrency
 
-    private suspend fun packetProtector(packetNumber: Long): Boolean {
+    private fun packetProtector(packetNumber: Long): Boolean {
 
 
         val oldValue = remotePacketNumber
@@ -63,7 +63,7 @@ open class Connection(
                 // check if missingPackets is bigger then 25 (just close the connection)
                 if (missingPackets.size > Settings.MISSED_PACKETS) {
                     debug("To many missed packets, just closing")
-                    close()
+                    terminate()
                     return false
                 }
             }
@@ -139,7 +139,14 @@ open class Connection(
     }
 
 
-    private suspend fun sendCloseFrame(transportError: TransportError) {
+    override fun terminate() {
+        super.terminate()
+        listener.close(this)
+        state(State.Closed)
+    }
+
+    suspend fun close() {
+
         if (state.isClosed) {
             debug("Immediate close ignored because already closing")
             return
@@ -149,30 +156,9 @@ open class Connection(
 
         terminateLossDetector()
 
-        sendPacket(
-            createClosePacket(transportError)
-        )
+        sendPacket(createClosePacket())
 
         terminate()
-    }
-
-
-    private suspend fun processClose(errorCode: Long) {
-        if (errorCode > 0) {
-            debug("Connection closed with code $errorCode")
-        }
-        terminate()
-    }
-
-
-    override suspend fun terminate() {
-        super.terminate()
-        listener.close(this)
-        state(State.Closed)
-    }
-
-    suspend fun close() {
-        sendCloseFrame(TransportError(TransportError.Code.NO_ERROR))
     }
 
 
@@ -199,9 +185,6 @@ open class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     internal suspend fun runRequester(): Unit = coroutineScope {
-        // Determine whether this loop must be ended _before_ composing packets, to avoid
-        // race conditions with
-        // items being queued just after the packet assembler (for that level) has executed.
         while (isActive) {
 
             sendLostPackets()
@@ -283,8 +266,10 @@ open class Connection(
                     0x04.toByte() -> { // close frame
                         require(packetNumber == 4L) { "Invalid packet number" }
                         val errorCode = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                        processClose(errorCode)
-                        packetProcessed()
+                        if (errorCode > 0) {
+                            debug("Connection closed with code $errorCode")
+                        }
+                        terminate()
                     }
 
                     else -> {

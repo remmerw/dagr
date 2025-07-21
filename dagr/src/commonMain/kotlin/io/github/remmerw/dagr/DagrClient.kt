@@ -73,7 +73,7 @@ internal class DagrClient internal constructor(
         sendPacket(packet)
     }
 
-    override suspend fun terminate() {
+    override fun terminate() {
         super.terminate()
 
         try {
