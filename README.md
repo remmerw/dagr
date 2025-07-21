@@ -8,7 +8,7 @@
 </div>
 
 ## Dagr
-UDP Client-Server API (TODO not yet described)
+UDP Client-Server API (Simple TCP based on UDP)
 
 
 
@@ -20,7 +20,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             ...
-            implementation("io.github.remmerw:dagr:0.0.4")
+            implementation("io.github.remmerw:dagr:0.0.5")
         }
         ...
     }
@@ -31,7 +31,50 @@ kotlin {
 ## API
 
 ```
+    @Test
+    fun testDagr(): Unit = runBlocking(Dispatchers.IO) {
 
+        val serverData = "Moin".encodeToByteArray()
+
+        val server = newDagr(0, object : Acceptor {
+            override suspend fun accept(
+                connection: Connection
+            ) {
+
+                try {
+                    while (true) {
+                        val cid = connection.readLong() 
+                        assertEquals(cid, 1L)
+
+                        val buffer = Buffer()
+                        buffer.write(serverData)
+                        connection.writeBuffer(buffer)
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    connection.close()
+                }
+            }
+        }
+
+        )
+        val remoteAddress = server.localAddress()
+
+
+        val connection = assertNotNull(
+            connectDagr(
+                remoteAddress, 1
+            )
+        )
+        
+        connection.writeLong(1)
+        
+        val data = connection.readByteArray(serverData.size)
+        assertContentEquals(data, serverData)
+
+        connection.close()
+        server.shutdown()
+    }
 ```
 
 
