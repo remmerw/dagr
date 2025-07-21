@@ -42,7 +42,7 @@ kotlin {
             dependencies {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.kotlinx.io.core)
-                implementation(libs.ktor.utils)
+                implementation(libs.ktor.utils) // todo remove
             }
         }
 
