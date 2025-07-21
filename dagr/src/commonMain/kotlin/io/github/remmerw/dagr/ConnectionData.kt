@@ -116,9 +116,12 @@ abstract class ConnectionData() :
 
             if (packetNumber == processedPacket + 1) {
                 appendSource(source)
+                if(frames.isNotEmpty()) {
+                    evaluateFrames()
+                }
             } else {
-                frames.put(packetNumber, source)
-                evaluateFrames() // this blocks the parsing of further packets
+                frames.put(packetNumber, source) // for future evaluations
+                debug("Data frame in the future $packetNumber")
             }
         } else {
             debug("Data frame not added $packetNumber")
