@@ -1,12 +1,11 @@
 [versions]
 agp = "8.11.1"
 kotlin = "2.2.0"
-kotlinxIoCore = "0.8.0"
 ktor = "3.2.2"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
-kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIoCore" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version = "0.8.0" }
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
 ktor-utils = { module = "io.ktor:ktor-utils", version.ref = "ktor" }
 
