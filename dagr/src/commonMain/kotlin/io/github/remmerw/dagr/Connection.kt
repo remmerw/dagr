@@ -190,17 +190,16 @@ open class Connection(
     internal suspend fun runRequester(): Unit = coroutineScope {
         while (isActive) {
 
-            sendLostPackets()
+            val lost = detectLostPackets()
             keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
 
-            delay(Settings.MAX_DELAY.toLong())
-
+            if (lost > 0) {
+                delay(Settings.MIN_DELAY.toLong())
+            } else {
+                delay(Settings.MAX_DELAY.toLong())
+            }
         }
-    }
-
-    private suspend fun sendLostPackets() {
-        lossDetection().forEach { packet -> sendPacket(packet) }
     }
 
 
@@ -212,7 +211,7 @@ open class Connection(
                 packet.bytes.size, remoteAddress
             )
 
-            if(packet.shouldBeAcked) {
+            if (packet.shouldBeAcked) {
                 packetSent(packet)
             }
             socket.send(datagram)

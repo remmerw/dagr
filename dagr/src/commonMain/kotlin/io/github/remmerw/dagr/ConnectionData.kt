@@ -109,7 +109,6 @@ abstract class ConnectionData() :
         }
     }
 
-    internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPacketNumber(): Long
 
     internal suspend fun processData(packetNumber: Long, source: ByteArray) {

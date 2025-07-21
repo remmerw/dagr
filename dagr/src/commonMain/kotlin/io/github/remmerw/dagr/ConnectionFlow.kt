@@ -2,40 +2,41 @@ package io.github.remmerw.dagr
 
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.sync.Semaphore
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import java.util.concurrent.atomic.AtomicLong
 
 
-open class ConnectionFlow() {
+abstract class ConnectionFlow() {
 
     private val packetSentLog: MutableMap<Long, Packet> = ConcurrentMap()
 
-    @Volatile
-    private var largestAcked = -1L
+    private val largestAcked: AtomicLong = AtomicLong(-1L)
 
     @Volatile
     private var isStopped = false
-    private val semaphore = Semaphore(Settings.LACKED_PACKETS,0)
+    private val semaphore = Semaphore(Settings.LACKED_PACKETS, 0)
 
 
-    private suspend fun acquireBlocking()  {
+    private suspend fun acquireBlocking() {
         semaphore.acquire()
     }
 
-    private fun releaseBlocking(){
+    private fun releaseBlocking() {
         semaphore.release()
     }
 
     internal fun processAckFrameReceived(packetNumber: Long) {
-        if (isStopped) {
-            return
+
+        largestAcked.updateAndGet { oldValue ->
+            if (packetNumber > oldValue) {
+                packetNumber
+            } else {
+                oldValue
+            }
         }
 
-        if (packetNumber > largestAcked) {
-            largestAcked = packetNumber
-        }
         packetSentLog.remove(packetNumber)
 
-        if(packetNumber > Settings.PAKET_OFFSET) {
+        if (packetNumber > Settings.PAKET_OFFSET) {
             releaseBlocking()
         }
 
@@ -46,28 +47,28 @@ open class ConnectionFlow() {
         packetSentLog.clear()
     }
 
-    internal fun detectLostPackets(): List<Packet> {
+    internal abstract suspend fun sendPacket(packet: Packet)
+
+    internal suspend fun detectLostPackets(): Int {
         if (isStopped) {
-            return emptyList()
+            return 0
         }
-
-        val result: MutableList<Packet> = mutableListOf()
-
-
+        var result = 0
         packetSentLog.keys.forEach { pn ->
             if (pnTooOld(pn)) {
                 val packet = packetSentLog.remove(pn)
                 if (packet != null) {
-                    result.add(packet)
+                    result++
+                    sendPacket(packet)
                 }
             }
         }
         return result
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
+
     private fun pnTooOld(pn: Long): Boolean {
-        if (pn < largestAcked) {
+        if (pn < largestAcked.get()) {
             debug("Loss too old packet $pn")
             return true
         }
@@ -79,16 +80,12 @@ open class ConnectionFlow() {
         if (isStopped) {
             return
         }
-        packetSentLog[packet.packetNumber] = packet
+        val pn = packet.packetNumber
+        packetSentLog[pn] = packet
 
-        if(packet.packetNumber > Settings.PAKET_OFFSET){
+        if (pn > Settings.PAKET_OFFSET) {
             acquireBlocking()
         }
     }
-
-    internal fun lossDetection(): List<Packet> {
-        return detectLostPackets()
-    }
-
 
 }

@@ -17,8 +17,7 @@ class CloseTest {
             override suspend fun accept(
                 connection: Connection
             ) {
-                println("Connection close")
-                connection.close()
+                connection.close() // close connection
             }
         }
 

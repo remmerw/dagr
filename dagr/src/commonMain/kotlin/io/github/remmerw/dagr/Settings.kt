@@ -20,7 +20,7 @@ internal object Settings {
     // 14.2 of [QUIC-TRANSPORT]), with a minimum value of 1200 bytes.
     const val MAX_DATAGRAM_SIZE: Int = MAX_PACKET_SIZE - DATAGRAM_MIN_SIZE
 
-
+    const val MIN_DELAY: Int = 25
     const val MAX_DELAY: Int = 100
     const val MAX_IDLE_TIMEOUT: Int = 15000
     const val PING_INTERVAL: Int = 5000
