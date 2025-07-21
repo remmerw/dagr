@@ -8,11 +8,11 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-class DagrMultipleTest {
+class DagrIterTest {
 
 
     @Test
-    fun testDagrMultiple(): Unit = runBlocking(Dispatchers.IO) {
+    fun testDagrIter(): Unit = runBlocking(Dispatchers.IO) {
 
         val dataSize = UShort.MAX_VALUE.toInt()
 
