@@ -19,10 +19,13 @@ open class ConnectionFlow() {
         if (isStopped) {
             return
         }
+
+
         if (packetNumber > largestAcked) {
             largestAcked = packetNumber
         }
         packetSentLog.remove(packetNumber)
+
     }
 
     internal fun terminateLossDetector() {

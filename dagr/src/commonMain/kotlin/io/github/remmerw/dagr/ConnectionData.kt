@@ -117,7 +117,7 @@ abstract class ConnectionData() :
 
             if (packetNumber == processedPacket + 1) {
                 appendSource(source)
-                if(frames.isNotEmpty()) {
+                if (frames.isNotEmpty()) {
                     evaluateFrames()
                 }
             } else {
