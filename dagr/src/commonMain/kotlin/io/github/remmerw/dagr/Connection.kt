@@ -229,62 +229,78 @@ open class Connection(
         if (state().isClosed) {
             return
         }
-        try {
-            val data = packet.data
-            val length = packet.length
 
-            if (length >= Settings.DATAGRAM_MIN_SIZE) {
+        // check if the remoteAddress is correct
+        val address = packet.socketAddress as InetSocketAddress
+        if (!address.address.isLoopbackAddress) { // not sure if good solution
+            if (address != remoteAddress) {
+                debug("Invalid remote address Ignore Packet")
+                return
+            }
+        }
 
-                val type = data[0]
-                val packetNumber = parseLong(data, 1)
+        val data = packet.data
+        val length = packet.length
+
+        if (length < Settings.DATAGRAM_MIN_SIZE ||
+            length > Settings.MAX_PACKET_SIZE
+        ) {
+            debug("Invalid packet length Ignore Packet")
+            return
+        }
+
+        val type = data[0]
+        val packetNumber = parseLong(data, 1)
 
 
-                if (state() == State.Created) {
-                    state(State.Connected)
-                    callbackConnected.invoke()
+        if (state() == State.Created) {
+            state(State.Connected)
+            callbackConnected.invoke()
+        }
+
+        when (type) {
+            0x01.toByte() -> { // ping frame
+                if (packetNumber != 1L) {
+                    debug("Invalid packet number Ignore Packet")
+                    return
                 }
+                sendAck(packetNumber)
+                packetProcessed()
+            }
 
-                when (type) {
-                    0x01.toByte() -> { // ping frame
-                        require(packetNumber == 1L) { "Invalid packet number" }
-                        sendAck(packetNumber)
-                        packetProcessed()
-                    }
+            0x02.toByte() -> { // ack frame
+                if (packetNumber != 2L) {
+                    debug("Invalid packet number Ignore Packet")
+                    return
+                }
+                if (length != (Settings.DATAGRAM_MIN_SIZE + 8)) {
+                    debug("Invalid length for ack frame")
+                    return
+                }
+                val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
+                processAckFrameReceived(pn)
+                packetProcessed()
+            }
 
-                    0x02.toByte() -> { // ack frame
-                        require(packetNumber == 2L) { "Invalid packet number" }
-                        require(length == (Settings.DATAGRAM_MIN_SIZE + 8)) {
-                            "Invalid length for ack frame"
-                        }
-                        val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                        processAckFrameReceived(pn)
-                        packetProcessed()
-                    }
-
-                    0x03.toByte() -> { // data frame
-                        if (packetProtector(packetNumber)) {
-                            val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
-                            require(source.size <= Settings.MAX_DATAGRAM_SIZE) {
-                                "Invalid datagram packet received"
-                            }
-                            processData(packetNumber, source)
-                            packetProcessed()
-                        }
-                    }
-
-                    0x04.toByte() -> { // close frame
-                        require(packetNumber == 4L) { "Invalid packet number" }
-                        terminate()
-                    }
-
-                    else -> {
-                        debug("Probably hole punch detected $type")
-                    }
+            0x03.toByte() -> { // data frame
+                if (packetProtector(packetNumber)) {
+                    val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
+                    processData(packetNumber, source)
+                    packetProcessed()
                 }
             }
-        } catch (throwable: Throwable) {
-            debug(throwable)
+
+            0x04.toByte() -> { // close frame
+                if (packetNumber != 4L) {
+                    debug("Invalid packet number Ignore Packet")
+                    return
+                }
+                terminate()
+            }
+
+            else -> {
+                debug("Probably hole punch detected $type")
+            }
         }
     }
-
 }
