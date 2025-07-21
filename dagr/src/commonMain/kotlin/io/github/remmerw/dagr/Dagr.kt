@@ -9,7 +9,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.Buffer
-import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -26,11 +25,9 @@ class Dagr(val responder: Acceptor) : Listener {
     fun startup(port: Int) {
         socket = DatagramSocket(port)
 
-
         scope.launch {
             runReceiver()
         }
-
     }
 
     fun localAddress(): InetSocketAddress {
@@ -64,67 +61,14 @@ class Dagr(val responder: Acceptor) : Listener {
             val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
 
             socket!!.receive(receivedPacket)
-            try {
-                val buffer = Buffer()
-                buffer.write(
-                    receivedPacket.data,
-                    0, receivedPacket.length
-                )
-                process(
-                    buffer,
-                    InetSocketAddress(
-                        receivedPacket.address.hostName,
-                        receivedPacket.port
-                    )
-                )
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
+
+            val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
+            val connection = receiveConnection(remoteAddress)
+            connection.processDatagram(receivedPacket) {}
+
         }
     }
 
-    private suspend fun process(source: Source, remoteAddress: InetSocketAddress) {
-        val type = source.readByte()
-        val connection = receiveConnection(remoteAddress)
-        when (type) {
-            0x01.toByte() -> { // ping frame
-                val packetNumber = source.readLong()
-                if (connection.packetProtector(packetNumber, true)) {
-                    connection.packetProcessed()
-                }
-            }
-
-            0x02.toByte() -> { // ack frame
-                val packetNumber = source.readLong()
-                if (connection.packetProtector(packetNumber, false)) {
-                    val packet = source.readLong()
-                    connection.processAckFrameReceived(packet)
-                    connection.packetProcessed()
-                }
-            }
-
-            0x03.toByte() -> { // data frame
-                val packetNumber = source.readLong()
-                if (connection.packetProtector(packetNumber, true)) {
-                    connection.processData(packetNumber, source)
-                    connection.packetProcessed()
-                }
-            }
-
-            0x04.toByte() -> { // close frame
-                val packetNumber = source.readLong()
-                if (connection.packetProtector(packetNumber, false)) {
-                    connection.processData(parseCloseFrame(source))
-                    connection.packetProcessed()
-                }
-            }
-
-
-            else -> {
-                debug("Not supported packet")
-            }
-        }
-    }
 
     private fun receiveConnection(remoteAddress: InetSocketAddress): Connection {
         val connection = connections[remoteAddress]
@@ -143,7 +87,7 @@ class Dagr(val responder: Acceptor) : Listener {
         handler.put(remoteAddress, scope.launch {
             responder.accept(newConnection)
         })
-        newConnection.state(State.Connected)
+
         return newConnection
     }
 

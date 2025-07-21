@@ -3,16 +3,15 @@ package io.github.remmerw.dagr
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.readByteArray
 import io.ktor.utils.io.readLong
-import io.ktor.utils.io.writeSource
+import io.ktor.utils.io.writeByteArray
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
-import kotlinx.io.Source
 import kotlinx.io.readByteArray
 
 abstract class ConnectionData() :
     ConnectionFlow() {
 
-    private val frames: MutableMap<Long, Source> = mutableMapOf()// no concurrency
+    private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val reader = ByteChannel(true)
@@ -29,7 +28,7 @@ abstract class ConnectionData() :
 
     suspend fun writeByteArray(data: ByteArray) {
 
-        for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE.toInt()) {
+        for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE) {
             val endIndex = kotlin.math.min(
                 chunk + Settings.MAX_DATAGRAM_SIZE, data.size
             )
@@ -83,7 +82,7 @@ abstract class ConnectionData() :
     }
 
 
-    open suspend fun terminate() {
+    internal open suspend fun terminate() {
         terminateLossDetector()
         try {
             frames.clear()
@@ -100,7 +99,7 @@ abstract class ConnectionData() :
     internal abstract suspend fun sendPacket(packet: Packet)
     internal abstract suspend fun fetchPacketNumber(): Long
 
-    internal suspend fun processData(packetNumber: Long, source: Source) {
+    internal suspend fun processData(packetNumber: Long, source: ByteArray) {
         if (packetNumber > processedPacket) {
 
             if (packetNumber == processedPacket + 1) {
@@ -114,8 +113,8 @@ abstract class ConnectionData() :
         }
     }
 
-    private suspend fun appendSource(source: Source) {
-        reader.writeSource(source) // todo byteArray instead of source
+    private suspend fun appendSource(source: ByteArray) {
+        reader.writeByteArray(source)
         processedPacket++
     }
 

@@ -3,12 +3,10 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeout
-import kotlinx.io.Buffer
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -53,7 +51,17 @@ internal class DagrClient internal constructor(
     private suspend fun startInitialize() {
 
         scope.launch {
-            runReceiver()
+            val data = ByteArray(Settings.MAX_PACKET_SIZE)
+            while (isActive) {
+
+                val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
+                socket.receive(receivedPacket)
+
+                processDatagram(receivedPacket) {
+                    initializeDone.release()
+                }
+
+            }
         }
 
         scope.launch {
@@ -87,74 +95,6 @@ internal class DagrClient internal constructor(
 
     }
 
-    private suspend fun runReceiver(): Unit = coroutineScope {
-        val data = ByteArray(Settings.MAX_PACKET_SIZE)
-        while (isActive) {
-
-            val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
-            socket.receive(receivedPacket)
-            if (state().isClosed) {
-                break
-            }
-            try {
-                val source = Buffer()
-                source.write(
-                    receivedPacket.data,
-                    0, receivedPacket.length
-                )
-
-                // val source = receivedPacket.packet
-
-                val type = source.readByte()
-
-                if (state() == State.Created) {
-                    state(State.Connected)
-                    initializeDone.release()
-                }
-
-                when (type) {
-                    0x01.toByte() -> { // ping frame
-                        val packetNumber = source.readLong()
-                        if (packetProtector(packetNumber, true)) {
-                            packetProcessed()
-                        }
-                    }
-
-                    0x02.toByte() -> { // ack frame
-                        val packetNumber = source.readLong() // packet number
-                        if (packetProtector(packetNumber, false)) {
-                            val pn = source.readLong() // packet
-                            processAckFrameReceived(pn)
-                            packetProcessed()
-                        }
-                    }
-
-                    0x03.toByte() -> { // data frame
-                        val packetNumber = source.readLong()
-                        if (packetProtector(packetNumber, true)) {
-                            processData(packetNumber, source)
-                            packetProcessed()
-                        }
-                    }
-
-                    0x04.toByte() -> { // close frame
-                        val packetNumber = source.readLong() // ignore
-                        if (packetProtector(packetNumber, false)) {
-                            processData(parseCloseFrame(source))
-                            packetProcessed()
-                        }
-                    }
-
-
-                    else -> {
-                        debug("Probably hole punch detected $type")
-                    }
-                }
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
-        }
-    }
 }
 
 suspend fun connectDagr(

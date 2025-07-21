@@ -4,6 +4,12 @@ package io.github.remmerw.dagr
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
+internal fun parseLong(data: ByteArray, startIndex: Int): Long {
+    require(data.size >= startIndex + 8) { "Wrong packet number parsing" }
+    val buffer = Buffer()
+    buffer.write(data, startIndex, startIndex + 8)
+    return buffer.readLong()
+}
 
 @Suppress("ArrayInDataClass")
 internal data class Packet(
@@ -56,7 +62,7 @@ internal fun createPingPacket(
 ): Packet {
     val buffer = Buffer()
     buffer.writeByte(0x01.toByte())
-    buffer.writeLong(0)
-    return Packet(0, true, buffer.readByteArray())
+    buffer.writeLong(1)
+    return Packet(1, true, buffer.readByteArray())
 }
 

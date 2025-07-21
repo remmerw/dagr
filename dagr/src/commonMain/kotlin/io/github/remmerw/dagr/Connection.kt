@@ -40,11 +40,9 @@ open class Connection(
     private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
     private var remotePacketNumber: Long = Settings.PAKET_OFFSET // no concurrency
 
-    suspend fun packetProtector(packetNumber: Long, shouldSendAck: Boolean): Boolean {
+    private suspend fun packetProtector(packetNumber: Long): Boolean {
 
-        if (shouldSendAck) {
-            sendAck(packetNumber)
-        }
+
         val oldValue = remotePacketNumber
         if (packetNumber > remotePacketNumber) {
             // standard use case [everything is fine]
@@ -141,7 +139,7 @@ open class Connection(
     }
 
 
-    internal suspend fun sendCloseFrame(transportError: TransportError) {
+    private suspend fun sendCloseFrame(transportError: TransportError) {
         if (state.isClosed) {
             debug("Immediate close ignored because already closing")
             return
@@ -159,17 +157,11 @@ open class Connection(
     }
 
 
-    suspend fun processData(closing: CloseFrame) {
-        // https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-10.2.2
-        // "The draining state is entered once an endpoint receives a CONNECTION_CLOSE frame,
-        // which indicates that its peer is closing or draining."
-        if (!state.isClosed) {  // Can occur due to race condition (both peers closing simultaneously)
-            if (closing.hasError()) {
-                debug("Connection closed with code " + closing.errorCode)
-            }
-
-            terminate()
+    private suspend fun processClose(errorCode: Long) {
+        if (errorCode > 0) {
+            debug("Connection closed with code $errorCode")
         }
+        terminate()
     }
 
 
@@ -200,13 +192,13 @@ open class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal fun packetProcessed() {
+    private fun packetProcessed() {
         lastAction = TimeSource.Monotonic.markNow()
     }
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun runRequester(): Unit = coroutineScope {
+    internal suspend fun runRequester(): Unit = coroutineScope {
         // Determine whether this loop must be ended _before_ composing packets, to avoid
         // race conditions with
         // items being queued just after the packet assembler (for that level) has executed.
@@ -245,4 +237,64 @@ open class Connection(
     override suspend fun fetchPacketNumber(): Long {
         return localPacketNumber.incrementAndFetch()
     }
+
+
+    internal suspend fun processDatagram(packet: DatagramPacket, callbackConnected: () -> Any) {
+        if (state().isClosed) {
+            return
+        }
+        try {
+            val data = packet.data
+            val length = packet.length
+
+            if (length >= Settings.DATAGRAM_MIN_SIZE) {
+
+                val type = data[0]
+                val packetNumber = parseLong(data, 1)
+
+
+                if (state() == State.Created) {
+                    state(State.Connected)
+                    callbackConnected.invoke()
+                }
+
+                when (type) {
+                    0x01.toByte() -> { // ping frame
+                        require(packetNumber == 1L) { "Invalid packet number" }
+                        sendAck(packetNumber)
+                        packetProcessed()
+                    }
+
+                    0x02.toByte() -> { // ack frame
+                        require(packetNumber == 2L) { "Invalid packet number" }
+                        val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
+                        processAckFrameReceived(pn)
+                        packetProcessed()
+                    }
+
+                    0x03.toByte() -> { // data frame
+                        if (packetProtector(packetNumber)) {
+                            val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
+                            processData(packetNumber, source)
+                            packetProcessed()
+                        }
+                    }
+
+                    0x04.toByte() -> { // close frame
+                        require(packetNumber == 4L) { "Invalid packet number" }
+                        val errorCode = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
+                        processClose(errorCode)
+                        packetProcessed()
+                    }
+
+                    else -> {
+                        debug("Probably hole punch detected $type")
+                    }
+                }
+            }
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+    }
+
 }
