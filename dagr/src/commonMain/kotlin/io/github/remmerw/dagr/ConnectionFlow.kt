@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import io.ktor.util.collections.ConcurrentMap
+import kotlinx.coroutines.sync.Semaphore
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
@@ -13,18 +14,30 @@ open class ConnectionFlow() {
 
     @Volatile
     private var isStopped = false
+    private val semaphore = Semaphore(Settings.LACKED_PACKETS,0)
 
+
+    private suspend fun acquireBlocking()  {
+        semaphore.acquire()
+    }
+
+    private fun releaseBlocking(){
+        semaphore.release()
+    }
 
     internal fun processAckFrameReceived(packetNumber: Long) {
         if (isStopped) {
             return
         }
 
-
         if (packetNumber > largestAcked) {
             largestAcked = packetNumber
         }
         packetSentLog.remove(packetNumber)
+
+        if(packetNumber > Settings.PAKET_OFFSET) {
+            releaseBlocking()
+        }
 
     }
 
@@ -54,7 +67,7 @@ open class ConnectionFlow() {
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun pnTooOld(pn: Long): Boolean {
-        if (pn < largestAcked - Settings.LACKED_PACKETS) {
+        if (pn < largestAcked) {
             debug("Loss too old packet $pn")
             return true
         }
@@ -62,19 +75,20 @@ open class ConnectionFlow() {
     }
 
 
-    internal fun packetSent(packet: Packet) {
+    internal suspend fun packetSent(packet: Packet) {
         if (isStopped) {
             return
         }
+        packetSentLog[packet.packetNumber] = packet
 
-        if (packet.shouldBeAcked) {
-            // During a reset operation, no new packets must be logged as sent.
-            packetSentLog[packet.packetNumber] = packet
+        if(packet.packetNumber > Settings.PAKET_OFFSET){
+            acquireBlocking()
         }
     }
 
     internal fun lossDetection(): List<Packet> {
         return detectLostPackets()
     }
+
 
 }

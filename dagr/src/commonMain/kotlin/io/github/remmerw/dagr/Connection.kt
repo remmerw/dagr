@@ -212,8 +212,9 @@ open class Connection(
                 packet.bytes.size, remoteAddress
             )
 
-
-            packetSent(packet)
+            if(packet.shouldBeAcked) {
+                packetSent(packet)
+            }
             socket.send(datagram)
         }
     }
