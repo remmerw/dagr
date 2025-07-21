@@ -225,12 +225,11 @@ open class Connection(
     }
 
 
-    internal suspend fun processDatagram(packet: DatagramPacket, callbackConnected: () -> Any) {
+    internal suspend fun processDatagram(packet: DatagramPacket,
+                                         callbackConnected: () -> Unit) {
         if (state().isClosed) {
             return
         }
-
-
 
         // check if the remoteAddress is correct
         val address = packet.socketAddress as InetSocketAddress
@@ -258,6 +257,19 @@ open class Connection(
         }
 
         val type = data[0]
+
+        when(type){
+            0x01.toByte(),
+            0x02.toByte(),
+            0x03.toByte(),
+            0x04.toByte()-> {}
+            else -> {
+                debug("Probably hole punch detected $type")
+                return
+            }
+        }
+
+
         val packetNumber = parseLong(data, 1)
 
 
@@ -307,7 +319,7 @@ open class Connection(
             }
 
             else -> {
-                debug("Probably hole punch detected $type")
+                throw Exception("should never reach this point")
             }
         }
     }

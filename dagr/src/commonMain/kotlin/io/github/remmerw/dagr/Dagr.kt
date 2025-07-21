@@ -65,7 +65,18 @@ class Dagr(val responder: Acceptor) : Listener {
 
                 val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
                 val connection = receiveConnection(remoteAddress)
-                connection.processDatagram(receivedPacket) {}
+                connection.processDatagram(receivedPacket) {
+
+                    jobs.put(remoteAddress, scope.launch {
+                        connection.runRequester()
+                    })
+                    handler.put(remoteAddress, scope.launch {
+                        try {
+                            responder.accept(connection)
+                        } catch (_: Throwable) {
+                        }
+                    })
+                }
 
             }
         } catch (throwable: Throwable) {
@@ -87,17 +98,7 @@ class Dagr(val responder: Acceptor) : Listener {
         val newConnection = Connection(socket!!, remoteAddress, this)
         connections.put(remoteAddress, newConnection)
 
-        jobs.put(remoteAddress, scope.launch {
-            newConnection.runRequester()
-        })
 
-
-        handler.put(remoteAddress, scope.launch {
-            try {
-                responder.accept(newConnection)
-            } catch (_: Throwable) {
-            }
-        })
 
         return newConnection
     }
