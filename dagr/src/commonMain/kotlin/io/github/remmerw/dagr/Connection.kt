@@ -230,10 +230,18 @@ open class Connection(
             return
         }
 
+
+
         // check if the remoteAddress is correct
         val address = packet.socketAddress as InetSocketAddress
+
+        if (address.port != remoteAddress.port) {
+            debug("Invalid remote address port Ignore Packet")
+            return
+        }
+
         if (!address.address.isLoopbackAddress) { // not sure if good solution
-            if (address != remoteAddress) {
+            if (address.address != remoteAddress.address) {
                 debug("Invalid remote address Ignore Packet")
                 return
             }
