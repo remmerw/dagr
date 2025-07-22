@@ -76,9 +76,8 @@ internal class DagrClient internal constructor(
             runRequester()
         }
 
-        val packet = createPingPacket()
 
-        sendPacket(packet)
+        sendPacket(1, createPingPacket(), true)
     }
 
     override fun terminate() {

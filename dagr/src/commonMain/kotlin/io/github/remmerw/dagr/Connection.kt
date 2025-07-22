@@ -110,7 +110,7 @@ open class Connection(
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
                 val packet = createPingPacket()
-                sendPacket(packet)
+                sendPacket(1, packet, false)
                 lastPing = TimeSource.Monotonic.markNow()
             }
         }
@@ -135,7 +135,7 @@ open class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private suspend fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(packetNumber)
-        sendPacket(packet)
+        sendPacket(2, packet, false)
     }
 
 
@@ -157,7 +157,7 @@ open class Connection(
         terminateLossDetector()
 
         try {
-            sendPacket(createClosePacket())
+            sendPacket(4, createClosePacket(), false)
         } catch (_: Throwable) {
         } finally {
             terminate()
@@ -203,16 +203,18 @@ open class Connection(
     }
 
 
-    @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun sendPacket(packet: Packet) {
+    override suspend fun sendPacket(
+        packetNumber: Long,
+        packet: ByteArray,
+        shouldBeAcked: Boolean
+    ) {
         mutex.withLock {
             val datagram = DatagramPacket(
-                packet.bytes,
-                packet.bytes.size, remoteAddress
+                packet, packet.size, remoteAddress
             )
 
-            if (packet.shouldBeAcked) {
-                packetSent(packet)
+            if (shouldBeAcked) {
+                packetSent(packetNumber, packet)
             }
             socket.send(datagram)
         }

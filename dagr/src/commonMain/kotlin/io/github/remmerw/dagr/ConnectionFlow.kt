@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 abstract class ConnectionFlow() {
 
-    private val packetSentLog: MutableMap<Long, Packet> = ConcurrentMap()
+    private val packetSentLog: MutableMap<Long, ByteArray> = ConcurrentMap()
 
     private val largestAcked: AtomicLong = AtomicLong(-1L)
 
@@ -47,7 +47,11 @@ abstract class ConnectionFlow() {
         packetSentLog.clear()
     }
 
-    internal abstract suspend fun sendPacket(packet: Packet)
+    internal abstract suspend fun sendPacket(
+        packetNumber: Long,
+        packet: ByteArray,
+        shouldBeAcked: Boolean
+    )
 
     internal suspend fun detectLostPackets(): Int {
         if (isStopped) {
@@ -59,7 +63,7 @@ abstract class ConnectionFlow() {
                 val packet = packetSentLog.remove(pn)
                 if (packet != null) {
                     result++
-                    sendPacket(packet)
+                    sendPacket(pn, packet, true)
                 }
             }
         }
@@ -76,14 +80,14 @@ abstract class ConnectionFlow() {
     }
 
 
-    internal suspend fun packetSent(packet: Packet) {
+    internal suspend fun packetSent(packetNumber: Long, packet: ByteArray) {
         if (isStopped) {
             return
         }
-        val pn = packet.packetNumber
-        packetSentLog[pn] = packet
 
-        if (pn > Settings.PAKET_OFFSET) {
+        packetSentLog[packetNumber] = packet
+
+        if (packetNumber > Settings.PAKET_OFFSET) {
             acquireBlocking()
         }
     }

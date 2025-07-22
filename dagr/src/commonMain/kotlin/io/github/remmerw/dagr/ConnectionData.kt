@@ -24,7 +24,7 @@ abstract class ConnectionData() :
         buffer.writeByte(0x03.toByte())
         buffer.writeLong(packetNumber)
         buffer.writeLong(value)
-        sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+        sendPacket(packetNumber, buffer.readByteArray(), true)
 
     }
 
@@ -34,7 +34,7 @@ abstract class ConnectionData() :
         buffer.writeByte(0x03.toByte())
         buffer.writeLong(packetNumber)
         buffer.writeInt(value)
-        sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+        sendPacket(packetNumber, buffer.readByteArray(), true)
 
     }
 
@@ -50,7 +50,7 @@ abstract class ConnectionData() :
             buffer.writeByte(0x03.toByte())
             buffer.writeLong(packetNumber)
             buffer.write(data, chunk, endIndex)
-            sendPacket(Packet(packetNumber, true, buffer.readByteArray()))
+            sendPacket(packetNumber, buffer.readByteArray(), true)
         }
     }
 
@@ -61,17 +61,19 @@ abstract class ConnectionData() :
         val sink = Buffer()
 
         do {
+
             val length = buffer.readAtMostTo(
                 sink,
                 Settings.MAX_DATAGRAM_SIZE.toLong()
             )
 
             if (length > 0) {
+                val packetNumber = fetchPacketNumber()
                 val packet = createDataPacket(
-                    fetchPacketNumber(), sink.readByteArray()
+                    packetNumber, sink.readByteArray()
                 )
 
-                sendPacket(packet)
+                sendPacket(packetNumber, packet, true)
             }
 
         } while (length > 0)
