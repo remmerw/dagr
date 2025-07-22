@@ -35,13 +35,13 @@ class KeepAliveTest {
 
         connection.enableKeepAlive()
 
-        assertEquals(server.connections().size, 1)
+        assertEquals(server.incoming().size, 1)
 
 
         delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
         // now it should be no connections
 
-        assertEquals(server.connections().size, 1)
+        assertEquals(server.incoming().size, 1)
 
 
         connection.close()

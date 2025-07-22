@@ -37,7 +37,7 @@ class CloseTest {
 
         assertTrue(!connection.isConnected)
 
-        assertEquals(server.connections().size, 0)
+        assertEquals(server.incoming().size, 0)
 
         connection.close()
         server.shutdown()

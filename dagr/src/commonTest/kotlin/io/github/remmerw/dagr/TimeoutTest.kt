@@ -32,12 +32,14 @@ class TimeoutTest {
 
 
 
-        assertEquals(server.connections().size, 1)
+        assertEquals(server.incoming().size, 1)
+        assertEquals(server.outgoing().size, 0)
 
         delay((Settings.MAX_IDLE_TIMEOUT + 2000).toLong())
         // now it should be no connections
 
-        assertEquals(server.connections().size, 0)
+        assertEquals(server.incoming().size, 0)
+        assertEquals(server.outgoing().size, 0)
 
         delay(5000)
 

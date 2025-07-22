@@ -8,7 +8,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
@@ -24,7 +26,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
     private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private var socket: DatagramSocket = DatagramSocket(port)
     private val initializeDone = Semaphore(1, 1)
-
+    private val mutex = Mutex()
     fun startup() {
         scope.launch {
             runReceiver()
@@ -113,8 +115,12 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
     }
 
-    fun connections(): Set<Connection> {
-        return connections.values.toSet()
+    fun incoming(): Set<Connection> {
+        return connections.values.filter { connection -> connection.incoming() }.toSet()
+    }
+
+    fun outgoing(): Set<Connection> {
+        return connections.values.filter { connection -> !connection.incoming() }.toSet()
     }
 
     override fun close(connection: Connection) {
@@ -156,19 +162,25 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
 
 
     suspend fun connect(remoteAddress: InetSocketAddress, timeout: Int): Connection? {
+        mutex.withLock { // maybe this should be improved and multiple connects are possible
+            val previous = connections[remoteAddress]
+            if (previous != null) {
+                return previous
+            }
 
-        val connection = Connection(socket, remoteAddress, false, this)
+            val connection = Connection(socket, remoteAddress, false, this)
 
-        connections.put(remoteAddress, connection)
-        jobs.put(remoteAddress, scope.launch {
-            connection.runRequester()
-        })
+            connections.put(remoteAddress, connection)
+            jobs.put(remoteAddress, scope.launch {
+                connection.runRequester()
+            })
 
-        connection.sendPacket(1, createPingPacket(), true)
+            connection.sendPacket(1, createPingPacket(), true)
 
-        return withTimeoutOrNull(timeout * 1000L) {
-            initializeDone.acquire()
-            connection
+            return withTimeoutOrNull(timeout * 1000L) {
+                initializeDone.acquire()
+                connection
+            }
         }
     }
 }
