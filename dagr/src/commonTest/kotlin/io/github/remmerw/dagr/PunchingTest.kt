@@ -3,6 +3,8 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -21,7 +23,8 @@ class PunchingTest {
         }
 
         )
-        val remoteAddress = server.localAddress()
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort())
 
 
         val connection = assertNotNull(
@@ -30,7 +33,8 @@ class PunchingTest {
             )
         )
 
-        val clientAddress = connection.localAddress()
+        val clientAddress =  InetSocketAddress(
+            InetAddress.getLoopbackAddress(), connection.localPort())
         assertTrue(server.punching(clientAddress))
         delay(1000) // Note: punch try is visible via debug output
 

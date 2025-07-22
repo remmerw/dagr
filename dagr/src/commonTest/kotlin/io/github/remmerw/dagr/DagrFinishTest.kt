@@ -3,6 +3,8 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -40,7 +42,8 @@ class DagrFinishTest {
         }
 
         )
-        val remoteAddress = server.localAddress()
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort())
 
         val connection =
             assertNotNull(

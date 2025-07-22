@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -39,7 +41,8 @@ class DagrTest {
         })
 
 
-        val remoteAddress = server.localAddress()
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort())
 
         val connection = connectDagr(remoteAddress, 1)!!
 
@@ -81,7 +84,8 @@ class DagrTest {
         }
 
         )
-        val remoteAddress = server.localAddress()
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort())
 
         val connection =
             assertNotNull(

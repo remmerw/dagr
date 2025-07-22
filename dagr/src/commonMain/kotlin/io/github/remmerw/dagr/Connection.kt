@@ -18,7 +18,8 @@ import kotlin.time.TimeSource
 open class Connection(
     private val socket: DatagramSocket,
     private val remoteAddress: InetSocketAddress,
-    private val listener: Listener
+    private val incoming: Boolean,
+    val listener: Listener
 ) : ConnectionData() {
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -88,12 +89,16 @@ open class Connection(
         }
     }
 
+    fun incoming(): Boolean {
+        return incoming
+    }
+
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
     }
 
-    fun localAddress(): InetSocketAddress {
-        return InetSocketAddress(socket.localAddress, socket.localPort)
+    fun localPort(): Int {
+        return socket.localPort
     }
 
     fun state(): State {
@@ -227,8 +232,7 @@ open class Connection(
 
 
     internal suspend fun processDatagram(
-        packet: DatagramPacket,
-        callbackConnected: () -> Unit
+        packet: DatagramPacket
     ) {
         if (state().isClosed) {
             return
@@ -237,16 +241,9 @@ open class Connection(
         // check if the remoteAddress is correct
         val address = packet.socketAddress as InetSocketAddress
 
-        if (address.port != remoteAddress.port) {
-            debug("Invalid remote address port Ignore Packet")
+        if (address != remoteAddress) {
+            debug("Invalid remote address Ignore Packet")
             return
-        }
-
-        if (!address.address.isLoopbackAddress) { // not sure if good solution
-            if (address.address != remoteAddress.address) {
-                debug("Invalid remote address Ignore Packet")
-                return
-            }
         }
 
         val data = packet.data
@@ -280,7 +277,7 @@ open class Connection(
 
         if (state() == State.Created) {
             state(State.Connected)
-            callbackConnected.invoke()
+            listener.connected(this)
         }
 
         when (type) {

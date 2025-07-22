@@ -3,6 +3,8 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -21,7 +23,8 @@ class KeepAliveTest {
         })
 
 
-        val remoteAddress = server.localAddress()
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort())
 
 
         val connection = assertNotNull(

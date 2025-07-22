@@ -8,6 +8,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.DatagramPacket
@@ -15,24 +17,22 @@ import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import kotlin.random.Random
 
-class Dagr(val responder: Acceptor) : Listener {
+class Dagr(port: Int, val acceptor: Acceptor) : Listener {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
-    private var socket: DatagramSocket? = null
+    private var socket: DatagramSocket = DatagramSocket(port)
+    private val initializeDone = Semaphore(1, 1)
 
-    fun startup(port: Int) {
-        socket = DatagramSocket(port)
-
+    fun startup() {
         scope.launch {
             runReceiver()
         }
     }
 
-    fun localAddress(): InetSocketAddress {
-        require(socket != null) { "Server is not yet started" }
-        return InetSocketAddress(socket!!.localAddress, socket!!.localPort)
+    fun localPort(): Int {
+        return socket.localPort
     }
 
     fun punching(remoteAddress: InetSocketAddress): Boolean {
@@ -46,7 +46,7 @@ class Dagr(val responder: Acceptor) : Listener {
                 data,
                 data.size, remoteAddress
             )
-            socket!!.send(datagram)
+            socket.send(datagram)
             return true
         } catch (throwable: Throwable) {
             debug("Error Punching " + throwable.message)
@@ -59,28 +59,17 @@ class Dagr(val responder: Acceptor) : Listener {
         try {
             while (isActive) {
 
-                val receivedPacket = DatagramPacket(data, Settings.MAX_PACKET_SIZE)
+                val receivedPacket = DatagramPacket(data, data.size)
 
-                socket!!.receive(receivedPacket)
+                socket.receive(receivedPacket)
 
                 val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
                 val connection = receiveConnection(remoteAddress)
-                connection.processDatagram(receivedPacket) {
-
-                    jobs.put(remoteAddress, scope.launch {
-                        connection.runRequester()
-                    })
-                    handler.put(remoteAddress, scope.launch {
-                        try {
-                            responder.accept(connection)
-                        } catch (_: Throwable) {
-                        }
-                    })
-                }
+                connection.processDatagram(receivedPacket)
 
             }
         } catch (throwable: Throwable) {
-            if (socket?.isConnected == true) {
+            if (socket.isConnected) {
                 debug(throwable)
             }
         } finally {
@@ -95,10 +84,8 @@ class Dagr(val responder: Acceptor) : Listener {
             return connection
         }
 
-        val newConnection = Connection(socket!!, remoteAddress, this)
+        val newConnection = Connection(socket, remoteAddress, true, this)
         connections.put(remoteAddress, newConnection)
-
-
 
         return newConnection
     }
@@ -120,7 +107,7 @@ class Dagr(val responder: Acceptor) : Listener {
         }
 
         try {
-            socket?.close()
+            socket.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -145,13 +132,63 @@ class Dagr(val responder: Acceptor) : Listener {
             debug(throwable)
         }
     }
+
+    override fun connected(connection: Connection) {
+
+        if (connection.incoming()) {
+            val remoteAddress = connection.remoteAddress()
+            jobs.put(remoteAddress, scope.launch {
+                connection.runRequester()
+            })
+            handler.put(remoteAddress, scope.launch {
+                try {
+                    acceptor.accept(connection)
+                } catch (_: Throwable) {
+                }
+            })
+        } else {
+            try {
+                initializeDone.release()
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+
+    suspend fun connect(remoteAddress: InetSocketAddress, timeout: Int): Connection? {
+
+        val connection = Connection(socket, remoteAddress, false, this)
+
+        connections.put(remoteAddress, connection)
+        jobs.put(remoteAddress, scope.launch {
+            connection.runRequester()
+        })
+
+        connection.sendPacket(1, createPingPacket(), true)
+
+        return withTimeoutOrNull(timeout * 1000L) {
+            initializeDone.acquire()
+            connection
+        }
+    }
 }
 
+
+suspend fun connectDagr(
+    remoteAddress: InetSocketAddress,
+    timeout: Int
+): Connection? {
+    val dagr = newDagr(0, object : Acceptor {
+        override suspend fun accept(connection: Connection) {
+        }
+    })
+    return dagr.connect(remoteAddress, timeout)
+}
+
+
 fun newDagr(port: Int, acceptor: Acceptor): Dagr {
-    val dagr = Dagr(acceptor)
-
-    dagr.startup(port)
-
+    val dagr = Dagr(port, acceptor)
+    dagr.startup()
     return dagr
 }
 
