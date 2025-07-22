@@ -95,8 +95,6 @@ abstract class ConnectionFlow() {
 
     internal suspend fun sync() {
         while (packetSentLog.isNotEmpty()) {
-            //println("Not done " + packetSentLog.size)
-            // delay(1)
             yield()
         }
     }
