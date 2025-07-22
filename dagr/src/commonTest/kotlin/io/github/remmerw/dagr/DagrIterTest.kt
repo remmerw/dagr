@@ -29,6 +29,7 @@ class DagrIterTest {
 
                         serverData = Random.nextBytes(dataSize)
                         connection.writeByteArray(serverData)
+                        connection.flush()
                     }
                 } catch (_: Throwable) {
                 } finally {

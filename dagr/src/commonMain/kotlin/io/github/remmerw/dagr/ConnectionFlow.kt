@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.yield
 import java.util.concurrent.atomic.AtomicLong
 
 
@@ -89,6 +90,14 @@ abstract class ConnectionFlow() {
 
         if (packetNumber > Settings.PAKET_OFFSET) {
             acquireBlocking()
+        }
+    }
+
+    internal suspend fun sync() {
+        while (packetSentLog.isNotEmpty()) {
+            //println("Not done " + packetSentLog.size)
+            // delay(1)
+            yield()
         }
     }
 
