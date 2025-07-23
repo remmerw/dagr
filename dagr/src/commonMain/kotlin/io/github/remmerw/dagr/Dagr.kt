@@ -27,7 +27,8 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
     private var socket: DatagramSocket = DatagramSocket(port)
     private val initializeDone = Semaphore(1, 1)
     private val mutex = Mutex()
-    fun startup() {
+
+    init {
         scope.launch {
             runReceiver()
         }
@@ -115,12 +116,12 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
     }
 
-    fun incoming(): Set<Connection> {
-        return connections.values.filter { connection -> connection.incoming() }.toSet()
+    fun incoming(): List<Connection> {
+        return connections.values.filter { connection -> connection.incoming() }
     }
 
-    fun outgoing(): Set<Connection> {
-        return connections.values.filter { connection -> !connection.incoming() }.toSet()
+    fun outgoing(): List<Connection> {
+        return connections.values.filter { connection -> !connection.incoming() }
     }
 
     override fun close(connection: Connection) {
@@ -199,9 +200,7 @@ suspend fun connectDagr(
 
 
 fun newDagr(port: Int, acceptor: Acceptor): Dagr {
-    val dagr = Dagr(port, acceptor)
-    dagr.startup()
-    return dagr
+    return Dagr(port, acceptor)
 }
 
 
