@@ -1,11 +1,5 @@
 package io.github.remmerw.dagr
 
-import io.ktor.utils.io.ByteChannel
-import io.ktor.utils.io.readBuffer
-import io.ktor.utils.io.readByteArray
-import io.ktor.utils.io.readInt
-import io.ktor.utils.io.readLong
-import io.ktor.utils.io.writeByteArray
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
 import kotlinx.io.readByteArray
@@ -16,7 +10,7 @@ abstract class ConnectionData() :
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
-    private val reader = ByteChannel(true)
+    private val pipe = Pipe(UShort.MAX_VALUE.toLong())
 
     suspend fun writeLong(value: Long) {
         val packetNumber = fetchPacketNumber()
@@ -109,7 +103,7 @@ abstract class ConnectionData() :
             debug(throwable)
         }
         try {
-            reader.close()
+            pipe.cancel()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -134,25 +128,42 @@ abstract class ConnectionData() :
         }
     }
 
-    private suspend fun appendSource(source: ByteArray) {
-        reader.writeByteArray(source)
+    private fun appendSource(source: ByteArray) {
+        val buffer = Buffer()
+        buffer.write(source)
+        pipe.sink.write(buffer, buffer.size)
         processedPacket++
     }
 
-    suspend fun readLong(): Long {
-        return reader.readLong()
+    fun readLong(): Long {
+        val sink = Buffer()
+        var bytes = Long.SIZE_BYTES.toLong()
+        do {
+            bytes -= pipe.source.read(sink, bytes)
+        } while (bytes > 0)
+        return sink.readLong()
     }
 
-    suspend fun readInt(): Int {
-        return reader.readInt()
+    fun readInt(): Int {
+        val sink = Buffer()
+        var bytes = Int.SIZE_BYTES.toLong()
+        do {
+            bytes -= pipe.source.read(sink, bytes)
+        } while (bytes > 0)
+        return sink.readInt()
     }
 
-    suspend fun readByteArray(count: Int): ByteArray {
-        return reader.readByteArray(count)
+    fun readByteArray(count: Int): ByteArray {
+        return readBuffer(count).readByteArray()
     }
 
-    suspend fun readBuffer(length: Int): Buffer {
-        return reader.readBuffer(length)
+    fun readBuffer(count: Int): Buffer {
+        val sink = Buffer()
+        var bytes = count.toLong()
+        do {
+            bytes -= pipe.source.read(sink, bytes)
+        } while (bytes > 0)
+        return sink
     }
 
 }
