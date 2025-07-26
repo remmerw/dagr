@@ -43,7 +43,6 @@ kotlin {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.kotlinx.io.core)
                 implementation(libs.kotlinx.coroutines.core)
-                implementation(libs.ktor.utils)
             }
         }
 

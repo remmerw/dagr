@@ -1,14 +1,14 @@
 package io.github.remmerw.dagr
 
-import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.yield
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 
 abstract class ConnectionFlow() {
 
-    private val packetSentLog: MutableMap<Long, ByteArray> = ConcurrentMap()
+    private val packetSentLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
 
     private val largestAcked: AtomicLong = AtomicLong(-1L)
 

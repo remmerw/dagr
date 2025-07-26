@@ -171,7 +171,7 @@ interface Sink : Closeable {
     fun write(bytes: ByteArray)
 
     /** Pushes all buffered bytes to their final destination.  */
-   fun flush()
+    fun flush()
 
     /** Returns the timeout for this sink.  */
     fun timeout(): Timeout
@@ -180,7 +180,7 @@ interface Sink : Closeable {
      * Pushes all buffered bytes to their final destination and releases the resources held by this
      * sink. It is an error to write a closed sink. It is safe to close a sink more than once.
      */
-   override fun close()
+    override fun close()
 }
 
 

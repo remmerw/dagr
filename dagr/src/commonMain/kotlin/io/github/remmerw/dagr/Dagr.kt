@@ -1,12 +1,9 @@
 package io.github.remmerw.dagr
 
-import io.ktor.util.collections.ConcurrentMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -17,6 +14,7 @@ import kotlinx.io.readByteArray
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.decrementAndFetch
@@ -25,15 +23,15 @@ import kotlin.random.Random
 
 class Dagr(port: Int, val acceptor: Acceptor) : Listener {
     private val scope = CoroutineScope(Dispatchers.IO)
-    private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
+    private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentHashMap()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val incoming = AtomicInt(0)
 
     @OptIn(ExperimentalAtomicApi::class)
     private val outgoing = AtomicInt(0)
-    private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
-    private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
+    private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentHashMap()
+    private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentHashMap()
     private var socket: DatagramSocket = DatagramSocket(port)
     private val initializeDone = Semaphore(1, 1)
     private val mutex = Mutex()
@@ -77,10 +75,10 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
     }
 
-    private suspend fun runReceiver(): Unit = coroutineScope {
+    private suspend fun runReceiver() {
         val data = ByteArray(Settings.MAX_PACKET_SIZE)
         try {
-            while (isActive) {
+            while (true) {
 
                 val receivedPacket = DatagramPacket(data, data.size)
 
