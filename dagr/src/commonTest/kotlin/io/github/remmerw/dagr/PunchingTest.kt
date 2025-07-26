@@ -24,7 +24,8 @@ class PunchingTest {
 
         )
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
 
         val connection = assertNotNull(
@@ -33,8 +34,9 @@ class PunchingTest {
             )
         )
 
-        val clientAddress =  InetSocketAddress(
-            InetAddress.getLoopbackAddress(), connection.localPort())
+        val clientAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), connection.localPort()
+        )
         assertTrue(server.punching(clientAddress))
         delay(1000) // Note: punch try is visible via debug output
 

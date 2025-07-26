@@ -42,7 +42,8 @@ class DagrTest {
 
 
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
         val connection = connectDagr(remoteAddress, 1)!!
 
@@ -85,7 +86,8 @@ class DagrTest {
 
         )
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
         val connection =
             assertNotNull(

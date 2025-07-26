@@ -14,7 +14,6 @@ import kotlin.test.assertNotNull
 class DagrFinishTest {
 
 
-
     @Test
     fun testFinishServer(): Unit = runBlocking(Dispatchers.IO) {
 
@@ -43,7 +42,8 @@ class DagrFinishTest {
 
         )
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
         val connection =
             assertNotNull(

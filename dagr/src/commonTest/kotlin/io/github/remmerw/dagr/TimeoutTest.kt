@@ -24,7 +24,8 @@ class TimeoutTest {
         )
 
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
         val connection = checkNotNull(
             connectDagr(remoteAddress, 1)

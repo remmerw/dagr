@@ -24,7 +24,8 @@ class ConnectionsTest {
         )
 
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
 
         val client = newDagr(0, object : Acceptor {
@@ -39,8 +40,8 @@ class ConnectionsTest {
 
 
 
-        assertEquals(server.incoming().size, 1)
-        assertEquals(server.outgoing().size, 0)
+        assertEquals(server.numIncomingConnections(), 1)
+        assertEquals(server.numOutgoingConnections(), 0)
         assertEquals(client.incoming().size, 0)
         assertEquals(client.outgoing().size, 1)
 

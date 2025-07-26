@@ -17,11 +17,21 @@ import kotlinx.io.readByteArray
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.decrementAndFetch
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.random.Random
 
 class Dagr(port: Int, val acceptor: Acceptor) : Listener {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentMap()
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val incoming = AtomicInt(0)
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val outgoing = AtomicInt(0)
     private val jobs: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private val handler: MutableMap<InetSocketAddress, Job> = ConcurrentMap()
     private var socket: DatagramSocket = DatagramSocket(port)
@@ -32,6 +42,16 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         scope.launch {
             runReceiver()
         }
+    }
+
+    @OptIn(ExperimentalAtomicApi::class)
+    fun numIncomingConnections(): Int {
+        return incoming.load()
+    }
+
+    @OptIn(ExperimentalAtomicApi::class)
+    fun numOutgoingConnections(): Int {
+        return outgoing.load()
     }
 
     fun localPort(): Int {
@@ -80,6 +100,15 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
+    private fun register(connection: Connection) {
+        connections.put(connection.remoteAddress(), connection)
+        if (connection.incoming()) {
+            incoming.incrementAndFetch()
+        } else {
+            outgoing.incrementAndFetch()
+        }
+    }
 
     private fun receiveConnection(remoteAddress: InetSocketAddress): Connection {
         val connection = connections[remoteAddress]
@@ -88,7 +117,8 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
 
         val newConnection = Connection(socket, remoteAddress, true, this)
-        connections.put(remoteAddress, newConnection)
+        register(newConnection)
+
 
         return newConnection
     }
@@ -124,8 +154,16 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         return connections.values.filter { connection -> !connection.incoming() }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
     override fun close(connection: Connection) {
-        connections.remove(connection.remoteAddress())
+        val removed = connections.remove(connection.remoteAddress())
+        if (removed != null) {
+            if (connection.incoming()) {
+                incoming.decrementAndFetch()
+            } else {
+                outgoing.decrementAndFetch()
+            }
+        }
         val job = jobs.remove(connection.remoteAddress())
         try {
             job?.cancel()
@@ -171,7 +209,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
 
             val connection = Connection(socket, remoteAddress, false, this)
 
-            connections.put(remoteAddress, connection)
+            register(connection)
             jobs.put(remoteAddress, scope.launch {
                 connection.runRequester()
             })

@@ -25,7 +25,8 @@ class CloseTest {
 
         )
         val remoteAddress = InetSocketAddress(
-            InetAddress.getLoopbackAddress(), server.localPort())
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
         val connection = checkNotNull(
             connectDagr(
