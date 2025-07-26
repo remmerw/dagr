@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -24,18 +25,20 @@ class DagrIterTest {
             override fun accept(
                 connection: Connection
             ) {
-                try {
-                    while (true) {
-                        val cid = connection.readLong() // nothing to do
-                        assertEquals(cid, 0L)
+                launch {
+                    try {
+                        while (true) {
+                            val cid = connection.readLong() // nothing to do
+                            assertEquals(cid, 0L)
 
-                        serverData = Random.nextBytes(dataSize)
-                        connection.writeByteArray(serverData)
-                        connection.flush()
+                            serverData = Random.nextBytes(dataSize)
+                            connection.writeByteArray(serverData)
+                            connection.flush()
+                        }
+                    } catch (_: Throwable) {
+                    } finally {
+                        connection.close()
                     }
-                } catch (_: Throwable) {
-                } finally {
-                    connection.close()
                 }
             }
         }

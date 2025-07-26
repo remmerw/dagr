@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
@@ -23,19 +24,20 @@ class DagrTest {
             override fun accept(
                 connection: Connection
             ) {
+                launch {
+                    try {
+                        while (true) {
+                            val cid = connection.readInt()
+                            assertEquals(cid, 1)
 
-                try {
-                    while (true) {
-                        val cid = connection.readInt()
-                        assertEquals(cid, 1)
-
-                        val buffer = Buffer()
-                        buffer.write(serverData)
-                        connection.writeBuffer(buffer)
+                            val buffer = Buffer()
+                            buffer.write(serverData)
+                            connection.writeBuffer(buffer)
+                        }
+                    } catch (_: Throwable) {
+                    } finally {
+                        connection.close()
                     }
-                } catch (_: Throwable) {
-                } finally {
-                    connection.close()
                 }
             }
         })
@@ -67,19 +69,20 @@ class DagrTest {
             override fun accept(
                 connection: Connection
             ) {
+                launch {
+                    try {
+                        while (true) {
+                            val cid = connection.readLong() // nothing to do
+                            assertEquals(cid, 0L)
 
-                try {
-                    while (true) {
-                        val cid = connection.readLong() // nothing to do
-                        assertEquals(cid, 0L)
-
-                        val buffer = Buffer()
-                        buffer.write(serverData)
-                        connection.writeBuffer(buffer)
+                            val buffer = Buffer()
+                            buffer.write(serverData)
+                            connection.writeBuffer(buffer)
+                        }
+                    } catch (_: Throwable) {
+                    } finally {
+                        connection.close()
                     }
-                } catch (_: Throwable) {
-                } finally {
-                    connection.close()
                 }
             }
         }

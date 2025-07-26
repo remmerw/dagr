@@ -18,6 +18,7 @@ package io.github.remmerw.dagr
 import kotlinx.io.Buffer
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -56,7 +57,12 @@ internal class Pipe(private val maxBufferSize: Long) {
         require(maxBufferSize >= 1L) { "maxBufferSize < 1: $maxBufferSize" }
     }
 
-    fun readBuffer(count: Int): Buffer {
+    fun readBuffer(count: Int, timeout: Int? = null): Buffer {
+        if (timeout != null) {
+            source.timeout().timeout(timeout.toLong(), TimeUnit.SECONDS)
+        } else {
+            source.timeout().clearTimeout()
+        }
         val sink = Buffer()
         var bytes = count.toLong()
         do {
@@ -426,7 +432,7 @@ open class Timeout {
             // return is a 'spurious wakeup' because Condition.signal() was not called.
             if (cancelMark !== cancelMarkBefore) return
 
-            throw Exception("timeout")
+            throw TimeoutException("timeout")
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt() // Retain interrupted status.
             throw Exception("interrupted")

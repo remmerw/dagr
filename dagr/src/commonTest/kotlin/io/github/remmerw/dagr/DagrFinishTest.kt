@@ -2,6 +2,7 @@ package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import java.net.InetAddress
@@ -26,18 +27,19 @@ class DagrFinishTest {
             override fun accept(
                 connection: Connection
             ) {
+                launch {
+                    try {
+                        val cid = connection.readLong() // nothing to do
+                        assertEquals(cid, 0L)
 
-                try {
-                    val cid = connection.readLong() // nothing to do
-                    assertEquals(cid, 0L)
-
-                    val buffer = Buffer()
-                    buffer.write(serverData)
-                    connection.writeBuffer(buffer)
-                    connection.flush()
-                } catch (_: Throwable) {
-                } finally {
-                    connection.close() // directly close after writing
+                        val buffer = Buffer()
+                        buffer.write(serverData)
+                        connection.writeBuffer(buffer)
+                        connection.flush()
+                    } catch (_: Throwable) {
+                    } finally {
+                        connection.close() // directly close after writing
+                    }
                 }
             }
         }

@@ -134,20 +134,20 @@ abstract class ConnectionData() :
         processedPacket++
     }
 
-    fun readLong(): Long {
-        return readBuffer(Long.SIZE_BYTES).readLong()
+    fun readLong(timeout: Int? = null): Long {
+        return readBuffer(Long.SIZE_BYTES, timeout).readLong()
     }
 
-    fun readInt(): Int {
-        return readBuffer(Int.SIZE_BYTES).readInt()
+    fun readInt(timeout: Int? = null): Int {
+        return readBuffer(Int.SIZE_BYTES, timeout).readInt()
     }
 
-    fun readByteArray(count: Int): ByteArray {
-        return readBuffer(count).readByteArray()
+    fun readByteArray(count: Int, timeout: Int? = null): ByteArray {
+        return readBuffer(count, timeout).readByteArray()
     }
 
-    fun readBuffer(count: Int): Buffer {
-        return pipe.readBuffer(count)
+    fun readBuffer(count: Int, timeout: Int? = null): Buffer {
+        return pipe.readBuffer(count, timeout)
     }
 
 }
