@@ -56,6 +56,14 @@ internal class Pipe(private val maxBufferSize: Long) {
         require(maxBufferSize >= 1L) { "maxBufferSize < 1: $maxBufferSize" }
     }
 
+    fun readBuffer(count: Int): Buffer {
+        val sink = Buffer()
+        var bytes = count.toLong()
+        do {
+            bytes -= source.read(sink, bytes)
+        } while (bytes > 0)
+        return sink
+    }
 
     val sink = object : Sink {
         private val timeout = Timeout()

@@ -52,9 +52,7 @@ class DagrFinishTest {
                 connectDagr(remoteAddress, 1)
             )
 
-
         connection.writeLong(0)
-
 
         val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)

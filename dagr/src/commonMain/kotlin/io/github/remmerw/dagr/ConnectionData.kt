@@ -102,6 +102,7 @@ abstract class ConnectionData() :
         } catch (throwable: Throwable) {
             debug(throwable)
         }
+
         try {
             pipe.cancel()
         } catch (throwable: Throwable) {
@@ -134,21 +135,11 @@ abstract class ConnectionData() :
     }
 
     fun readLong(): Long {
-        val sink = Buffer()
-        var bytes = Long.SIZE_BYTES.toLong()
-        do {
-            bytes -= pipe.source.read(sink, bytes)
-        } while (bytes > 0)
-        return sink.readLong()
+        return readBuffer(Long.SIZE_BYTES).readLong()
     }
 
     fun readInt(): Int {
-        val sink = Buffer()
-        var bytes = Int.SIZE_BYTES.toLong()
-        do {
-            bytes -= pipe.source.read(sink, bytes)
-        } while (bytes > 0)
-        return sink.readInt()
+        return readBuffer(Int.SIZE_BYTES).readInt()
     }
 
     fun readByteArray(count: Int): ByteArray {
@@ -156,12 +147,7 @@ abstract class ConnectionData() :
     }
 
     fun readBuffer(count: Int): Buffer {
-        val sink = Buffer()
-        var bytes = count.toLong()
-        do {
-            bytes -= pipe.source.read(sink, bytes)
-        } while (bytes > 0)
-        return sink
+        return pipe.readBuffer(count)
     }
 
 }
