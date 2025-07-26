@@ -12,7 +12,7 @@ abstract class ConnectionData() :
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val pipe = Pipe(UShort.MAX_VALUE.toLong())
 
-    suspend fun writeLong(value: Long) {
+    fun writeLong(value: Long) {
         val packetNumber = fetchPacketNumber()
         val buffer = Buffer()
         buffer.writeByte(0x03.toByte())
@@ -22,11 +22,11 @@ abstract class ConnectionData() :
 
     }
 
-    suspend fun flush() {
+    fun flush() {
         sync()
     }
 
-    suspend fun writeInt(value: Int) {
+    fun writeInt(value: Int) {
         val packetNumber = fetchPacketNumber()
         val buffer = Buffer()
         buffer.writeByte(0x03.toByte())
@@ -36,7 +36,7 @@ abstract class ConnectionData() :
 
     }
 
-    suspend fun writeByteArray(data: ByteArray) {
+    fun writeByteArray(data: ByteArray) {
 
         for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE) {
             val endIndex = kotlin.math.min(
@@ -52,7 +52,7 @@ abstract class ConnectionData() :
         }
     }
 
-    suspend fun writeBuffer(buffer: RawSource) {
+    fun writeBuffer(buffer: RawSource) {
 
 
         // readout everything in the channel
@@ -79,7 +79,7 @@ abstract class ConnectionData() :
     }
 
 
-    private suspend fun evaluateFrames() {
+    private fun evaluateFrames() {
 
         val pn = frames.keys.minOrNull()
 
@@ -109,9 +109,9 @@ abstract class ConnectionData() :
         }
     }
 
-    internal abstract suspend fun fetchPacketNumber(): Long
+    internal abstract fun fetchPacketNumber(): Long
 
-    internal suspend fun processData(packetNumber: Long, source: ByteArray) {
+    internal fun processData(packetNumber: Long, source: ByteArray) {
         if (packetNumber > processedPacket) {
 
             if (packetNumber == processedPacket + 1) {

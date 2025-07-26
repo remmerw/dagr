@@ -1,18 +1,15 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.concurrent.withLock
 import kotlin.time.TimeSource
 
 open class Connection(
@@ -25,7 +22,7 @@ open class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
 
-    private val mutex = Mutex()
+    private val lock = ReentrantLock()
 
     @Volatile
     private var remotePacketTimeStamp = TimeSource.Monotonic.markNow()
@@ -110,7 +107,7 @@ open class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun keepAlive() {
+    private fun keepAlive() {
         if (enableKeepAlive.load()) {
 
             if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
@@ -138,7 +135,7 @@ open class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun sendAck(packetNumber: Long) {
+    private fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(packetNumber)
         sendPacket(2, packet, false)
     }
@@ -150,7 +147,7 @@ open class Connection(
         state(State.Closed)
     }
 
-    suspend fun close() {
+    fun close() {
 
         if (state.isClosed) {
             debug("Immediate close ignored because already closing")
@@ -171,7 +168,7 @@ open class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    private suspend fun checkIdle() {
+    private fun checkIdle() {
         if (remotePacketTimeStamp.elapsedNow().inWholeMilliseconds >
             Settings.MAX_IDLE_TIMEOUT.toLong()
         ) {
@@ -192,28 +189,33 @@ open class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal suspend fun runRequester(): Unit = coroutineScope {
-        while (isActive) {
+    internal fun runRequester() {
+        try {
+            while (true) {
 
-            val lost = detectLostPackets()
-            keepAlive() // only happens when enabled
-            checkIdle() // only happens when enabled
+                val lost = detectLostPackets()
+                keepAlive() // only happens when enabled
+                checkIdle() // only happens when enabled
 
-            if (lost > 0) {
-                delay(Settings.MIN_DELAY.toLong())
-            } else {
-                delay(Settings.MAX_DELAY.toLong())
+                if (lost > 0) {
+                    Thread.sleep(Settings.MIN_DELAY.toLong())
+                } else {
+                    Thread.sleep(Settings.MAX_DELAY.toLong())
+                }
             }
+        } catch (_: InterruptedException) {
+        } catch (throwable: Throwable) {
+            debug(throwable)
         }
     }
 
 
-    override suspend fun sendPacket(
+    override fun sendPacket(
         packetNumber: Long,
         packet: ByteArray,
         shouldBeAcked: Boolean
     ) {
-        mutex.withLock {
+        lock.withLock {
             val datagram = DatagramPacket(
                 packet, packet.size, remoteAddress
             )
@@ -226,12 +228,12 @@ open class Connection(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    override suspend fun fetchPacketNumber(): Long {
+    override fun fetchPacketNumber(): Long {
         return localPacketNumber.incrementAndFetch()
     }
 
 
-    internal suspend fun processDatagram(
+    internal fun processDatagram(
         packet: DatagramPacket
     ) {
         if (state().isClosed) {

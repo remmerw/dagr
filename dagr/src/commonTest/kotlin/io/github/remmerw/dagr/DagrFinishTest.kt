@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import java.net.InetAddress
@@ -10,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class DagrFinishTest {
 
@@ -21,7 +23,7 @@ class DagrFinishTest {
         val serverData = Random.nextBytes(1000000)
 
         val server = newDagr(0, object : Acceptor {
-            override suspend fun accept(
+            override fun accept(
                 connection: Connection
             ) {
 
@@ -32,7 +34,7 @@ class DagrFinishTest {
                     val buffer = Buffer()
                     buffer.write(serverData)
                     connection.writeBuffer(buffer)
-
+                    connection.flush()
                 } catch (_: Throwable) {
                 } finally {
                     connection.close() // directly close after writing
@@ -51,14 +53,16 @@ class DagrFinishTest {
             )
 
 
-        val buffer = Buffer()
-        buffer.writeLong(0)
-        connection.writeBuffer(buffer)
+        connection.writeLong(0)
 
 
         val data = connection.readByteArray(serverData.size)
         assertContentEquals(data, serverData)
 
+        delay(50)
+
+        assertTrue(!connection.isConnected)
+        assertEquals(server.numIncomingConnections(), 0)
 
         connection.close()
         server.shutdown()

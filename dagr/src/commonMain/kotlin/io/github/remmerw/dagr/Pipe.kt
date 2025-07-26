@@ -146,8 +146,8 @@ internal class Pipe(private val maxBufferSize: Long) {
     /**
      * Fail any in-flight and future operations. After canceling:
      *
-     *  * Any attempt to write or flush [sink] will fail immediately with an [IOException].
-     *  * Any attempt to read [source] will fail immediately with an [IOException].
+     *  * Any attempt to write or flush [sink] will fail immediately with an [Exception].
+     *  * Any attempt to read [source] will fail immediately with an [Exception].
      *
      * Closing the source and the sink will complete normally even after a pipe has been canceled. If
      * this sink has been folded, closing it will close the folded sink. This operation may block.
@@ -187,22 +187,22 @@ interface Sink : Closeable {
  * network, storage, or a buffer in memory. Sources may be layered to transform supplied data, such
  * as to decompress, decrypt, or remove protocol framing.
  *
- * Most applications shouldn't operate on a source directly, but rather on a [BufferedSource] which
- * is both more efficient and more convenient. Use [buffer] to wrap any source with a buffer.
+ * Most applications shouldn't operate on a source directly, but rather on a BufferedSource which
+ * is both more efficient and more convenient. Use buffer to wrap any source with a buffer.
  *
- * Sources are easy to test: just use a [Buffer] in your tests, and fill it with the data your
+ * Sources are easy to test: just use a Buffer in your tests, and fill it with the data your
  * application is to read.
  *
  * ### Comparison with InputStream
 
- * This interface is functionally equivalent to [java.io.InputStream].
+ * This interface is functionally equivalent to java.io.InputStream.
  *
  * `InputStream` requires multiple layers when consumed data is heterogeneous: a `DataInputStream`
  * for primitive values, a `BufferedInputStream` for buffering, and `InputStreamReader` for strings.
  * This library uses `BufferedSource` for all of the above.
  *
- * Source avoids the impossible-to-implement [available()][java.io.InputStream.available] method.
- * Instead callers specify how many bytes they [require][BufferedSource.require].
+ * Source avoids the impossible-to-implement [available()] java.io.InputStream.available method.
+ * Instead callers specify how many bytes they [require] BufferedSource.require.
  *
  * Source omits the unsafe-to-compose [mark and reset][java.io.InputStream.mark] state that's
  * tracked by `InputStream`; instead, callers just buffer what they need.
@@ -210,11 +210,11 @@ interface Sink : Closeable {
  * When implementing a source, you don't need to worry about the [read()][java.io.InputStream.read]
  * method that is awkward to implement efficiently and returns one of 257 possible values.
  *
- * And source has a stronger `skip` method: [BufferedSource.skip] won't return prematurely.
+ * And source has a stronger `skip` method: BufferedSource.skip won't return prematurely.
  *
  * ### Interop with InputStream
  *
- * Use [source] to adapt an `InputStream` to a source. Use [BufferedSource.inputStream] to adapt a
+ * Use source to adapt an `InputStream` to a source. Use BufferedSource.inputStream to adapt a
  * source to an `InputStream`.
  */
 interface Source : Closeable {
@@ -310,7 +310,7 @@ open class Timeout {
     }
 
     /**
-     * Throws an [InterruptedIOException] if the deadline has been reached or if the current thread
+     * Throws an [Exception] if the deadline has been reached or if the current thread
      * has been interrupted. This method doesn't detect timeouts; that should be implemented to
      * asynchronously abort an in-progress operation.
      */
@@ -341,7 +341,7 @@ open class Timeout {
     }
 
     /**
-     * Waits on `monitor` until it is signaled. Throws [InterruptedIOException] if either the thread
+     * Waits on `monitor` until it is signaled. Throws [Exception] if either the thread
      * is interrupted or if this timeout elapses before `monitor` is signaled.
      * The caller must hold the lock that monitor is bound to.
      *
@@ -426,7 +426,7 @@ open class Timeout {
     }
 
     /**
-     * Waits on `monitor` until it is notified. Throws [InterruptedIOException] if either the thread
+     * Waits on `monitor` until it is notified. Throws [Exception] if either the thread
      * is interrupted or if this timeout elapses before `monitor` is notified. The caller must be
      * synchronized on `monitor`.
      *
@@ -511,12 +511,22 @@ open class Timeout {
      */
     inline fun <T> intersectWith(other: Timeout, block: () -> T): T {
         val originalTimeout = this.timeoutNanos()
-        this.timeout(minTimeout(other.timeoutNanos(), this.timeoutNanos()), TimeUnit.NANOSECONDS)
+        this.timeout(
+            minTimeout(
+                other.timeoutNanos(),
+                this.timeoutNanos()
+            ), TimeUnit.NANOSECONDS
+        )
 
         if (this.hasDeadline()) {
             val originalDeadline = this.deadlineNanoTime()
             if (other.hasDeadline()) {
-                this.deadlineNanoTime(Math.min(this.deadlineNanoTime(), other.deadlineNanoTime()))
+                this.deadlineNanoTime(
+                    kotlin.math.min(
+                        this.deadlineNanoTime(),
+                        other.deadlineNanoTime()
+                    )
+                )
             }
             try {
                 return block()
@@ -542,14 +552,6 @@ open class Timeout {
     }
 
     companion object {
-        @JvmField
-        val NONE: Timeout = object : Timeout() {
-            override fun timeout(timeout: Long, unit: TimeUnit): Timeout = this
-
-            override fun deadlineNanoTime(deadlineNanoTime: Long): Timeout = this
-
-            override fun throwIfReached() {}
-        }
 
         fun Timeout.timeout(timeout: Long, unit: DurationUnit): Timeout {
             return timeout(timeout, unit.toTimeUnit())

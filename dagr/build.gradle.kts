@@ -42,13 +42,13 @@ kotlin {
             dependencies {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.kotlinx.io.core)
-                implementation(libs.kotlinx.coroutines.core)
             }
         }
 
         commonTest {
             dependencies {
                 implementation(libs.kotlin.test)
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
 

@@ -16,7 +16,7 @@ class PunchingTest {
 
 
         val server = newDagr(0, object : Acceptor {
-            override suspend fun accept(
+            override fun accept(
                 connection: Connection
             ) {
             }

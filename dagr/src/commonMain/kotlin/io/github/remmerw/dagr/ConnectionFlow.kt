@@ -1,8 +1,8 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.yield
+import java.lang.Thread.yield
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicLong
 
 
@@ -14,10 +14,10 @@ abstract class ConnectionFlow() {
 
     @Volatile
     private var isStopped = false
-    private val semaphore = Semaphore(Settings.LACKED_PACKETS, 0)
+    private val semaphore = Semaphore(Settings.LACKED_PACKETS)
 
 
-    private suspend fun acquireBlocking() {
+    private fun acquireBlocking() {
         semaphore.acquire()
     }
 
@@ -48,13 +48,13 @@ abstract class ConnectionFlow() {
         packetSentLog.clear()
     }
 
-    internal abstract suspend fun sendPacket(
+    internal abstract fun sendPacket(
         packetNumber: Long,
         packet: ByteArray,
         shouldBeAcked: Boolean
     )
 
-    internal suspend fun detectLostPackets(): Int {
+    internal fun detectLostPackets(): Int {
         if (isStopped) {
             return 0
         }
@@ -81,7 +81,7 @@ abstract class ConnectionFlow() {
     }
 
 
-    internal suspend fun packetSent(packetNumber: Long, packet: ByteArray) {
+    internal fun packetSent(packetNumber: Long, packet: ByteArray) {
         if (isStopped) {
             return
         }
@@ -93,7 +93,7 @@ abstract class ConnectionFlow() {
         }
     }
 
-    internal suspend fun sync() {
+    internal fun sync() {
         while (packetSentLog.isNotEmpty()) {
             yield()
         }
