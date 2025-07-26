@@ -17,8 +17,6 @@ package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
 import java.io.Closeable
-import java.io.IOException
-import java.io.InterruptedIOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
@@ -41,7 +39,7 @@ import kotlin.time.toTimeUnit
  *
  * When the sink is closed, source reads will continue to complete normally until the buffer has
  * been exhausted. At that point reads will return -1, indicating the end of the stream. But if the
- * source is closed first, writes to the sink will immediately fail with an [IOException].
+ * source is closed first, writes to the sink will immediately fail with an [Exception].
  *
  * A pipe may be canceled to immediately fail writes to the sink and reads from the source.
  */
@@ -66,17 +64,17 @@ internal class Pipe(private val maxBufferSize: Long) {
             var byteCount = bytes.size.toLong()
             lock.withLock {
                 check(!sinkClosed) { "closed" }
-                if (canceled) throw IOException("canceled")
+                if (canceled) throw Exception("canceled")
 
                 while (byteCount > 0) {
 
 
-                    if (sourceClosed) throw IOException("source is closed")
+                    if (sourceClosed) throw Exception("source is closed")
 
                     val bufferSpaceAvailable = maxBufferSize - buffer.size
                     if (bufferSpaceAvailable == 0L) {
                         timeout.awaitSignal(condition) // Wait until the source drains the buffer.
-                        if (canceled) throw IOException("canceled")
+                        if (canceled) throw Exception("canceled")
                         continue
                     }
 
@@ -91,11 +89,11 @@ internal class Pipe(private val maxBufferSize: Long) {
         override fun flush() {
             lock.withLock {
                 check(!sinkClosed) { "closed" }
-                if (canceled) throw IOException("canceled")
+                if (canceled) throw Exception("canceled")
 
 
                 if (sourceClosed && buffer.size > 0L) {
-                    throw IOException("source is closed")
+                    throw Exception("source is closed")
                 }
             }
         }
@@ -105,7 +103,7 @@ internal class Pipe(private val maxBufferSize: Long) {
                 if (sinkClosed) return
 
 
-                if (sourceClosed && buffer.size > 0L) throw IOException("source is closed")
+                if (sourceClosed && buffer.size > 0L) throw Exception("source is closed")
                 sinkClosed = true
                 condition.signalAll() // Notify the source that no more bytes are coming.
             }
@@ -120,12 +118,12 @@ internal class Pipe(private val maxBufferSize: Long) {
         override fun read(sink: Buffer, byteCount: Long): Long {
             lock.withLock {
                 check(!sourceClosed) { "closed" }
-                if (canceled) throw IOException("canceled")
+                if (canceled) throw Exception("canceled")
 
                 while (buffer.size == 0L) {
                     if (sinkClosed) return -1L
                     timeout.awaitSignal(condition) // Wait until the sink fills the buffer.
-                    if (canceled) throw IOException("canceled")
+                    if (canceled) throw Exception("canceled")
                 }
 
                 val result = buffer.readAtMostTo(sink, byteCount)
@@ -316,15 +314,15 @@ open class Timeout {
      * has been interrupted. This method doesn't detect timeouts; that should be implemented to
      * asynchronously abort an in-progress operation.
      */
-    @Throws(IOException::class)
+
     open fun throwIfReached() {
         if (Thread.currentThread().isInterrupted) {
             // If the current thread has been interrupted.
-            throw InterruptedIOException("interrupted")
+            throw Exception("interrupted")
         }
 
         if (hasDeadline && deadlineNanoTime - System.nanoTime() <= 0) {
-            throw InterruptedIOException("deadline reached")
+            throw Exception("deadline reached")
         }
     }
 
@@ -385,7 +383,7 @@ open class Timeout {
      * }
      * ```
      */
-    @Throws(InterruptedIOException::class)
+
     open fun awaitSignal(condition: Condition) {
         try {
             val hasDeadline = hasDeadline()
@@ -406,7 +404,7 @@ open class Timeout {
                 timeoutNanos
             }
 
-            if (waitNanos <= 0) throw InterruptedIOException("timeout")
+            if (waitNanos <= 0) throw Exception("timeout")
 
             val cancelMarkBefore = cancelMark
 
@@ -420,10 +418,10 @@ open class Timeout {
             // return is a 'spurious wakeup' because Condition.signal() was not called.
             if (cancelMark !== cancelMarkBefore) return
 
-            throw InterruptedIOException("timeout")
-        } catch (e: InterruptedException) {
+            throw Exception("timeout")
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt() // Retain interrupted status.
-            throw InterruptedIOException("interrupted")
+            throw Exception("interrupted")
         }
     }
 
@@ -463,7 +461,6 @@ open class Timeout {
      * }
      * ```
      */
-    @Throws(InterruptedIOException::class)
     open fun waitUntilNotified(monitor: Any) {
         try {
             val hasDeadline = hasDeadline()
@@ -485,7 +482,7 @@ open class Timeout {
                 timeoutNanos
             }
 
-            if (waitNanos <= 0) throw InterruptedIOException("timeout")
+            if (waitNanos <= 0) throw Exception("timeout")
 
             val cancelMarkBefore = cancelMark
 
@@ -501,10 +498,10 @@ open class Timeout {
             // return is a 'spurious wakeup' because Object.notify() was not called.
             if (cancelMark !== cancelMarkBefore) return
 
-            throw InterruptedIOException("timeout")
-        } catch (e: InterruptedException) {
+            throw Exception("timeout")
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt() // Retain interrupted status.
-            throw InterruptedIOException("interrupted")
+            throw Exception("interrupted")
         }
     }
 
