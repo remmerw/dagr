@@ -128,10 +128,8 @@ abstract class ConnectionData() :
         }
     }
 
-    private fun appendSource(source: ByteArray) {
-        val buffer = Buffer()
-        buffer.write(source)
-        pipe.sink.write(buffer, buffer.size)
+    private fun appendSource(bytes: ByteArray) {
+        pipe.sink.write(bytes)
         processedPacket++
     }
 

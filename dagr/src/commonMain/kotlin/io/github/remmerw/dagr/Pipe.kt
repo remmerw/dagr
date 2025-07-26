@@ -45,37 +45,31 @@ import kotlin.time.toTimeUnit
  *
  * A pipe may be canceled to immediately fail writes to the sink and reads from the source.
  */
-class Pipe(internal val maxBufferSize: Long) {
-    internal val buffer = Buffer()
-    internal var canceled = false
-    internal var sinkClosed = false
-    internal var sourceClosed = false
-    internal var foldedSink: Sink? = null
+internal class Pipe(private val maxBufferSize: Long) {
+    private val buffer = Buffer()
+    private var canceled = false
+    private var sinkClosed = false
+    private var sourceClosed = false
 
-    val lock: ReentrantLock = ReentrantLock()
-    val condition: Condition = lock.newCondition()
+    private val lock: ReentrantLock = ReentrantLock()
+    private val condition: Condition = lock.newCondition()
 
     init {
         require(maxBufferSize >= 1L) { "maxBufferSize < 1: $maxBufferSize" }
     }
 
 
-    @get:JvmName("sink")
     val sink = object : Sink {
         private val timeout = Timeout()
 
-        override fun write(source: Buffer, byteCount: Long) {
-            var byteCount = byteCount
-            var delegate: Sink? = null
+        override fun write(bytes: ByteArray) {
+            var byteCount = bytes.size.toLong()
             lock.withLock {
                 check(!sinkClosed) { "closed" }
                 if (canceled) throw IOException("canceled")
 
                 while (byteCount > 0) {
-                    foldedSink?.let {
-                        delegate = it
-                        return@withLock
-                    }
+
 
                     if (sourceClosed) throw IOException("source is closed")
 
@@ -87,56 +81,39 @@ class Pipe(internal val maxBufferSize: Long) {
                     }
 
                     val bytesToWrite = minOf(bufferSpaceAvailable, byteCount)
-                    buffer.write(source, bytesToWrite)
+                    buffer.write(bytes, 0, bytesToWrite.toInt())
                     byteCount -= bytesToWrite
                     condition.signalAll() // Notify the source that it can resume reading.
                 }
             }
-
-            delegate?.forward { write(source, byteCount) }
         }
 
         override fun flush() {
-            var delegate: Sink? = null
             lock.withLock {
                 check(!sinkClosed) { "closed" }
                 if (canceled) throw IOException("canceled")
 
-                foldedSink?.let {
-                    delegate = it
-                    return@withLock
-                }
 
                 if (sourceClosed && buffer.size > 0L) {
                     throw IOException("source is closed")
                 }
             }
-
-            delegate?.forward { flush() }
         }
 
         override fun close() {
-            var delegate: Sink? = null
             lock.withLock {
                 if (sinkClosed) return
 
-                foldedSink?.let {
-                    delegate = it
-                    return@withLock
-                }
 
                 if (sourceClosed && buffer.size > 0L) throw IOException("source is closed")
                 sinkClosed = true
                 condition.signalAll() // Notify the source that no more bytes are coming.
             }
-
-            delegate?.forward { close() }
         }
 
         override fun timeout(): Timeout = timeout
     }
 
-    @get:JvmName("source")
     val source = object : Source {
         private val timeout = Timeout()
 
@@ -167,92 +144,12 @@ class Pipe(internal val maxBufferSize: Long) {
         override fun timeout(): Timeout = timeout
     }
 
-    /**
-     * Writes any buffered contents of this pipe to `sink`, then replace this pipe's source with
-     * `sink`. This pipe's source is closed and attempts to read it will throw an
-     * [IllegalStateException].
-     *
-     * This method must not be called while concurrently accessing this pipe's source. It is safe,
-     * however, to call this while concurrently writing this pipe's sink.
-     */
-    @Throws(IOException::class)
-    fun fold(sink: Sink) {
-        while (true) {
-            // Either the buffer is empty and we can swap and return. Or the buffer is non-empty and we
-            // must copy it to sink without holding any locks, then try it all again.
-            var closed = false
-            var done = false
-            lateinit var sinkBuffer: Buffer
-            lock.withLock {
-                check(foldedSink == null) { "sink already folded" }
-
-                if (canceled) {
-                    foldedSink = sink
-                    throw IOException("canceled")
-                }
-
-                closed = sinkClosed
-                if (buffer.exhausted()) {
-                    sourceClosed = true
-                    foldedSink = sink
-                    done = true
-                    return@withLock
-                }
-
-                sinkBuffer = Buffer()
-                sinkBuffer.write(buffer, buffer.size)
-                condition.signalAll() // Notify the sink that it can resume writing.
-            }
-
-            if (done) {
-                if (closed) {
-                    sink.close()
-                }
-                return
-            }
-
-            var success = false
-            try {
-                sink.write(sinkBuffer, sinkBuffer.size)
-                sink.flush()
-                success = true
-            } finally {
-                if (!success) {
-                    lock.withLock {
-                        sourceClosed = true
-                        condition.signalAll() // Notify the sink that it can resume writing.
-                    }
-                }
-            }
-        }
-    }
-
-    private inline fun Sink.forward(block: Sink.() -> Unit) {
-        this.timeout().intersectWith(this@Pipe.sink.timeout()) { this.block() }
-    }
-
-    @JvmName("-deprecated_sink")
-    @Deprecated(
-        message = "moved to val",
-        replaceWith = ReplaceWith(expression = "sink"),
-        level = DeprecationLevel.ERROR,
-    )
-    fun sink() = sink
-
-    @JvmName("-deprecated_source")
-    @Deprecated(
-        message = "moved to val",
-        replaceWith = ReplaceWith(expression = "source"),
-        level = DeprecationLevel.ERROR,
-    )
-    fun source() = source
 
     /**
      * Fail any in-flight and future operations. After canceling:
      *
      *  * Any attempt to write or flush [sink] will fail immediately with an [IOException].
      *  * Any attempt to read [source] will fail immediately with an [IOException].
-     *  * Any attempt to [fold] will fail immediately with an [IOException].
      *
      * Closing the source and the sink will complete normally even after a pipe has been canceled. If
      * this sink has been folded, closing it will close the folded sink. This operation may block.
@@ -271,12 +168,10 @@ class Pipe(internal val maxBufferSize: Long) {
 
 interface Sink : Closeable {
     /** Removes `byteCount` bytes from `source` and appends them to this.  */
-    @Throws(IOException::class)
-    fun write(source: Buffer, byteCount: Long)
+    fun write(bytes: ByteArray)
 
     /** Pushes all buffered bytes to their final destination.  */
-    @Throws(IOException::class)
-    fun flush()
+   fun flush()
 
     /** Returns the timeout for this sink.  */
     fun timeout(): Timeout
@@ -285,8 +180,7 @@ interface Sink : Closeable {
      * Pushes all buffered bytes to their final destination and releases the resources held by this
      * sink. It is an error to write a closed sink. It is safe to close a sink more than once.
      */
-    @Throws(IOException::class)
-    override fun close()
+   override fun close()
 }
 
 
@@ -330,7 +224,6 @@ interface Source : Closeable {
      * Removes at least 1, and up to `byteCount` bytes from this and appends them to `sink`. Returns
      * the number of bytes read, or -1 if this source is exhausted.
      */
-    @Throws(IOException::class)
     fun read(sink: Buffer, byteCount: Long): Long
 
     /** Returns the timeout for this source.  */
@@ -340,7 +233,6 @@ interface Source : Closeable {
      * Closes this source and releases the resources held by this source. It is an error to read a
      * closed source. It is safe to close a source more than once.
      */
-    @Throws(IOException::class)
     override fun close()
 }
 
