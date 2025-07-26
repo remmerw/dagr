@@ -7,7 +7,6 @@ import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.SocketException
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -22,13 +21,14 @@ import kotlin.random.Random
 class Dagr(port: Int, val acceptor: Acceptor) : Listener {
 
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentHashMap()
-    private val service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+
     @OptIn(ExperimentalAtomicApi::class)
     private val incoming = AtomicInt(0)
 
     @OptIn(ExperimentalAtomicApi::class)
     private val outgoing = AtomicInt(0)
-    private val jobs: MutableMap<InetSocketAddress, Thread> = ConcurrentHashMap()
+    private val jobs: MutableMap<InetSocketAddress, Thread> =
+        ConcurrentHashMap() // todo a thread is too expensive
     private var socket: DatagramSocket = DatagramSocket(port)
     private val initializeDone = Semaphore(0)
     private val lock = ReentrantLock()
