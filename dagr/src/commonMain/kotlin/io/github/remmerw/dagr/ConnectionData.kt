@@ -129,8 +129,16 @@ abstract class ConnectionData() :
         }
     }
 
+    internal fun flushSink(){
+        pipe.sink.flush()
+    }
+
     private fun appendSource(bytes: ByteArray) {
-        pipe.sink.write(bytes)
+        if (bytes.isEmpty()) {
+           flushSink()
+        } else {
+            pipe.sink.write(bytes)
+        }
         processedPacket++
     }
 

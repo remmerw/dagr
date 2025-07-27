@@ -91,6 +91,10 @@ internal class Pipe() {
                 if (sourceClosed && buffer.size > 0L) {
                     throw Exception("source is closed")
                 }
+
+                if(buffer.size > 0L){
+                    condition.signalAll() // Notify the source that it can resume reading.
+                }
             }
         }
 

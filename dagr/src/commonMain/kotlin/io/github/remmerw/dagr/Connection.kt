@@ -161,6 +161,7 @@ open class Connection(
 
         try {
             sendPacket(4, createClosePacket(), false)
+        } catch (_: SocketException) {
         } catch (throwable: Throwable) {
             debug(throwable)
         } finally {
@@ -198,7 +199,7 @@ open class Connection(
                 val lost = detectLostPackets()
                 keepAlive() // only happens when enabled
                 checkIdle() // only happens when enabled
-
+                flushSink()
                 if (lost > 0) {
                     Thread.sleep(Settings.MIN_DELAY.toLong())
                 } else {
