@@ -50,7 +50,7 @@ abstract class ConnectionData() :
 
     fun writeBuffer(buffer: Buffer) {
 
-        while(!buffer.exhausted()){
+        while (!buffer.exhausted()) {
 
             val packetNumber = fetchPacketNumber()
             val sink = Buffer()
@@ -124,9 +124,7 @@ abstract class ConnectionData() :
     }
 
     private fun appendSource(bytes: ByteArray) {
-        if (bytes.isEmpty()) {
-            pipe.sink.flush()
-        } else {
+        if (bytes.isNotEmpty()) {
             pipe.sink.write(bytes)
         }
         processedPacket++

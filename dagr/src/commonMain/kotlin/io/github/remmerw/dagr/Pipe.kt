@@ -58,18 +58,6 @@ internal class Pipe() {
             }
         }
 
-        override fun flush() {
-            lock.withLock {
-
-                if (canceled) throw InterruptedException("canceled")
-
-
-                if (buffer.size > 0L) {
-                    condition.signalAll() // Notify the source that it can resume reading.
-                }
-            }
-        }
-
 
         override fun timeout(): Timeout = timeout
     }
@@ -87,9 +75,7 @@ internal class Pipe() {
                     if (canceled) throw InterruptedException("canceled")
                 }
 
-                val result = buffer.readAtMostTo(sink, byteCount)
-                condition.signalAll() // Notify the sink that it can resume writing.
-                return result
+                return buffer.readAtMostTo(sink, byteCount)
             }
         }
 
@@ -109,9 +95,6 @@ internal class Pipe() {
 interface Sink {
     /** Removes `byteCount` bytes from `source` and appends them to this.  */
     fun write(bytes: ByteArray)
-
-    /** Pushes all buffered bytes to their final destination.  */
-    fun flush()
 
     /** Returns the timeout for this sink.  */
     fun timeout(): Timeout
