@@ -3,6 +3,7 @@ package io.github.remmerw.dagr
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
+import java.net.SocketException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -205,6 +206,7 @@ open class Connection(
                 }
             }
         } catch (_: InterruptedException) {
+        } catch (_: SocketException) {
         } catch (throwable: Throwable) {
             debug(throwable)
         }
