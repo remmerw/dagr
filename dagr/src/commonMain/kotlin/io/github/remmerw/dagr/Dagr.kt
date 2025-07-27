@@ -179,12 +179,14 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
             })
             try {
                 acceptor.accept(connection)
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                debug(throwable)
             }
         } else {
             try {
                 initializeDone.release()
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                debug(throwable)
             }
         }
     }
@@ -210,7 +212,9 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
                 if (initializeDone.tryAcquire(timeout.toLong(), TimeUnit.SECONDS)) {
                     return connection
                 }
-            } catch (_: Throwable) {
+            } catch (_: InterruptedException) {
+            } catch (throwable: Throwable) {
+                debug(throwable)
             }
             return null
         }

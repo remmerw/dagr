@@ -160,7 +160,8 @@ open class Connection(
 
         try {
             sendPacket(4, createClosePacket(), false)
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            debug(throwable)
         } finally {
             terminate()
         }

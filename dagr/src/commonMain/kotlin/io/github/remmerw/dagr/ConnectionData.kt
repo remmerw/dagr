@@ -135,19 +135,25 @@ abstract class ConnectionData() :
     }
 
     fun readLong(timeout: Int? = null): Long {
-        return readBuffer(Long.SIZE_BYTES, timeout).readLong()
+        val sink = Buffer()
+        readBuffer(sink, Long.SIZE_BYTES, timeout)
+        return sink.readLong()
     }
 
     fun readInt(timeout: Int? = null): Int {
-        return readBuffer(Int.SIZE_BYTES, timeout).readInt()
+        val sink = Buffer()
+        readBuffer(sink, Int.SIZE_BYTES, timeout)
+        return sink.readInt()
     }
 
     fun readByteArray(count: Int, timeout: Int? = null): ByteArray {
-        return readBuffer(count, timeout).readByteArray()
+        val sink = Buffer()
+        readBuffer(sink, count, timeout)
+        return sink.readByteArray()
     }
 
-    fun readBuffer(count: Int, timeout: Int? = null): Buffer {
-        return pipe.readBuffer(count, timeout)
+    fun readBuffer(sink: Buffer, count: Int, timeout: Int? = null) {
+        pipe.readBuffer(sink, count, timeout)
     }
 
 }

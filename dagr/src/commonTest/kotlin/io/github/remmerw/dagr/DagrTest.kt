@@ -51,8 +51,9 @@ class DagrTest {
 
         connection.writeInt(1)
 
-        val data = connection.readBuffer(serverData.size)
-        assertContentEquals(data.readByteArray(), serverData)
+        val buffer = Buffer()
+        connection.readBuffer(buffer, serverData.size)
+        assertContentEquals(buffer.readByteArray(), serverData)
 
         connection.close()
         server.shutdown()

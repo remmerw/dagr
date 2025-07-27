@@ -57,18 +57,16 @@ internal class Pipe(private val maxBufferSize: Long) {
         require(maxBufferSize >= 1L) { "maxBufferSize < 1: $maxBufferSize" }
     }
 
-    fun readBuffer(count: Int, timeout: Int? = null): Buffer {
+    fun readBuffer(sink: Buffer, count: Int, timeout: Int? = null) {
         if (timeout != null) {
             source.timeout().timeout(timeout.toLong(), TimeUnit.SECONDS)
         } else {
             source.timeout().clearTimeout()
         }
-        val sink = Buffer()
         var bytes = count.toLong()
         do {
             bytes -= source.read(sink, bytes)
         } while (bytes > 0)
-        return sink
     }
 
     val sink = object : Sink {
@@ -78,7 +76,7 @@ internal class Pipe(private val maxBufferSize: Long) {
             var byteCount = bytes.size.toLong()
             lock.withLock {
                 check(!sinkClosed) { "closed" }
-                if (canceled) throw Exception("canceled")
+                if (canceled) throw InterruptedException("canceled")
 
                 while (byteCount > 0) {
 
@@ -88,7 +86,7 @@ internal class Pipe(private val maxBufferSize: Long) {
                     val bufferSpaceAvailable = maxBufferSize - buffer.size
                     if (bufferSpaceAvailable == 0L) {
                         timeout.awaitSignal(condition) // Wait until the source drains the buffer.
-                        if (canceled) throw Exception("canceled")
+                        if (canceled) throw InterruptedException("canceled")
                         continue
                     }
 
@@ -103,7 +101,7 @@ internal class Pipe(private val maxBufferSize: Long) {
         override fun flush() {
             lock.withLock {
                 check(!sinkClosed) { "closed" }
-                if (canceled) throw Exception("canceled")
+                if (canceled) throw InterruptedException("canceled")
 
 
                 if (sourceClosed && buffer.size > 0L) {
@@ -132,12 +130,12 @@ internal class Pipe(private val maxBufferSize: Long) {
         override fun read(sink: Buffer, byteCount: Long): Long {
             lock.withLock {
                 check(!sourceClosed) { "closed" }
-                if (canceled) throw Exception("canceled")
+                if (canceled) throw InterruptedException("canceled")
 
                 while (buffer.size == 0L) {
                     if (sinkClosed) return -1L
                     timeout.awaitSignal(condition) // Wait until the sink fills the buffer.
-                    if (canceled) throw Exception("canceled")
+                    if (canceled) throw InterruptedException("canceled")
                 }
 
                 val result = buffer.readAtMostTo(sink, byteCount)
@@ -418,7 +416,7 @@ open class Timeout {
                 timeoutNanos
             }
 
-            if (waitNanos <= 0) throw Exception("timeout")
+            if (waitNanos <= 0) throw TimeoutException("timeout")
 
             val cancelMarkBefore = cancelMark
 
@@ -433,9 +431,9 @@ open class Timeout {
             if (cancelMark !== cancelMarkBefore) return
 
             throw TimeoutException("timeout")
-        } catch (_: InterruptedException) {
+        } catch (timeoutException: TimeoutException) {
             Thread.currentThread().interrupt() // Retain interrupted status.
-            throw Exception("interrupted")
+            throw timeoutException
         }
     }
 
@@ -496,7 +494,7 @@ open class Timeout {
                 timeoutNanos
             }
 
-            if (waitNanos <= 0) throw Exception("timeout")
+            if (waitNanos <= 0) throw TimeoutException("timeout")
 
             val cancelMarkBefore = cancelMark
 
@@ -512,10 +510,10 @@ open class Timeout {
             // return is a 'spurious wakeup' because Object.notify() was not called.
             if (cancelMark !== cancelMarkBefore) return
 
-            throw Exception("timeout")
-        } catch (_: InterruptedException) {
+            throw TimeoutException("timeout")
+        } catch (timeoutException: TimeoutException) {
             Thread.currentThread().interrupt() // Retain interrupted status.
-            throw Exception("interrupted")
+            throw timeoutException
         }
     }
 
