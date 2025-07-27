@@ -1,7 +1,6 @@
 package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
-import kotlinx.io.RawSource
 import kotlinx.io.readByteArray
 
 abstract class ConnectionData() :
@@ -49,29 +48,22 @@ abstract class ConnectionData() :
         }
     }
 
-    fun writeBuffer(buffer: RawSource) {
+    fun writeBuffer(buffer: Buffer) {
 
+        while(!buffer.exhausted()){
 
-        // readout everything in the channel
-        val sink = Buffer()
+            val packetNumber = fetchPacketNumber()
+            val sink = Buffer()
+            sink.writeByte(0x03.toByte())
+            sink.writeLong(packetNumber)
 
-        do {
-
-            val length = buffer.readAtMostTo(
-                sink,
-                Settings.MAX_DATAGRAM_SIZE.toLong()
+            buffer.readAtMostTo(
+                sink, Settings.MAX_DATAGRAM_SIZE.toLong()
             )
 
-            if (length > 0) {
-                val packetNumber = fetchPacketNumber()
-                val packet = createDataPacket(
-                    packetNumber, sink.readByteArray()
-                )
+            sendPacket(packetNumber, sink.readByteArray(), true)
+        }
 
-                sendPacket(packetNumber, packet, true)
-            }
-
-        } while (length > 0)
 
     }
 
