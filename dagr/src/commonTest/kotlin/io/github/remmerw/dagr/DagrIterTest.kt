@@ -55,7 +55,7 @@ class DagrIterTest {
             )
 
 
-        repeat(1000) {
+        repeat(2000) {
             connection.writeLong(0)
 
             val data = connection.readByteArray(dataSize)
