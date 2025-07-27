@@ -10,7 +10,7 @@ abstract class ConnectionData() :
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
-    private val pipe = Pipe(UShort.MAX_VALUE.toLong())
+    private val pipe = Pipe()
 
     fun writeLong(value: Long) {
         val packetNumber = fetchPacketNumber()

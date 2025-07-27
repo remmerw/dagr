@@ -44,7 +44,7 @@ import kotlin.time.toTimeUnit
  *
  * A pipe may be canceled to immediately fail writes to the sink and reads from the source.
  */
-internal class Pipe(private val maxBufferSize: Long) {
+internal class Pipe() {
     private val buffer = Buffer()
     private var canceled = false
     private var sinkClosed = false
@@ -53,9 +53,6 @@ internal class Pipe(private val maxBufferSize: Long) {
     private val lock: ReentrantLock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
 
-    init {
-        require(maxBufferSize >= 1L) { "maxBufferSize < 1: $maxBufferSize" }
-    }
 
     fun readBuffer(sink: Buffer, count: Int, timeout: Int? = null) {
         if (timeout != null) {
@@ -73,28 +70,15 @@ internal class Pipe(private val maxBufferSize: Long) {
         private val timeout = Timeout()
 
         override fun write(bytes: ByteArray) {
-            var byteCount = bytes.size.toLong()
             lock.withLock {
                 check(!sinkClosed) { "closed" }
                 if (canceled) throw InterruptedException("canceled")
 
-                while (byteCount > 0) {
+                if (sourceClosed) throw Exception("source is closed")
 
+                buffer.write(bytes, 0, bytes.size)
+                condition.signalAll() // Notify the source that it can resume reading.
 
-                    if (sourceClosed) throw Exception("source is closed")
-
-                    val bufferSpaceAvailable = maxBufferSize - buffer.size
-                    if (bufferSpaceAvailable == 0L) {
-                        timeout.awaitSignal(condition) // Wait until the source drains the buffer.
-                        if (canceled) throw InterruptedException("canceled")
-                        continue
-                    }
-
-                    val bytesToWrite = minOf(bufferSpaceAvailable, byteCount)
-                    buffer.write(bytes, 0, bytesToWrite.toInt())
-                    byteCount -= bytesToWrite
-                    condition.signalAll() // Notify the source that it can resume reading.
-                }
             }
         }
 
