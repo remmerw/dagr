@@ -4,6 +4,8 @@ import java.lang.Thread.yield
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
 abstract class ConnectionFlow() {
@@ -12,12 +14,15 @@ abstract class ConnectionFlow() {
 
     private val largestAcked: AtomicLong = AtomicLong(-1L)
 
-    @Volatile
-    private var isStopped = false
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val isStopped = AtomicBoolean(false)
+
     private val semaphore = Semaphore(Settings.LACKED_PACKETS)
 
+    @OptIn(ExperimentalAtomicApi::class)
     fun flush() {
-        while (packetSentLog.isNotEmpty()) {
+        while (packetSentLog.isNotEmpty() && !isStopped.load()) {
             yield()
         }
     }
@@ -48,8 +53,9 @@ abstract class ConnectionFlow() {
 
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
     internal fun terminateLossDetector() {
-        isStopped = true
+        isStopped.store(true)
         packetSentLog.clear()
     }
 
@@ -59,8 +65,9 @@ abstract class ConnectionFlow() {
         shouldBeAcked: Boolean
     )
 
+    @OptIn(ExperimentalAtomicApi::class)
     internal fun detectLostPackets(): Int {
-        if (isStopped) {
+        if (isStopped.load()) {
             return 0
         }
         var result = 0
@@ -86,8 +93,9 @@ abstract class ConnectionFlow() {
     }
 
 
+    @OptIn(ExperimentalAtomicApi::class)
     internal fun packetSent(packetNumber: Long, packet: ByteArray) {
-        if (isStopped) {
+        if (isStopped.load()) {
             return
         }
 

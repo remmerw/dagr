@@ -85,7 +85,12 @@ abstract class ConnectionData() :
 
 
     internal open fun terminate() {
-        terminateLossDetector()
+        try {
+            terminateLossDetector()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
         try {
             frames.clear()
         } catch (throwable: Throwable) {
