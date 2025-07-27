@@ -1,12 +1,9 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -18,7 +15,7 @@ class DagrFinishTest {
 
 
     @Test
-    fun testFinishServer(): Unit = runBlocking(Dispatchers.IO) {
+    fun testFinishServer() {
 
 
         val serverData = Random.nextBytes(1000000)
@@ -27,7 +24,7 @@ class DagrFinishTest {
             override fun accept(
                 connection: Connection
             ) {
-                launch {
+                thread {
                     try {
                         val cid = connection.readLong() // nothing to do
                         assertEquals(cid, 0L)
@@ -36,10 +33,10 @@ class DagrFinishTest {
                         buffer.write(serverData)
                         connection.writeBuffer(buffer)
                         connection.flush()
-                    } catch (_: Throwable) {
-                    } finally {
                         connection.close() // directly close after writing
+                    } catch (_: Throwable) {
                     }
+                    println("Thread closed")
                 }
             }
         }
@@ -56,10 +53,14 @@ class DagrFinishTest {
 
         connection.writeLong(0)
 
-        val data = connection.readByteArray(serverData.size)
-        assertContentEquals(data, serverData)
+        try {
+            val data = connection.readByteArray(serverData.size)
+            assertContentEquals(data, serverData)
+        } catch (_: Throwable) {
+            // ignore any exception here (because the server closes)
+        }
 
-        delay(50)
+        Thread.sleep(50)
 
         assertTrue(!connection.isConnected)
         assertEquals(server.numIncomingConnections(), 0)

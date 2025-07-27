@@ -159,6 +159,7 @@ open class Connection(
 
         terminateLossDetector()
 
+
         try {
             sendPacket(4, createClosePacket(), false)
         } catch (_: SocketException) {
@@ -192,25 +193,19 @@ open class Connection(
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal fun runRequester() {
+    internal fun maintenance(): Int {
         try {
-            while (true) {
-
-                val lost = detectLostPackets()
-                keepAlive() // only happens when enabled
-                checkIdle() // only happens when enabled
-                flushSink()
-                if (lost > 0) {
-                    Thread.sleep(Settings.MIN_DELAY.toLong())
-                } else {
-                    Thread.sleep(Settings.MAX_DELAY.toLong())
-                }
-            }
+            val lost = detectLostPackets()
+            keepAlive() // only happens when enabled
+            checkIdle() // only happens when enabled
+            return lost
         } catch (_: InterruptedException) {
         } catch (_: SocketException) {
         } catch (throwable: Throwable) {
             debug(throwable)
+            terminate()
         }
+        return 0
     }
 
 

@@ -1,12 +1,10 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -16,7 +14,7 @@ import kotlin.test.assertNotNull
 class DagrTest {
 
     @Test
-    fun testDagr(): Unit = runBlocking(Dispatchers.IO) {
+    fun testDagr() {
 
         val serverData = "Moin".encodeToByteArray()
 
@@ -24,7 +22,7 @@ class DagrTest {
             override fun accept(
                 connection: Connection
             ) {
-                launch {
+                thread {
                     try {
                         while (true) {
                             val cid = connection.readInt()
@@ -36,7 +34,7 @@ class DagrTest {
                         }
                     } catch (_: Throwable) {
                     } finally {
-                        connection.close()
+                        println("Thread closed")
                     }
                 }
             }
@@ -61,7 +59,7 @@ class DagrTest {
 
 
     @Test
-    fun testDagrMoreReply(): Unit = runBlocking(Dispatchers.IO) {
+    fun testDagrMoreReply() {
 
 
         val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
@@ -70,7 +68,7 @@ class DagrTest {
             override fun accept(
                 connection: Connection
             ) {
-                launch {
+                thread {
                     try {
                         while (true) {
                             val cid = connection.readLong() // nothing to do
@@ -82,7 +80,7 @@ class DagrTest {
                         }
                     } catch (_: Throwable) {
                     } finally {
-                        connection.close()
+                        println("Thread closed")
                     }
                 }
             }

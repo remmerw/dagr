@@ -27,8 +27,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
 
     @OptIn(ExperimentalAtomicApi::class)
     private val outgoing = AtomicInt(0)
-    private val jobs: MutableMap<InetSocketAddress, Thread> =
-        ConcurrentHashMap() // todo a thread is too expensive
+
     private var socket: DatagramSocket = DatagramSocket(port)
     private val initializeDone = Semaphore(0)
     private val lock = ReentrantLock()
@@ -39,6 +38,15 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         priority = Thread.MAX_PRIORITY
     ) {
         runReceiver()
+    }
+
+    private val maintenance = thread(
+        start = true,
+        isDaemon = true,
+        name = "Dagr Maintenance",
+        priority = Thread.MAX_PRIORITY
+    ) {
+        runMaintenance()
     }
 
 
@@ -72,6 +80,32 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         } catch (throwable: Throwable) {
             debug("Error Punching " + throwable.message)
             return false
+        }
+    }
+
+    private fun runMaintenance() {
+        try {
+            while (true) {
+                var lost = 0
+                connections.values.forEach { connection ->
+                    try {
+                        lost += connection.maintenance()
+                    } catch (throwable: Throwable) {
+                        debug(throwable)
+                    }
+                }
+
+                if (lost > 0) {
+                    Thread.sleep(Settings.MIN_DELAY.toLong())
+                } else {
+                    Thread.sleep(Settings.MAX_DELAY.toLong())
+                }
+            }
+        } catch (_: InterruptedException) {
+        } catch (_: SocketException) {
+        } catch (throwable: Throwable) {
+            debug(throwable)
+            shutdown()
         }
     }
 
@@ -137,6 +171,12 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
         }
 
         try {
+            maintenance.interrupt()
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
+
+        try {
             socket.close()
         } catch (throwable: Throwable) {
             debug(throwable)
@@ -161,22 +201,13 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
                 outgoing.decrementAndFetch()
             }
         }
-        val job = jobs.remove(connection.remoteAddress())
-        try {
-            job?.interrupt()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
+
 
     }
 
     override fun connected(connection: Connection) {
 
         if (connection.incoming()) {
-            val remoteAddress = connection.remoteAddress()
-            jobs.put(remoteAddress, thread {
-                connection.runRequester()
-            })
             try {
                 acceptor.accept(connection)
             } catch (throwable: Throwable) {
@@ -202,9 +233,6 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
             val connection = Connection(socket, remoteAddress, false, this)
 
             register(connection)
-            jobs.put(remoteAddress, thread {
-                connection.runRequester()
-            })
 
             connection.sendPacket(1, createPingPacket(), true)
 

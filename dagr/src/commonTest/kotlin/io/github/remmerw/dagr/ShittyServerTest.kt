@@ -1,7 +1,5 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeoutException
@@ -12,7 +10,7 @@ import kotlin.test.fail
 class ShittyServerTest {
 
     @Test
-    fun shittyServer(): Unit = runBlocking(Dispatchers.IO) {
+    fun shittyServer() {
 
 
         val server = newDagr(0, object : Acceptor {

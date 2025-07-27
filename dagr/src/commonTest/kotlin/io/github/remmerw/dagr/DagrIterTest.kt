@@ -1,10 +1,8 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -15,7 +13,7 @@ class DagrIterTest {
 
 
     @Test
-    fun testDagrIter(): Unit = runBlocking(Dispatchers.IO) {
+    fun testDagrIter() {
 
         val dataSize = UShort.MAX_VALUE.toInt()
 
@@ -25,7 +23,7 @@ class DagrIterTest {
             override fun accept(
                 connection: Connection
             ) {
-                launch {
+                thread {
                     try {
                         while (true) {
                             val cid = connection.readLong() // nothing to do
@@ -37,7 +35,7 @@ class DagrIterTest {
                         }
                     } catch (_: Throwable) {
                     } finally {
-                        connection.close()
+                        println("Thread closed")
                     }
                 }
             }

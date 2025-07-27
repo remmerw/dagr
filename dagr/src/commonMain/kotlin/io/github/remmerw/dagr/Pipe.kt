@@ -95,7 +95,7 @@ internal class Pipe() {
     }
 
 
-    fun cancel() {
+    fun close() {
         lock.withLock {
             canceled = true
             buffer.clear()

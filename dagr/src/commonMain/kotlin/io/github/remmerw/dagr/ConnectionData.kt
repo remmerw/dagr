@@ -22,6 +22,7 @@ abstract class ConnectionData() :
 
     }
 
+
     fun flush() {
         sync()
     }
@@ -104,7 +105,7 @@ abstract class ConnectionData() :
         }
 
         try {
-            pipe.cancel()
+            pipe.close()
         } catch (throwable: Throwable) {
             debug(throwable)
         }
@@ -129,13 +130,9 @@ abstract class ConnectionData() :
         }
     }
 
-    internal fun flushSink(){
-        pipe.sink.flush()
-    }
-
     private fun appendSource(bytes: ByteArray) {
         if (bytes.isEmpty()) {
-           flushSink()
+            pipe.sink.flush()
         } else {
             pipe.sink.write(bytes)
         }

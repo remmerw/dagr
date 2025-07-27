@@ -1,7 +1,5 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
@@ -11,7 +9,7 @@ import kotlin.test.assertNotNull
 class ConnectionsTest {
 
     @Test
-    fun connections(): Unit = runBlocking(Dispatchers.IO) {
+    fun connections() {
 
 
         val server = newDagr(0, object : Acceptor {

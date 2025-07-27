@@ -1,8 +1,5 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
@@ -12,7 +9,7 @@ import kotlin.test.assertTrue
 class CloseTest {
 
     @Test
-    fun testClose(): Unit = runBlocking(Dispatchers.IO) {
+    fun testClose() {
 
 
         val server = newDagr(0, object : Acceptor {
@@ -34,7 +31,7 @@ class CloseTest {
             )
         )
 
-        delay(10) // just for settling
+        Thread.sleep(10) // just for settling
 
         assertTrue(!connection.isConnected)
 
