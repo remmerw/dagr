@@ -16,6 +16,11 @@ abstract class ConnectionFlow() {
     private var isStopped = false
     private val semaphore = Semaphore(Settings.LACKED_PACKETS)
 
+    fun flush() {
+        while (packetSentLog.isNotEmpty()) {
+            yield()
+        }
+    }
 
     private fun acquireBlocking() {
         semaphore.acquire()
@@ -90,12 +95,6 @@ abstract class ConnectionFlow() {
 
         if (packetNumber > Settings.PAKET_OFFSET) {
             acquireBlocking()
-        }
-    }
-
-    internal fun sync() {
-        while (packetSentLog.isNotEmpty()) {
-            yield()
         }
     }
 

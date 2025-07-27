@@ -15,7 +15,7 @@ class DagrIterTest {
     @Test
     fun testDagrIter() {
 
-        val dataSize = UShort.MAX_VALUE.toInt()
+        val dataSize = Short.MAX_VALUE.toInt()
 
         var serverData: ByteArray? = null
 

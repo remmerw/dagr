@@ -16,6 +16,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
+import java.lang.Thread.yield
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.Condition
@@ -39,6 +40,7 @@ internal class Pipe() {
         var bytes = count.toLong()
         do {
             bytes -= source.read(sink, bytes)
+            yield()
         } while (bytes > 0)
     }
 

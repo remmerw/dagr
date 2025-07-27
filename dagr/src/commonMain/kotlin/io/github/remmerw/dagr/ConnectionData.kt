@@ -23,10 +23,6 @@ abstract class ConnectionData() :
     }
 
 
-    fun flush() {
-        sync()
-    }
-
     fun writeInt(value: Int) {
         val packetNumber = fetchPacketNumber()
         val buffer = Buffer()

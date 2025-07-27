@@ -62,7 +62,7 @@ class DagrTest {
     fun testDagrMoreReply() {
 
 
-        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
+        val serverData = Random.nextBytes(Short.MAX_VALUE.toInt())
 
         val server = newDagr(0, object : Acceptor {
             override fun accept(
