@@ -76,7 +76,7 @@ abstract class ConnectionData() :
         if (pn != null) {
             if (pn == processedPacket + 1) {
                 val source = frames.remove(pn)!!
-                appendSource(source)
+                appendSource(source, 0, source.size)
                 if (!frames.isEmpty()) {
                     evaluateFrames()
                 }
@@ -107,16 +107,20 @@ abstract class ConnectionData() :
 
     internal abstract fun fetchPacketNumber(): Long
 
-    internal fun processData(packetNumber: Long, source: ByteArray) {
+    internal fun processData(
+        packetNumber: Long, source: ByteArray,
+        startIndex: Int, endIndex: Int
+    ) {
         if (packetNumber > processedPacket) {
 
             if (packetNumber == processedPacket + 1) {
-                appendSource(source)
+                appendSource(source, startIndex, endIndex)
                 if (frames.isNotEmpty()) {
                     evaluateFrames()
                 }
             } else {
-                frames.put(packetNumber, source) // for future evaluations
+                val copy = source.copyOfRange(startIndex, endIndex)
+                frames.put(packetNumber, copy) // for future evaluations
                 debug("Data frame in the future $packetNumber")
             }
         } else {
@@ -124,9 +128,9 @@ abstract class ConnectionData() :
         }
     }
 
-    private fun appendSource(bytes: ByteArray) {
+    private fun appendSource(bytes: ByteArray, startIndex: Int, endIndex: Int) {
         if (bytes.isNotEmpty()) {
-            pipe.sink.write(bytes)
+            pipe.sink.write(bytes, startIndex, endIndex)
         }
         processedPacket++
     }

@@ -49,12 +49,12 @@ internal class Pipe() {
     val sink = object : Sink {
         private val timeout = Timeout()
 
-        override fun write(bytes: ByteArray) {
+        override fun write(bytes: ByteArray, startIndex: Int, endIndex: Int) {
             lock.withLock {
 
                 if (canceled) throw InterruptedException("canceled")
 
-                buffer.write(bytes, 0, bytes.size)
+                buffer.write(bytes, startIndex, endIndex)
                 condition.signalAll() // Notify the source that it can resume reading.
 
             }
@@ -97,10 +97,7 @@ internal class Pipe() {
 }
 
 interface Sink {
-    /** Removes `byteCount` bytes from `source` and appends them to this.  */
-    fun write(bytes: ByteArray)
-
-    /** Returns the timeout for this sink.  */
+    fun write(bytes: ByteArray, startIndex: Int = 0, endIndex: Int = bytes.size)
     fun timeout(): Timeout
 
 }

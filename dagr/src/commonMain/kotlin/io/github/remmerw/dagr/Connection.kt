@@ -302,8 +302,10 @@ open class Connection(
             0x03.toByte() -> { // data frame
                 sendAck(packetNumber)
                 if (packetProtector(packetNumber)) {
-                    val source = data.copyOfRange(Settings.DATAGRAM_MIN_SIZE, length)
-                    processData(packetNumber, source)
+                    processData(
+                        packetNumber, data,
+                        Settings.DATAGRAM_MIN_SIZE, length
+                    )
                     remotePacketTimeStamp()
                 }
             }

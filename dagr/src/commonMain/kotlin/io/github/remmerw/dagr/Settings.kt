@@ -26,6 +26,6 @@ internal object Settings {
     const val PING_INTERVAL: Int = 5000
 
     const val MISSED_PACKETS: Int = 25
-    const val LACKED_PACKETS: Int = 5
+    const val LACKED_PACKETS: Int = 10
 
 }
