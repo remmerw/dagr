@@ -4,13 +4,11 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.SocketException
-import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.concurrent.withLock
 import kotlin.time.TimeSource
 
 open class Connection(
@@ -22,8 +20,6 @@ open class Connection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
-
-    private val lock = ReentrantLock()
 
     @Volatile
     private var remotePacketTimeStamp = TimeSource.Monotonic.markNow()
@@ -214,16 +210,14 @@ open class Connection(
         packet: ByteArray,
         shouldBeAcked: Boolean
     ) {
-        lock.withLock {
-            val datagram = DatagramPacket(
-                packet, packet.size, remoteAddress
-            )
+        val datagram = DatagramPacket(
+            packet, packet.size, remoteAddress
+        )
 
-            if (shouldBeAcked) {
-                packetSent(packetNumber, packet)
-            }
-            socket.send(datagram)
+        if (shouldBeAcked) {
+            packetSent(packetNumber, packet)
         }
+        socket.send(datagram)
     }
 
     @OptIn(ExperimentalAtomicApi::class)
