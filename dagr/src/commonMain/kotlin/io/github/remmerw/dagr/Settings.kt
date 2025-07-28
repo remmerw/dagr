@@ -4,7 +4,7 @@ package io.github.remmerw.dagr
 internal object Settings {
     const val PAKET_OFFSET = 10L
 
-    const val DATAGRAM_MIN_SIZE: Int = 9  // ( Type(1) + PaketNumber(8))
+    const val DATAGRAM_MIN_SIZE: Int = 9  // (Type(1) + PaketNumber(8))
 
     // "In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP
     //   packets larger than 1280 bytes.  Assuming the minimum IP header size,
