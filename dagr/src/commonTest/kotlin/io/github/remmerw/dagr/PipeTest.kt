@@ -54,7 +54,8 @@ class PipeTest {
         try {
             pipe.readBuffer(buffer, length, 1)
             fail()
-        } catch (_: TimeoutException){ }
+        } catch (_: TimeoutException) {
+        }
 
     }
 }

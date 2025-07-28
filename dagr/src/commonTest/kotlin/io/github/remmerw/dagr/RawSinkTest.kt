@@ -1,0 +1,76 @@
+package io.github.remmerw.dagr
+
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import kotlin.concurrent.thread
+import kotlin.random.Random
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+
+class RawSinkTest {
+
+
+    @OptIn(ExperimentalUuidApi::class)
+    @Test
+    fun testRawSink() {
+
+        val dataSize = 1000000 // 1 MB
+
+        val serverData = Random.nextBytes(dataSize)
+
+        val server = newDagr(0, object : Acceptor {
+            override fun accept(
+                connection: Connection
+            ) {
+                thread {
+                    try {
+                        val cid = connection.readLong() // nothing to do
+                        assertEquals(cid, 0L)
+
+                        connection.writeByteArray(serverData)
+                        connection.flush()
+                    } catch (_: Throwable) {
+                    } finally {
+                        println("Thread closed")
+                    }
+                }
+            }
+        }
+
+        )
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
+
+
+        val connection =
+            assertNotNull(
+                connectDagr(
+                    remoteAddress, 1
+                )
+            )
+
+
+
+        connection.writeLong(0)
+
+        val path = Path(SystemTemporaryDirectory, Uuid.random().toHexString())
+        SystemFileSystem.sink(path, false).use { sink ->
+            connection.readBuffer(sink, dataSize)
+        }
+
+        val metadata = SystemFileSystem.metadataOrNull(path)
+        checkNotNull(metadata) { "Path has no metadata" }
+        assertEquals(metadata.size.toInt(), dataSize)
+
+        connection.close()
+        server.shutdown()
+    }
+
+}

@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
+import kotlinx.io.RawSink
 import kotlinx.io.readByteArray
 
 abstract class ConnectionData() :
@@ -148,7 +149,7 @@ abstract class ConnectionData() :
         return sink.readByteArray()
     }
 
-    fun readBuffer(sink: Buffer, count: Int, timeout: Int? = null) {
+    fun readBuffer(sink: RawSink, count: Int, timeout: Int? = null) {
         pipe.readBuffer(sink, count, timeout)
     }
 

@@ -16,12 +16,14 @@
 package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
+import kotlinx.io.RawSink
 import java.lang.Thread.yield
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.math.min
 
 internal class Pipe() {
     private val buffer = Buffer()
@@ -31,7 +33,7 @@ internal class Pipe() {
     private val condition: Condition = lock.newCondition()
 
 
-    fun readBuffer(sink: Buffer, count: Int, timeout: Int? = null) {
+    fun readBuffer(sink: RawSink, count: Int, timeout: Int? = null) {
         if (timeout != null) {
             source.timeout().timeout(timeout.toLong(), TimeUnit.SECONDS)
         } else {
@@ -65,7 +67,7 @@ internal class Pipe() {
     val source = object : Source {
         private val timeout = Timeout()
 
-        override fun read(sink: Buffer, byteCount: Long): Long {
+        override fun read(sink: RawSink, byteCount: Long): Long {
             lock.withLock {
 
                 if (canceled) throw InterruptedException("canceled")
@@ -75,7 +77,9 @@ internal class Pipe() {
                     if (canceled) throw InterruptedException("canceled")
                 }
 
-                return buffer.readAtMostTo(sink, byteCount)
+                val min = min(buffer.size, byteCount)
+                buffer.readTo(sink, min)
+                return min
             }
         }
 
@@ -106,7 +110,7 @@ interface Source {
      * Removes at least 1, and up to `byteCount` bytes from this and appends them to `sink`. Returns
      * the number of bytes read, or -1 if this source is exhausted.
      */
-    fun read(sink: Buffer, byteCount: Long): Long
+    fun read(sink: RawSink, byteCount: Long): Long
 
     /** Returns the timeout for this source.  */
     fun timeout(): Timeout
