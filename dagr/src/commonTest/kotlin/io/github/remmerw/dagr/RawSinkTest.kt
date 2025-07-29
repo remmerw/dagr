@@ -21,7 +21,7 @@ class RawSinkTest {
     @Test
     fun testRawSink() {
 
-        val dataSize = 1000000 // 1 MB
+        val dataSize = Settings.MAX_SIZE
 
         val serverData = Random.nextBytes(dataSize)
 

@@ -35,7 +35,7 @@ class ShittyServerTest {
 
         try {
             val sink = Buffer()
-            connection.request(0, sink,2) // expect data of size 1000
+            connection.request(0, sink, 2) // expect data of size 1000
             fail("Exception expected")
         } catch (timout: TimeoutException) {
             assertEquals(timout.message, "timeout")

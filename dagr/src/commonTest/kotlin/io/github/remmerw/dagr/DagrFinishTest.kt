@@ -4,7 +4,6 @@ import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -19,22 +18,18 @@ class DagrFinishTest {
     fun testFinishServer() {
 
 
-        val serverData = Random.nextBytes(1000000)
+        val serverData = Random.nextBytes(Settings.MAX_SIZE)
 
-        val server = newDagr(0, object : Acceptor {
+        val server = newDagr(0, acceptor = object : Acceptor {
             override fun request(
                 writer: Writer, request: Long
             ) {
-                thread {
+                assertEquals(request, 0L)
 
-                    assertEquals(request, 0L)
-
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
-
-                }
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
             }
         }
 

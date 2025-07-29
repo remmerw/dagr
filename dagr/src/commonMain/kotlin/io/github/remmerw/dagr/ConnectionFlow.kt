@@ -1,8 +1,6 @@
 package io.github.remmerw.dagr
 
-import java.lang.Thread.yield
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -18,22 +16,6 @@ abstract class ConnectionFlow() {
     @OptIn(ExperimentalAtomicApi::class)
     private val isStopped = AtomicBoolean(false)
 
-    private val semaphore = Semaphore(Settings.LACKED_PACKETS)
-
-    @OptIn(ExperimentalAtomicApi::class)
-    protected fun flush() {
-        while (packetSentLog.isNotEmpty() && !isStopped.load()) {
-            yield()
-        }
-    }
-
-    private fun acquireBlocking() {
-        semaphore.acquire()
-    }
-
-    private fun releaseBlocking() {
-        semaphore.release()
-    }
 
     internal fun processAckFrameReceived(packetNumber: Long) {
 
@@ -47,9 +29,6 @@ abstract class ConnectionFlow() {
 
         packetSentLog.remove(packetNumber)
 
-        if (packetNumber > Settings.PAKET_OFFSET) {
-            releaseBlocking()
-        }
 
     }
 
@@ -101,9 +80,6 @@ abstract class ConnectionFlow() {
 
         packetSentLog[packetNumber] = packet
 
-        if (packetNumber > Settings.PAKET_OFFSET) {
-            acquireBlocking()
-        }
     }
 
 }

@@ -19,21 +19,18 @@ class ParallelTest {
     @Test
     fun testParallelDagr() {
 
-        val serverData = Random.nextBytes(100000)
+        val serverData = Random.nextBytes(Settings.MAX_SIZE)
 
         val server = newDagr(0, object : Acceptor {
             override fun request(
                 writer: Writer, request: Long
             ) {
-                thread {
+                assertEquals(request, 1)
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
 
-                    assertEquals(request, 1)
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
-
-                }
             }
         })
 

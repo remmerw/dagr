@@ -18,7 +18,7 @@ import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 import kotlin.random.Random
 
-class Dagr(port: Int, val acceptor: Acceptor) : Listener {
+class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
 
     private val connections: MutableMap<InetSocketAddress, Connection> = ConcurrentHashMap()
 
@@ -257,7 +257,7 @@ fun connectDagr(
 }
 
 
-fun newDagr(port: Int, acceptor: Acceptor): Dagr {
+fun newDagr(port: Int = 0, acceptor: Acceptor): Dagr {
     return Dagr(port, acceptor)
 }
 

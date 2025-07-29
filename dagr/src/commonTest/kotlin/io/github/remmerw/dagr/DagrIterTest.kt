@@ -4,7 +4,6 @@ import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -25,16 +24,14 @@ class DagrIterTest {
             override fun request(
                 writer: Writer, request: Long
             ) {
-                thread {
 
-                    assertEquals(request, 0L)
-                    serverData = Random.nextBytes(dataSize)
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
+                assertEquals(request, 0L)
+                serverData = Random.nextBytes(dataSize)
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
 
-                }
             }
         }
 

@@ -22,16 +22,16 @@ class DagrTest {
             override fun request(
                 writer: Writer, request: Long
             ) {
-                thread {
 
-                    assertEquals(request, 1)
 
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
+                assertEquals(request, 1)
 
-                }
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
+
+
             }
         })
 

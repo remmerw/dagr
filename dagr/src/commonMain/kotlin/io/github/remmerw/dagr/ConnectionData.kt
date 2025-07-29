@@ -26,22 +26,22 @@ abstract class ConnectionData() :
 
 
     override fun writeBuffer(buffer: Buffer) {
-        try {
-            while (!buffer.exhausted()) {
+        require(buffer.size <= Settings.MAX_SIZE + Int.SIZE_BYTES) {
+            "not supported amount of bytes (only 64 kB)"
+        }
 
-                val packetNumber = fetchPacketNumber()
-                val sink = Buffer()
-                sink.writeByte(0x03.toByte())
-                sink.writeLong(packetNumber)
+        while (!buffer.exhausted()) {
 
-                buffer.readAtMostTo(
-                    sink, Settings.MAX_DATAGRAM_SIZE.toLong()
-                )
+            val packetNumber = fetchPacketNumber()
+            val sink = Buffer()
+            sink.writeByte(0x03.toByte())
+            sink.writeLong(packetNumber)
 
-                sendPacket(packetNumber, sink.readByteArray(), true)
-            }
-        } finally {
-            flush()
+            buffer.readAtMostTo(
+                sink, Settings.MAX_DATAGRAM_SIZE.toLong()
+            )
+
+            sendPacket(packetNumber, sink.readByteArray(), true)
         }
     }
 

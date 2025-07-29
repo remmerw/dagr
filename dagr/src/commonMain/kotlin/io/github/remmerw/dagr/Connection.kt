@@ -318,11 +318,14 @@ open class Connection(
                         )
 
                         acceptor.request(this, request.readLong())
+
+                        remotePacketTimeStamp()
                     } catch (throwable: Throwable) {
                         debug(throwable)
+                        terminate()
                     }
 
-                    remotePacketTimeStamp()
+
                 } else {
                     if (packetProtector(packetNumber)) {
                         processData(
