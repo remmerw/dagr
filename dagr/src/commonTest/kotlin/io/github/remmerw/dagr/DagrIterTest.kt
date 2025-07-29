@@ -51,7 +51,8 @@ class DagrIterTest {
 
         repeat(2000) {
             val sink = Buffer()
-            connection.request(0, sink)
+            val size = connection.request(0, sink)
+            assertEquals(size, dataSize)
             assertContentEquals(sink.readByteArray(), serverData)
         }
 

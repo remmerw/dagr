@@ -118,11 +118,12 @@ abstract class ConnectionData(incoming: Boolean) :
         return sink.readInt()
     }
 
-    fun request(request: Long, sink: RawSink, timeout: Int? = null) {
+    fun request(request: Long, sink: RawSink, timeout: Int? = null) : Int {
         lock.withLock {
             writeLong(request)
             val count = readInt(timeout)
             pipe.readBuffer(sink, count, timeout)
+            return count
         }
     }
 
