@@ -119,8 +119,17 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
                 socket.receive(receivedPacket)
 
                 val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
-                val connection = receiveConnection(remoteAddress)
-                connection.processDatagram(receivedPacket)
+
+                var newIncoming = false
+                var connection = connections[remoteAddress]
+                if (connection == null) {
+                    connection = Connection(true, socket, remoteAddress,
+                        acceptor, this)
+                    register(connection)
+                    newIncoming = true
+                }
+
+                connection.processDatagram(receivedPacket, newIncoming)
 
             }
         } catch (_: InterruptedException) {
@@ -141,18 +150,6 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
         }
     }
 
-    private fun receiveConnection(remoteAddress: InetSocketAddress): Connection {
-        val connection = connections[remoteAddress]
-        if (connection != null) {
-            return connection
-        }
-
-        val newConnection = Connection(socket, remoteAddress, true, acceptor, this)
-        register(newConnection)
-
-
-        return newConnection
-    }
 
     fun shutdown() {
 
@@ -224,7 +221,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
                 return previous
             }
 
-            val connection = Connection(socket, remoteAddress, false, acceptor, this)
+            val connection = Connection(false, socket, remoteAddress, acceptor, this)
 
             register(connection)
 

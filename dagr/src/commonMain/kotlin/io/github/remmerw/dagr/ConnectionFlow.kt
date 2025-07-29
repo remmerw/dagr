@@ -6,7 +6,7 @@ import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
-abstract class ConnectionFlow() {
+abstract class ConnectionFlow(private val incoming: Boolean) {
 
     private val packetSentLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
 
@@ -16,6 +16,10 @@ abstract class ConnectionFlow() {
     @OptIn(ExperimentalAtomicApi::class)
     private val isStopped = AtomicBoolean(false)
 
+
+    fun incoming(): Boolean {
+        return incoming
+    }
 
     internal fun processAckFrameReceived(packetNumber: Long) {
 
@@ -55,7 +59,7 @@ abstract class ConnectionFlow() {
                 val packet = packetSentLog.remove(pn)
                 if (packet != null) {
                     result++
-                    sendPacket(pn, packet, true)
+                    sendPacket(pn, packet, !incoming())
                 }
             }
         }

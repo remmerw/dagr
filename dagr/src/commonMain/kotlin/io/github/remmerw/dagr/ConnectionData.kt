@@ -6,8 +6,8 @@ import kotlinx.io.readByteArray
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-abstract class ConnectionData() :
-    ConnectionFlow(), Writer {
+abstract class ConnectionData(incoming: Boolean) :
+    ConnectionFlow(incoming), Writer {
 
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 

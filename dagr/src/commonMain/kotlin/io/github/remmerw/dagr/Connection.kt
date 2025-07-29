@@ -13,12 +13,12 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
 open class Connection(
+    incoming: Boolean,
     private val socket: DatagramSocket,
     private val remoteAddress: InetSocketAddress,
-    private val incoming: Boolean,
     val acceptor: Acceptor,
     val listener: Listener
-) : ConnectionData() {
+) : ConnectionData(incoming) {
 
     @OptIn(ExperimentalAtomicApi::class)
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
@@ -85,9 +85,6 @@ open class Connection(
         }
     }
 
-    fun incoming(): Boolean {
-        return incoming
-    }
 
     fun remoteAddress(): InetSocketAddress {
         return remoteAddress
@@ -156,7 +153,6 @@ open class Connection(
         disableKeepAlive()
 
         terminateLossDetector()
-
 
         try {
             sendPacket(4, createClosePacket(), false)
@@ -229,7 +225,8 @@ open class Connection(
 
 
     internal fun processDatagram(
-        packet: DatagramPacket
+        packet: DatagramPacket,
+        newIncoming: Boolean
     ) {
         if (state().isClosed) {
             return
@@ -255,6 +252,15 @@ open class Connection(
 
         val type = data[0]
 
+        if(newIncoming){
+            // first is always a ping
+            if(type != 0x01.toByte()){
+                debug("invalid incoming connection")
+                terminate()
+                return
+            }
+        }
+
         when (type) {
             0x01.toByte(),
             0x02.toByte(),
@@ -270,6 +276,7 @@ open class Connection(
 
 
         val packetNumber = parseLong(data, 1)
+
 
 
         if (state() == State.Created) {
@@ -303,7 +310,7 @@ open class Connection(
 
             0x03.toByte() -> { // data frame
                 sendAck(packetNumber)
-                if (incoming) {
+                if (incoming()) {
 
                     try {
                         val request = Buffer()
