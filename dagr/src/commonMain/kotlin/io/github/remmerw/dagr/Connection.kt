@@ -155,7 +155,10 @@ open class Connection(
         terminateLossDetector()
 
         try {
-            sendPacket(4, createClosePacket(), false)
+            // only
+            if(!incoming()) {
+                sendPacket(4, createClosePacket(), false)
+            }
         } catch (_: SocketException) {
         } catch (throwable: Throwable) {
             debug(throwable)
