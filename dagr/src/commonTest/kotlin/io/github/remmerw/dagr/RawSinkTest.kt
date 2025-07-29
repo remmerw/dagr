@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import kotlinx.io.Buffer
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
@@ -31,7 +32,10 @@ class RawSinkTest {
                 thread {
                     assertEquals(request, 0L)
 
-                    writer.writeByteArray(serverData)
+                    val buffer = Buffer()
+                    buffer.writeInt(serverData.size)
+                    buffer.write(serverData)
+                    writer.writeBuffer(buffer)
                 }
             }
         }
@@ -52,7 +56,7 @@ class RawSinkTest {
 
         val path = Path(SystemTemporaryDirectory, Uuid.random().toHexString())
         SystemFileSystem.sink(path, false).use { sink ->
-            connection.request(0, sink, dataSize)
+            connection.request(0, sink)
         }
 
         val metadata = SystemFileSystem.metadataOrNull(path)

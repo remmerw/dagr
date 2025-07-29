@@ -9,7 +9,6 @@ interface Listener {
 }
 
 interface Writer {
-    fun writeByteArray(data: ByteArray)
     fun writeBuffer(buffer: Buffer)
 }
 

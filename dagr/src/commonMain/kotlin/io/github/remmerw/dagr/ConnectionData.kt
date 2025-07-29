@@ -25,25 +25,6 @@ abstract class ConnectionData() :
     }
 
 
-    override fun writeByteArray(data: ByteArray) {
-        try {
-            for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE) {
-                val endIndex = kotlin.math.min(
-                    chunk + Settings.MAX_DATAGRAM_SIZE, data.size
-                )
-
-                val packetNumber = fetchPacketNumber()
-                val buffer = Buffer()
-                buffer.writeByte(0x03.toByte())
-                buffer.writeLong(packetNumber)
-                buffer.write(data, chunk, endIndex)
-                sendPacket(packetNumber, buffer.readByteArray(), true)
-            }
-        } finally {
-            flush()
-        }
-    }
-
     override fun writeBuffer(buffer: Buffer) {
         try {
             while (!buffer.exhausted()) {
@@ -131,16 +112,16 @@ abstract class ConnectionData() :
         processedPacket++
     }
 
-
-    fun request(request: Long, count: Int, timeout: Int? = null): ByteArray {
+    private fun readInt(timeout: Int? = null): Int {
         val sink = Buffer()
-        request(request, sink, count, timeout)
-        return sink.readByteArray()
+        pipe.readBuffer(sink, Int.SIZE_BYTES, timeout)
+        return sink.readInt()
     }
 
-    fun request(request: Long, sink: RawSink, count: Int, timeout: Int? = null) {
+    fun request(request: Long, sink: RawSink, timeout: Int? = null) {
         lock.withLock {
             writeLong(request)
+            val count = readInt(timeout)
             pipe.readBuffer(sink, count, timeout)
         }
     }

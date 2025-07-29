@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import kotlinx.io.Buffer
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeoutException
@@ -33,7 +34,8 @@ class ShittyServerTest {
 
 
         try {
-            connection.request(0, 1000, 2) // expect data of size 1000
+            val sink = Buffer()
+            connection.request(0, sink,2) // expect data of size 1000
             fail("Exception expected")
         } catch (timout: TimeoutException) {
             assertEquals(timout.message, "timeout")

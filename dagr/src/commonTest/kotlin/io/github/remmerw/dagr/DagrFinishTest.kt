@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.concurrent.thread
@@ -29,6 +30,7 @@ class DagrFinishTest {
                     assertEquals(request, 0L)
 
                     val buffer = Buffer()
+                    buffer.writeInt(serverData.size)
                     buffer.write(serverData)
                     writer.writeBuffer(buffer)
 
@@ -46,9 +48,9 @@ class DagrFinishTest {
                 connectDagr(remoteAddress, 1)
             )
 
-
-        val data = connection.request(0, serverData.size)
-        assertContentEquals(data, serverData)
+        val sink = Buffer()
+        connection.request(0, sink)
+        assertContentEquals(sink.readByteArray(), serverData)
         connection.close()
 
         Thread.sleep(50)

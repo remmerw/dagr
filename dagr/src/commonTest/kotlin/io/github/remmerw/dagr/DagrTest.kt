@@ -27,6 +27,7 @@ class DagrTest {
                     assertEquals(request, 1)
 
                     val buffer = Buffer()
+                    buffer.writeInt(serverData.size)
                     buffer.write(serverData)
                     writer.writeBuffer(buffer)
 
@@ -43,7 +44,7 @@ class DagrTest {
 
 
         val buffer = Buffer()
-        connection.request(1, buffer, serverData.size)
+        connection.request(1, buffer)
         assertContentEquals(buffer.readByteArray(), serverData)
 
         connection.close()
@@ -65,6 +66,7 @@ class DagrTest {
 
                     assertEquals(request, 0L)
                     val buffer = Buffer()
+                    buffer.writeInt(serverData.size)
                     buffer.write(serverData)
                     writer.writeBuffer(buffer)
 
@@ -82,9 +84,9 @@ class DagrTest {
                 connectDagr(remoteAddress, 1)
             )
 
-
-        val data = connection.request(0, serverData.size)
-        assertContentEquals(data, serverData)
+        val sink = Buffer()
+        connection.request(0, sink)
+        assertContentEquals(sink.readByteArray(), serverData)
 
 
         connection.close()

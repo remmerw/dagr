@@ -29,6 +29,7 @@ class ParallelTest {
 
                     assertEquals(request, 1)
                     val buffer = Buffer()
+                    buffer.writeInt(serverData.size)
                     buffer.write(serverData)
                     writer.writeBuffer(buffer)
 
@@ -47,7 +48,7 @@ class ParallelTest {
             repeat(100) {
                 try {
                     val buffer = Buffer()
-                    connection.request(1, buffer, serverData.size)
+                    connection.request(1, buffer)
                     assertContentEquals(buffer.readByteArray(), serverData)
                 } catch (throwable: Throwable) {
                     throwable.printStackTrace()
@@ -60,7 +61,7 @@ class ParallelTest {
             repeat(100) {
                 try {
                     val buffer = Buffer()
-                    connection.request(1, buffer, serverData.size)
+                    connection.request(1, buffer)
                     assertContentEquals(buffer.readByteArray(), serverData)
                 } catch (throwable: Throwable) {
                     throwable.printStackTrace()
