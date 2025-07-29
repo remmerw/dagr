@@ -25,20 +25,13 @@ class RawSinkTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
                 thread {
-                    try {
-                        val cid = connection.readLong() // nothing to do
-                        assertEquals(cid, 0L)
+                    assertEquals(request, 0L)
 
-                        connection.writeByteArray(serverData)
-                        connection.flush()
-                    } catch (_: Throwable) {
-                    } finally {
-                        println("Thread closed")
-                    }
+                    writer.writeByteArray(serverData)
                 }
             }
         }
@@ -57,12 +50,9 @@ class RawSinkTest {
             )
 
 
-
-        connection.writeLong(0)
-
         val path = Path(SystemTemporaryDirectory, Uuid.random().toHexString())
         SystemFileSystem.sink(path, false).use { sink ->
-            connection.readBuffer(sink, dataSize)
+            connection.request(0, sink, dataSize)
         }
 
         val metadata = SystemFileSystem.metadataOrNull(path)

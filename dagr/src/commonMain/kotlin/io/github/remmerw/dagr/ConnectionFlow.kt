@@ -21,7 +21,7 @@ abstract class ConnectionFlow() {
     private val semaphore = Semaphore(Settings.LACKED_PACKETS)
 
     @OptIn(ExperimentalAtomicApi::class)
-    fun flush() {
+    protected fun flush() {
         while (packetSentLog.isNotEmpty() && !isStopped.load()) {
             yield()
         }

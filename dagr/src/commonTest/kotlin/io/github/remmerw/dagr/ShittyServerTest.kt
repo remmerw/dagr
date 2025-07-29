@@ -14,10 +14,9 @@ class ShittyServerTest {
 
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
-
                 // server not responding
             }
         }
@@ -33,10 +32,8 @@ class ShittyServerTest {
         )
 
 
-        connection.writeLong(0)
-
         try {
-            connection.readByteArray(1000, 2) // expect data of size 1000
+            connection.request(0, 1000, 2) // expect data of size 1000
             fail("Exception expected")
         } catch (timout: TimeoutException) {
             assertEquals(timout.message, "timeout")

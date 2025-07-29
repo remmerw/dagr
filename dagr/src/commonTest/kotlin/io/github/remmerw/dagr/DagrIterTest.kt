@@ -20,23 +20,15 @@ class DagrIterTest {
         var serverData: ByteArray? = null
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
                 thread {
-                    try {
-                        while (true) {
-                            val cid = connection.readLong() // nothing to do
-                            assertEquals(cid, 0L)
 
-                            serverData = Random.nextBytes(dataSize)
-                            connection.writeByteArray(serverData)
-                            connection.flush()
-                        }
-                    } catch (_: Throwable) {
-                    } finally {
-                        println("Thread closed")
-                    }
+                    assertEquals(request, 0L)
+                    serverData = Random.nextBytes(dataSize)
+                    writer.writeByteArray(serverData)
+
                 }
             }
         }
@@ -56,9 +48,9 @@ class DagrIterTest {
 
 
         repeat(2000) {
-            connection.writeLong(0)
 
-            val data = connection.readByteArray(dataSize)
+
+            val data = connection.request(0, dataSize)
             assertContentEquals(data, serverData)
         }
 

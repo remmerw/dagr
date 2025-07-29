@@ -147,7 +147,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
             return connection
         }
 
-        val newConnection = Connection(socket, remoteAddress, true, this)
+        val newConnection = Connection(socket, remoteAddress, true, acceptor, this)
         register(newConnection)
 
 
@@ -207,13 +207,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
 
     override fun connected(connection: Connection) {
 
-        if (connection.incoming()) {
-            try {
-                acceptor.accept(connection)
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
-        } else {
+        if (!connection.incoming()) {
             try {
                 initializeDone.release()
             } catch (throwable: Throwable) {
@@ -230,7 +224,7 @@ class Dagr(port: Int, val acceptor: Acceptor) : Listener {
                 return previous
             }
 
-            val connection = Connection(socket, remoteAddress, false, this)
+            val connection = Connection(socket, remoteAddress, false, acceptor, this)
 
             register(connection)
 
@@ -256,7 +250,7 @@ fun connectDagr(
     timeout: Int
 ): Connection? {
     val dagr = newDagr(0, object : Acceptor {
-        override fun accept(connection: Connection) {
+        override fun request(writer: Writer, request: Long) {
         }
     })
     return dagr.connect(remoteAddress, timeout)

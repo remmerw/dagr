@@ -21,22 +21,17 @@ class DagrFinishTest {
         val serverData = Random.nextBytes(1000000)
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
                 thread {
-                    try {
-                        val cid = connection.readLong() // nothing to do
-                        assertEquals(cid, 0L)
 
-                        val buffer = Buffer()
-                        buffer.write(serverData)
-                        connection.writeBuffer(buffer)
-                        connection.flush()
-                        connection.close() // directly close after writing
-                    } catch (_: Throwable) {
-                    }
-                    println("Thread closed")
+                    assertEquals(request, 0L)
+
+                    val buffer = Buffer()
+                    buffer.write(serverData)
+                    writer.writeBuffer(buffer)
+
                 }
             }
         }
@@ -51,21 +46,16 @@ class DagrFinishTest {
                 connectDagr(remoteAddress, 1)
             )
 
-        connection.writeLong(0)
 
-        try {
-            val data = connection.readByteArray(serverData.size)
-            assertContentEquals(data, serverData)
-        } catch (_: Throwable) {
-            // ignore any exception here (because the server closes)
-        }
+        val data = connection.request(0, serverData.size)
+        assertContentEquals(data, serverData)
+        connection.close()
 
         Thread.sleep(50)
 
         assertTrue(!connection.isConnected)
         assertEquals(server.numIncomingConnections(), 0)
 
-        connection.close()
         server.shutdown()
     }
 

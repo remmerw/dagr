@@ -1,5 +1,6 @@
 package io.github.remmerw.dagr
 
+import kotlinx.io.Buffer
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -15,6 +16,7 @@ open class Connection(
     private val socket: DatagramSocket,
     private val remoteAddress: InetSocketAddress,
     private val incoming: Boolean,
+    val acceptor: Acceptor,
     val listener: Listener
 ) : ConnectionData() {
 
@@ -301,12 +303,34 @@ open class Connection(
 
             0x03.toByte() -> { // data frame
                 sendAck(packetNumber)
-                if (packetProtector(packetNumber)) {
-                    processData(
-                        packetNumber, data,
-                        Settings.DATAGRAM_MIN_SIZE, length
-                    )
+                if (incoming) {
+
+                    try {
+                        val request = Buffer()
+
+                        require(length == Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES) {
+                            "invalid size of request"
+                        }
+
+                        request.write(
+                            data, Settings.DATAGRAM_MIN_SIZE,
+                            Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
+                        )
+
+                        acceptor.request(this, request.readLong())
+                    } catch (throwable: Throwable) {
+                        debug(throwable)
+                    }
+
                     remotePacketTimeStamp()
+                } else {
+                    if (packetProtector(packetNumber)) {
+                        processData(
+                            packetNumber, data,
+                            Settings.DATAGRAM_MIN_SIZE, length
+                        )
+                        remotePacketTimeStamp()
+                    }
                 }
             }
 

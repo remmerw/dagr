@@ -19,23 +19,17 @@ class DagrTest {
         val serverData = "Moin".encodeToByteArray()
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
                 thread {
-                    try {
-                        while (true) {
-                            val cid = connection.readInt()
-                            assertEquals(cid, 1)
 
-                            val buffer = Buffer()
-                            buffer.write(serverData)
-                            connection.writeBuffer(buffer)
-                        }
-                    } catch (_: Throwable) {
-                    } finally {
-                        println("Thread closed")
-                    }
+                    assertEquals(request, 1)
+
+                    val buffer = Buffer()
+                    buffer.write(serverData)
+                    writer.writeBuffer(buffer)
+
                 }
             }
         })
@@ -47,10 +41,9 @@ class DagrTest {
 
         val connection = connectDagr(remoteAddress, 1)!!
 
-        connection.writeInt(1)
 
         val buffer = Buffer()
-        connection.readBuffer(buffer, serverData.size)
+        connection.request(1, buffer, serverData.size)
         assertContentEquals(buffer.readByteArray(), serverData)
 
         connection.close()
@@ -65,23 +58,16 @@ class DagrTest {
         val serverData = Random.nextBytes(Short.MAX_VALUE.toInt())
 
         val server = newDagr(0, object : Acceptor {
-            override fun accept(
-                connection: Connection
+            override fun request(
+                writer: Writer, request: Long
             ) {
                 thread {
-                    try {
-                        while (true) {
-                            val cid = connection.readLong() // nothing to do
-                            assertEquals(cid, 0L)
 
-                            val buffer = Buffer()
-                            buffer.write(serverData)
-                            connection.writeBuffer(buffer)
-                        }
-                    } catch (_: Throwable) {
-                    } finally {
-                        println("Thread closed")
-                    }
+                    assertEquals(request, 0L)
+                    val buffer = Buffer()
+                    buffer.write(serverData)
+                    writer.writeBuffer(buffer)
+
                 }
             }
         }
@@ -97,12 +83,7 @@ class DagrTest {
             )
 
 
-        val buffer = Buffer()
-        buffer.writeLong(0)
-        connection.writeBuffer(buffer)
-
-
-        val data = connection.readByteArray(serverData.size)
+        val data = connection.request(0, serverData.size)
         assertContentEquals(data, serverData)
 
 

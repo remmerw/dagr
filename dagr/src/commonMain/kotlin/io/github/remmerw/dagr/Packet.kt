@@ -12,17 +12,6 @@ internal fun parseLong(data: ByteArray, startIndex: Int): Long {
 }
 
 
-internal fun createDataPacket(
-    packetNumber: Long, data: ByteArray
-): ByteArray {
-    val buffer = Buffer()
-    buffer.writeByte(0x03.toByte())
-    buffer.writeLong(packetNumber)
-    buffer.write(data)
-    return buffer.readByteArray()
-}
-
-
 internal fun createClosePacket(): ByteArray {
     val buffer = Buffer()
     buffer.writeByte(0x04.toByte())

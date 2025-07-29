@@ -3,69 +3,65 @@ package io.github.remmerw.dagr
 import kotlinx.io.Buffer
 import kotlinx.io.RawSink
 import kotlinx.io.readByteArray
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 abstract class ConnectionData() :
-    ConnectionFlow() {
+    ConnectionFlow(), Writer {
 
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val pipe = Pipe()
+    private val lock = ReentrantLock()
 
-    fun writeLong(value: Long) {
+    private fun writeLong(value: Long) {
         val packetNumber = fetchPacketNumber()
         val buffer = Buffer()
         buffer.writeByte(0x03.toByte())
         buffer.writeLong(packetNumber)
         buffer.writeLong(value)
         sendPacket(packetNumber, buffer.readByteArray(), true)
-
     }
 
 
-    fun writeInt(value: Int) {
-        val packetNumber = fetchPacketNumber()
-        val buffer = Buffer()
-        buffer.writeByte(0x03.toByte())
-        buffer.writeLong(packetNumber)
-        buffer.writeInt(value)
-        sendPacket(packetNumber, buffer.readByteArray(), true)
+    override fun writeByteArray(data: ByteArray) {
+        try {
+            for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE) {
+                val endIndex = kotlin.math.min(
+                    chunk + Settings.MAX_DATAGRAM_SIZE, data.size
+                )
 
-    }
-
-    fun writeByteArray(data: ByteArray) {
-
-        for (chunk in data.indices step Settings.MAX_DATAGRAM_SIZE) {
-            val endIndex = kotlin.math.min(
-                chunk + Settings.MAX_DATAGRAM_SIZE, data.size
-            )
-
-            val packetNumber = fetchPacketNumber()
-            val buffer = Buffer()
-            buffer.writeByte(0x03.toByte())
-            buffer.writeLong(packetNumber)
-            buffer.write(data, chunk, endIndex)
-            sendPacket(packetNumber, buffer.readByteArray(), true)
+                val packetNumber = fetchPacketNumber()
+                val buffer = Buffer()
+                buffer.writeByte(0x03.toByte())
+                buffer.writeLong(packetNumber)
+                buffer.write(data, chunk, endIndex)
+                sendPacket(packetNumber, buffer.readByteArray(), true)
+            }
+        } finally {
+            flush()
         }
     }
 
-    fun writeBuffer(buffer: Buffer) {
+    override fun writeBuffer(buffer: Buffer) {
+        try {
+            while (!buffer.exhausted()) {
 
-        while (!buffer.exhausted()) {
+                val packetNumber = fetchPacketNumber()
+                val sink = Buffer()
+                sink.writeByte(0x03.toByte())
+                sink.writeLong(packetNumber)
 
-            val packetNumber = fetchPacketNumber()
-            val sink = Buffer()
-            sink.writeByte(0x03.toByte())
-            sink.writeLong(packetNumber)
+                buffer.readAtMostTo(
+                    sink, Settings.MAX_DATAGRAM_SIZE.toLong()
+                )
 
-            buffer.readAtMostTo(
-                sink, Settings.MAX_DATAGRAM_SIZE.toLong()
-            )
-
-            sendPacket(packetNumber, sink.readByteArray(), true)
+                sendPacket(packetNumber, sink.readByteArray(), true)
+            }
+        } finally {
+            flush()
         }
-
-
     }
 
 
@@ -135,26 +131,18 @@ abstract class ConnectionData() :
         processedPacket++
     }
 
-    fun readLong(timeout: Int? = null): Long {
-        val sink = Buffer()
-        readBuffer(sink, Long.SIZE_BYTES, timeout)
-        return sink.readLong()
-    }
 
-    fun readInt(timeout: Int? = null): Int {
+    fun request(request: Long, count: Int, timeout: Int? = null): ByteArray {
         val sink = Buffer()
-        readBuffer(sink, Int.SIZE_BYTES, timeout)
-        return sink.readInt()
-    }
-
-    fun readByteArray(count: Int, timeout: Int? = null): ByteArray {
-        val sink = Buffer()
-        readBuffer(sink, count, timeout)
+        request(request, sink, count, timeout)
         return sink.readByteArray()
     }
 
-    fun readBuffer(sink: RawSink, count: Int, timeout: Int? = null) {
-        pipe.readBuffer(sink, count, timeout)
+    fun request(request: Long, sink: RawSink, count: Int, timeout: Int? = null) {
+        lock.withLock {
+            writeLong(request)
+            pipe.readBuffer(sink, count, timeout)
+        }
     }
 
 }
