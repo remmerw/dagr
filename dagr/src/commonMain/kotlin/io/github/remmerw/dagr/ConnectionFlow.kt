@@ -37,7 +37,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal fun terminateLossDetector() {
+    internal open fun terminate() {
         isStopped.store(true)
         packetSentLog.clear()
     }

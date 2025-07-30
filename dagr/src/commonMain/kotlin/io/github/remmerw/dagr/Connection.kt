@@ -6,7 +6,6 @@ import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.SocketException
 import kotlin.concurrent.Volatile
-import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -25,12 +24,6 @@ open class Connection(
 
     @Volatile
     private var remotePacketTimeStamp = TimeSource.Monotonic.markNow()
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val enableKeepAlive = AtomicBoolean(false)
-
-    @Volatile
-    private var lastPing = TimeSource.Monotonic.markNow()
 
     @Volatile
     private var state = State.Created
@@ -102,29 +95,6 @@ open class Connection(
         this.state = state
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun keepAlive() {
-        if (enableKeepAlive.load()) {
-
-            if (lastPing.elapsedNow().inWholeMilliseconds > Settings.PING_INTERVAL) {
-                val packet = createPingPacket()
-                sendPacket(1, packet, false)
-                lastPing = TimeSource.Monotonic.markNow()
-            }
-        }
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    fun enableKeepAlive() {
-        if (enableKeepAlive.compareAndSet(expectedValue = false, newValue = true)) {
-            lastPing = TimeSource.Monotonic.markNow()
-        }
-    }
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun disableKeepAlive() {
-        enableKeepAlive.store(false)
-    }
 
     val isConnected: Boolean
         get() = state.isConnected
@@ -139,8 +109,13 @@ open class Connection(
 
     override fun terminate() {
         super.terminate()
-        listener.close(this)
         state(State.Closed)
+
+        try {
+            listener.close(this)
+        } catch (throwable: Throwable) {
+            debug(throwable)
+        }
     }
 
     fun close() {
@@ -150,13 +125,9 @@ open class Connection(
             return
         }
 
-        disableKeepAlive()
-
-        terminateLossDetector()
-
         try {
-            // only
-            if(!incoming()) {
+            // only outgoing connections (client) notify the server
+            if (!incoming()) {
                 sendPacket(4, createClosePacket(), false)
             }
         } catch (_: SocketException) {
@@ -193,7 +164,6 @@ open class Connection(
     internal fun maintenance(): Int {
         try {
             val lost = detectLostPackets()
-            keepAlive() // only happens when enabled
             checkIdle() // only happens when enabled
             return lost
         } catch (_: InterruptedException) {
@@ -228,58 +198,15 @@ open class Connection(
 
 
     internal fun processDatagram(
-        packet: DatagramPacket,
-        newIncoming: Boolean
+        type: Byte,
+        data: ByteArray,
+        length: Int,
     ) {
         if (state().isClosed) {
             return
         }
 
-        // check if the remoteAddress is correct
-        val address = packet.socketAddress as InetSocketAddress
-
-        if (address != remoteAddress) {
-            debug("Invalid remote address Ignore Packet")
-            return
-        }
-
-        val data = packet.data
-        val length = packet.length
-
-        if (length < Settings.DATAGRAM_MIN_SIZE ||
-            length > Settings.MAX_PACKET_SIZE
-        ) {
-            debug("Invalid packet length Ignore Packet")
-            return
-        }
-
-        val type = data[0]
-
-        if(newIncoming){
-            // first is always a ping
-            if(type != 0x01.toByte()){
-                debug("invalid incoming connection")
-                terminate()
-                return
-            }
-        }
-
-        when (type) {
-            0x01.toByte(),
-            0x02.toByte(),
-            0x03.toByte(),
-            0x04.toByte() -> {
-            }
-
-            else -> {
-                debug("Probably hole punch detected $type")
-                return
-            }
-        }
-
-
         val packetNumber = parseLong(data, 1)
-
 
 
         if (state() == State.Created) {
@@ -288,21 +215,19 @@ open class Connection(
         }
 
         when (type) {
-            0x01.toByte() -> { // ping frame
-                if (packetNumber != 1L) {
-                    debug("Invalid packet number Ignore Packet")
-                    return
-                }
+            CONNECT -> { // connect frame
+                require(incoming()) { "only for incoming connections" }
+                require(packetNumber == 1L) { "Invalid packet number Ignore Packet" }
                 sendAck(packetNumber)
                 remotePacketTimeStamp()
             }
 
-            0x02.toByte() -> { // ack frame
+            ACK -> { // ack frame
                 if (packetNumber != 2L) {
                     debug("Invalid packet number Ignore Packet")
                     return
                 }
-                if (length != (Settings.DATAGRAM_MIN_SIZE + 8)) {
+                if (length != (Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES)) {
                     debug("Invalid length for ack frame")
                     return
                 }
@@ -311,7 +236,7 @@ open class Connection(
                 remotePacketTimeStamp()
             }
 
-            0x03.toByte() -> { // data frame
+            DATA -> { // data frame
                 sendAck(packetNumber)
                 if (incoming()) {
 
@@ -345,14 +270,6 @@ open class Connection(
                         remotePacketTimeStamp()
                     }
                 }
-            }
-
-            0x04.toByte() -> { // close frame
-                if (packetNumber != 4L) {
-                    debug("Invalid packet number Ignore Packet")
-                    return
-                }
-                terminate()
             }
 
             else -> {

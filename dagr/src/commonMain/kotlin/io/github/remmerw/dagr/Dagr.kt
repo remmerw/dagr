@@ -120,16 +120,69 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
 
                 val remoteAddress = receivedPacket.socketAddress as InetSocketAddress
 
-                var newIncoming = false
-                var connection = connections[remoteAddress]
-                if (connection == null) {
-                    connection = Connection(true, socket, remoteAddress,
-                        acceptor, this)
-                    register(connection)
-                    newIncoming = true
+
+                val data = receivedPacket.data
+                val length = receivedPacket.length
+
+                if (length < Settings.DATAGRAM_MIN_SIZE ||
+                    length > Settings.MAX_PACKET_SIZE
+                ) {
+                    debug("Invalid packet length Ignore Packet")
+                    return
                 }
 
-                connection.processDatagram(receivedPacket, newIncoming)
+                val type = data[0]
+
+                when (type) {
+                    CONNECT,
+                    ACK,
+                    DATA,
+                    CLOSE -> {
+                    }
+
+                    else -> {
+                        debug("Probably hole punch detected $type")
+                        return
+                    }
+                }
+
+
+                var connection = connections[remoteAddress]
+                if (connection == null) {
+
+                    if (type == CLOSE) { // close (do not create)
+                        return
+                    }
+
+                    // first is always a connect
+                    if (type != CONNECT) {
+                        debug("invalid incoming connection")
+                        return
+                    }
+
+
+                    connection = Connection(
+                        true, socket, remoteAddress,
+                        acceptor, this
+                    )
+                    register(connection)
+                }
+
+                // check if the remoteAddress is correct (only outgoing)
+                if (!connection.incoming()) {
+                    val address = receivedPacket.socketAddress as InetSocketAddress
+
+                    if (address != remoteAddress) {
+                        debug("Invalid remote address Ignore Packet")
+                        return
+                    }
+                }
+
+                if (type == CLOSE) { // close (just terminate)
+                    connection.terminate()
+                } else {
+                    connection.processDatagram(type, data, length)
+                }
 
             }
         } catch (_: InterruptedException) {
@@ -139,6 +192,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
             shutdown()
         }
     }
+
 
     @OptIn(ExperimentalAtomicApi::class)
     private fun register(connection: Connection) {
@@ -225,7 +279,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
 
             register(connection)
 
-            connection.sendPacket(1, createPingPacket(), true)
+            connection.sendPacket(1, createConnectPacket(), true)
 
             try {
                 if (initializeDone.tryAcquire(timeout.toLong(), TimeUnit.SECONDS)) {

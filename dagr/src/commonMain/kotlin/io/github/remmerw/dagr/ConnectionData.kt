@@ -18,7 +18,7 @@ abstract class ConnectionData(incoming: Boolean) :
     private fun writeLong(value: Long) {
         val packetNumber = fetchPacketNumber()
         val buffer = Buffer()
-        buffer.writeByte(0x03.toByte())
+        buffer.writeByte(DATA)
         buffer.writeLong(packetNumber)
         buffer.writeLong(value)
         sendPacket(packetNumber, buffer.readByteArray(), true)
@@ -34,7 +34,7 @@ abstract class ConnectionData(incoming: Boolean) :
 
             val packetNumber = fetchPacketNumber()
             val sink = Buffer()
-            sink.writeByte(0x03.toByte())
+            sink.writeByte(DATA)
             sink.writeLong(packetNumber)
 
             buffer.readAtMostTo(
@@ -62,12 +62,8 @@ abstract class ConnectionData(incoming: Boolean) :
     }
 
 
-    internal open fun terminate() {
-        try {
-            terminateLossDetector()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
+    override fun terminate() {
+        super.terminate()
 
         try {
             frames.clear()
@@ -118,7 +114,7 @@ abstract class ConnectionData(incoming: Boolean) :
         return sink.readInt()
     }
 
-    fun request(request: Long, sink: RawSink, timeout: Int? = null) : Int {
+    fun request(request: Long, sink: RawSink, timeout: Int? = null): Int {
         lock.withLock {
             writeLong(request)
             val count = readInt(timeout)
