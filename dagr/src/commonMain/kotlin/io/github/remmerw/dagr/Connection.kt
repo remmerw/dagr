@@ -128,7 +128,7 @@ open class Connection(
         try {
             // only outgoing connections (client) notify the server
             if (!incoming()) {
-                sendPacket(4, createClosePacket(), false)
+                sendPacket(5, createClosePacket(), false)
             }
         } catch (_: SocketException) {
         } catch (throwable: Throwable) {
@@ -202,66 +202,61 @@ open class Connection(
         data: ByteArray,
         length: Int,
     ) {
-        if (state().isClosed) {
-            return
-        }
-
-        val packetNumber = parseLong(data, 1)
-
-
-        if (state() == State.Created) {
-            state(State.Connected)
-            listener.connected(this)
-        }
-
-        when (type) {
-            CONNECT -> { // connect frame
-                require(incoming()) { "only for incoming connections" }
-                require(packetNumber == 1L) { "Invalid packet number Ignore Packet" }
-                sendAck(packetNumber)
-                remotePacketTimeStamp()
+        try {
+            if (state().isClosed) {
+                return
             }
 
-            ACK -> { // ack frame
-                if (packetNumber != 2L) {
-                    debug("Invalid packet number Ignore Packet")
-                    return
-                }
-                if (length != (Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES)) {
-                    debug("Invalid length for ack frame")
-                    return
-                }
-                val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                processAckFrameReceived(pn)
-                remotePacketTimeStamp()
+            val packetNumber = parseLong(data, 1)
+
+            if (state() == State.Created) {
+                state(State.Connected)
+                listener.connected(this)
             }
 
-            DATA -> { // data frame
-                sendAck(packetNumber)
-                if (incoming()) {
+            when (type) {
+                CONNECT -> { // connect frame
+                    require(incoming()) { "only for incoming connections" }
+                    require(packetNumber == 1L) { "Invalid packet number Ignore Packet" }
+                    sendAck(packetNumber)
+                    remotePacketTimeStamp()
+                }
 
-                    try {
-                        val request = Buffer()
+                ACK -> { // ack frame
+                    require(packetNumber == 2L) { "Invalid packet number Ignore Packet" }
+                    require(length == (Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES)) {
+                        "Invalid length for ack frame"
+                    }
+                    val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
+                    processAckFrameReceived(pn)
+                    remotePacketTimeStamp()
+                }
 
-                        require(length == Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES) {
-                            "invalid size of request"
-                        }
+                REQUEST -> {
+                    require(incoming()) { "Request coming only from incoming connections" }
 
-                        request.write(
-                            data, Settings.DATAGRAM_MIN_SIZE,
-                            Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
-                        )
+                    sendAck(packetNumber)
 
-                        acceptor.request(this, request.readLong())
+                    val request = Buffer()
 
-                        remotePacketTimeStamp()
-                    } catch (throwable: Throwable) {
-                        debug(throwable)
-                        terminate()
+                    require(length == Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES) {
+                        "invalid size of request"
                     }
 
+                    request.write(
+                        data, Settings.DATAGRAM_MIN_SIZE,
+                        Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
+                    )
 
-                } else {
+                    acceptor.request(this, request.readLong())
+
+                    remotePacketTimeStamp()
+
+                }
+
+                DATA -> { // data frame
+                    require(!incoming()) { "Data coming only from outgoing connections" }
+                    sendAck(packetNumber)
                     if (packetProtector(packetNumber)) {
                         processData(
                             packetNumber, data,
@@ -270,11 +265,15 @@ open class Connection(
                         remotePacketTimeStamp()
                     }
                 }
+
+                else -> {
+                    throw Exception("should never reach this point")
+                }
             }
 
-            else -> {
-                throw Exception("should never reach this point")
-            }
+        } catch (throwable: Throwable) {
+            debug(throwable)
+            terminate()
         }
     }
 }

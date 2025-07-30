@@ -136,6 +136,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
                 when (type) {
                     CONNECT,
                     ACK,
+                    REQUEST,
                     DATA,
                     CLOSE -> {
                     }

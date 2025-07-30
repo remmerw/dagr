@@ -15,13 +15,12 @@ abstract class ConnectionData(incoming: Boolean) :
     private val pipe = Pipe()
     private val lock = ReentrantLock()
 
-    private fun writeLong(value: Long) {
+    private fun createRequest(request: Long) {
         val packetNumber = fetchPacketNumber()
-        val buffer = Buffer()
-        buffer.writeByte(DATA)
-        buffer.writeLong(packetNumber)
-        buffer.writeLong(value)
-        sendPacket(packetNumber, buffer.readByteArray(), true)
+        sendPacket(
+            packetNumber,
+            createRequestPacket(packetNumber, request), true
+        )
     }
 
 
@@ -116,7 +115,7 @@ abstract class ConnectionData(incoming: Boolean) :
 
     fun request(request: Long, sink: RawSink, timeout: Int? = null): Int {
         lock.withLock {
-            writeLong(request)
+            createRequest(request)
             val count = readInt(timeout)
             pipe.readBuffer(sink, count, timeout)
             return count
