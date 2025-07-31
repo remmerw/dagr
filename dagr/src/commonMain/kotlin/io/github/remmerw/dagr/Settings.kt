@@ -23,8 +23,8 @@ object Settings {
     internal const val MIN_DELAY: Int = 25
     internal const val MAX_DELAY: Int = 100
     internal const val MAX_IDLE_TIMEOUT: Int = 15000
-    internal const val PING_INTERVAL: Int = 5000
 
+    internal const val PADDING: Int = 1200
     internal const val MISSED_PACKETS: Int = 25
 
     const val MAX_SIZE: Int = 65536

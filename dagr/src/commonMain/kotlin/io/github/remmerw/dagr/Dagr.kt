@@ -68,7 +68,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
         try {
             val buffer = Buffer()
             buffer.writeByte(Random.nextInt(10, 75).toByte())
-            buffer.write(Random.nextBytes(Random.nextInt(25, 75)))
+            buffer.write(Random.nextBytes(Random.nextInt(Settings.PADDING)))
 
             val data = buffer.readByteArray()
             val datagram = DatagramPacket(

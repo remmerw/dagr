@@ -49,11 +49,16 @@ internal fun createRequestPacket(
     return buffer.readByteArray()
 }
 
+
+// https://tools.ietf.org/html/draft-ietf-quic-transport-34#section-14
+// "A client MUST expand the payload of all UDP datagrams carrying Initial packets to at least the smallest
+//  allowed maximum datagram size of 1200 bytes... "
 internal fun createConnectPacket(
 ): ByteArray {
     val buffer = Buffer()
-    buffer.writeByte(CONNECT)
-    buffer.writeLong(1)
+    buffer.writeByte(CONNECT) // 1 byte
+    buffer.writeLong(1) // 8 bytes (default packetNumber)
+    buffer.write(ByteArray(Settings.PADDING))
     return buffer.readByteArray()
 }
 
