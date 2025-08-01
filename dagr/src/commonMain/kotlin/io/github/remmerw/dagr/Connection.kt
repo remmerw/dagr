@@ -17,7 +17,7 @@ open class Connection(
     private val remoteAddress: InetSocketAddress,
     val acceptor: Acceptor,
     val listener: Listener
-) : ConnectionData(incoming) {
+) : ConnectionData(incoming), AutoCloseable {
 
     @OptIn(ExperimentalAtomicApi::class)
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
@@ -118,7 +118,7 @@ open class Connection(
         }
     }
 
-    fun close() {
+    override fun close() {
 
         if (state.isClosed) {
             debug("Immediate close ignored because already closing")
