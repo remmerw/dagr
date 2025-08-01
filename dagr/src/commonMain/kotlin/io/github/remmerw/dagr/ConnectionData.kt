@@ -114,13 +114,18 @@ abstract class ConnectionData(incoming: Boolean) :
     }
 
     fun request(request: Long, sink: RawSink, timeout: Int? = null): Int {
-        lock.withLock {
-            createRequest(request)
-            val count = readInt(timeout)
-            pipe.readBuffer(sink, count, timeout)
-            return count
+        try {
+            lock.withLock {
+                createRequest(request)
+                val count = readInt(timeout)
+                pipe.readBuffer(sink, count, timeout)
+                return count
+            }
+        } catch (throwable:Throwable) {
+            debug(throwable)
+            terminate()
+            throw throwable
         }
     }
-
 }
 
