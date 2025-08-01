@@ -47,7 +47,6 @@ internal class Pipe() {
     }
 
     val sink = object : Sink {
-        private val timeout = Timeout()
 
         override fun write(bytes: ByteArray, startIndex: Int, endIndex: Int) {
             lock.withLock {
@@ -59,9 +58,6 @@ internal class Pipe() {
 
             }
         }
-
-
-        override fun timeout(): Timeout = timeout
     }
 
     val source = object : Source {
@@ -98,7 +94,6 @@ internal class Pipe() {
 
 interface Sink {
     fun write(bytes: ByteArray, startIndex: Int = 0, endIndex: Int = bytes.size)
-    fun timeout(): Timeout
 
 }
 
@@ -123,10 +118,7 @@ open class Timeout {
     private var deadlineNanoTime = 0L
     private var timeoutNanos = 0L
 
-    /**
-     * A sentinel that is updated to a new object on each call to [cancel]. Sample this property
-     * before and after an operation to test if the timeout was canceled during the operation.
-     */
+
     @Volatile
     private var cancelMark: Any? = null
 
@@ -188,20 +180,6 @@ open class Timeout {
         return this
     }
 
-
-    /**
-     * Prevent all current applications of this timeout from firing. Use this when a time-limited
-     * operation should no longer be time-limited because the nature of the operation has changed.
-     *
-     * This function does not mutate the [deadlineNanoTime] or [timeoutNanos] properties of this
-     * timeout. It only applies to active operations that are limited by this timeout, and applies by
-     * allowing those operations to run indefinitely.
-     *
-     * Subclasses that override this method must call `super.cancel()`.
-     */
-    open fun cancel() {
-        cancelMark = Any()
-    }
 
     /**
      * Waits on `monitor` until it is signaled. Throws [Exception] if either the thread
