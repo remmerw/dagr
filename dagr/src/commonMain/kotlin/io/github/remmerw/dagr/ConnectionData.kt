@@ -122,7 +122,6 @@ abstract class ConnectionData(incoming: Boolean) :
                 return count
             }
         } catch (throwable: Throwable) {
-            debug(throwable)
             terminate()
             throw throwable
         }
