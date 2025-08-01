@@ -121,7 +121,7 @@ abstract class ConnectionData(incoming: Boolean) :
                 pipe.readBuffer(sink, count, timeout)
                 return count
             }
-        } catch (throwable:Throwable) {
+        } catch (throwable: Throwable) {
             debug(throwable)
             terminate()
             throw throwable
