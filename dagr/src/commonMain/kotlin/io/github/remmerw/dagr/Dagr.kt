@@ -270,9 +270,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
     fun connect(remoteAddress: InetSocketAddress, timeout: Int): Connection? {
         lock.withLock { // maybe this should be improved and multiple connects are possible
             val previous = connections[remoteAddress]
-            if (previous != null) {
-                return previous
-            }
+            previous?.terminate() // terminate previous connection
 
             val connection = Connection(false, socket, remoteAddress, acceptor, this)
 

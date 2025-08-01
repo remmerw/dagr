@@ -110,7 +110,6 @@ open class Connection(
     override fun terminate() {
         super.terminate()
         state(State.Closed)
-
         try {
             listener.close(this)
         } catch (throwable: Throwable) {
