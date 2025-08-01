@@ -149,25 +149,27 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
 
 
                 var connection = connections[remoteAddress]
-                if (connection == null) {
 
-                    if (type == CLOSE) { // close (do not create)
-                        return
-                    }
+                if (type == CLOSE) { // close (do not create connection)
 
-                    // first is always a connect
-                    if (type != CONNECT) {
-                        debug("invalid incoming connection")
-                        return
-                    }
+                    connection?.terminate() // close old one when available
 
+                    return
+                }
+
+                if (type == CONNECT) {
+                    // remove possible old connection
+
+                    connection?.terminate()
 
                     connection = Connection(
                         true, socket, remoteAddress,
                         acceptor, this
                     )
                     register(connection)
+
                 }
+                require(connection != null) { "Connection expected here" }
 
                 // check if the remoteAddress is correct (only outgoing)
                 if (!connection.incoming()) {
@@ -179,11 +181,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
                     }
                 }
 
-                if (type == CLOSE) { // close (just terminate)
-                    connection.terminate()
-                } else {
-                    connection.processDatagram(type, data, length)
-                }
+                connection.processDatagram(type, data, length)
 
             }
         } catch (_: InterruptedException) {
