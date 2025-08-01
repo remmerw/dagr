@@ -137,8 +137,7 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
                     CONNECT,
                     ACK,
                     REQUEST,
-                    DATA,
-                    CLOSE -> {
+                    DATA -> {
                     }
 
                     else -> {
@@ -150,12 +149,6 @@ class Dagr(port: Int = 0, val acceptor: Acceptor) : Listener {
 
                 var connection = connections[remoteAddress]
 
-                if (type == CLOSE) { // close (do not create connection)
-
-                    connection?.terminate() // close old one when available
-
-                    return
-                }
 
                 if (type == CONNECT) {
                     // remove possible old connection

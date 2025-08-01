@@ -51,7 +51,6 @@ class DagrFinishTest {
         Thread.sleep(50)
 
         assertTrue(!connection.isConnected)
-        assertEquals(server.numIncomingConnections(), 0)
 
         server.shutdown()
     }

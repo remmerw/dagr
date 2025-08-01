@@ -118,23 +118,11 @@ open class Connection(
     }
 
     override fun close() {
-
         if (state.isClosed) {
             debug("Immediate close ignored because already closing")
             return
         }
-
-        try {
-            // only outgoing connections (client) notify the server
-            if (!incoming()) {
-                sendPacket(5, createClosePacket(), false)
-            }
-        } catch (_: SocketException) {
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        } finally {
-            terminate()
-        }
+        terminate()
     }
 
 
