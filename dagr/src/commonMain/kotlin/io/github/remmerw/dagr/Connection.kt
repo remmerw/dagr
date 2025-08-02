@@ -129,7 +129,7 @@ open class Connection(
     @OptIn(ExperimentalAtomicApi::class)
     private fun checkIdle() {
         if (remotePacketTimeStamp.elapsedNow().inWholeMilliseconds >
-            Settings.MAX_IDLE_TIMEOUT.toLong()
+            Settings.IDLE_TIMEOUT.toLong()
         ) {
 
             // just tor prevent that another close is scheduled
