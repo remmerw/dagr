@@ -6,7 +6,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 class ConnectionsTest {
 
@@ -24,33 +23,17 @@ class ConnectionsTest {
         )
 
 
-        val client = newDagr(0, object : Acceptor {
-            override suspend fun request(writer: Writer, request: Long) {
-            }
-        })
-
-        // first connection
-        assertNotNull(client.connect(remoteAddress))
-
-
+        val first = connectDagr(remoteAddress)!!
 
         assertEquals(server.numIncomingConnections(), 1)
-        assertEquals(server.numOutgoingConnections(), 0)
-        assertEquals(client.numIncomingConnections(), 0)
-        assertEquals(client.numOutgoingConnections(), 1)
 
 
-        // seconde connection (same address no effect)
-        assertNotNull(client.connect(remoteAddress))
+        val second = connectDagr(remoteAddress)!!
 
         assertEquals(server.numIncomingConnections(), 2)
-        assertEquals(server.numOutgoingConnections(), 0)
-        assertEquals(client.numIncomingConnections(), 0)
-        assertEquals(client.numOutgoingConnections(), 2)
 
-
-
-        client.shutdown()
+        first.close()
+        second.close()
         server.shutdown()
     }
 }

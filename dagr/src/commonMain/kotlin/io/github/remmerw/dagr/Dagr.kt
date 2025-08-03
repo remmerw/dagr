@@ -15,28 +15,26 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.SocketException
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.random.Random
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-class Dagr() : Listener {
+class Dagr(private val timeout: Int = 5) {
 
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
-
-    private val incoming: MutableSet<Connection> = ConcurrentHashMap.newKeySet()
-    private val outgoing: MutableSet<Connection> = ConcurrentHashMap.newKeySet()
-
+    private val incoming: MutableSet<ServerConnection> = ConcurrentHashMap.newKeySet()
     private var socket: ServerSocket? = null
 
     fun numIncomingConnections(): Int {
+        incoming.forEach { connection ->
+            if (connection.isClosed) {
+                incoming.remove(connection)
+            }
+        }
         return incoming.size
     }
 
-    fun numOutgoingConnections(): Int {
-        return outgoing.size
-    }
 
     // only after startup valid
     fun localPort(): Int {
@@ -101,14 +99,6 @@ class Dagr() : Listener {
         }
 
         try {
-            outgoing.forEach { connection ->
-                connection.close()
-            }
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-
-        try {
             selectorManager.close()
         } catch (throwable: Throwable) {
             debug(throwable)
@@ -127,50 +117,44 @@ class Dagr() : Listener {
         }
     }
 
+    internal fun timeout(): Int {
+        return timeout
+    }
 
-    @OptIn(ExperimentalAtomicApi::class)
-    override fun close(connection: Connection) {
-        if (connection.incoming()) {
-            incoming.remove(connection)
-        } else {
-            outgoing.remove(connection)
-        }
+    internal fun closed(connection: Connection) {
+        incoming.remove(connection)
     }
 
 
-    suspend fun connect(remoteAddress: java.net.InetSocketAddress): ClientConnection? {
-
-        var socket: Socket? = null
-        try {
-            val isa = InetSocketAddress(
-                remoteAddress.hostname, remoteAddress.port
-            )
-
-            socket = aSocket(selectorManager)
-                .tcp().connect(isa) {
-                    socketTimeout =
-                        5.toDuration(DurationUnit.SECONDS).inWholeMilliseconds
-                }
-
-            val connection = ClientConnection(socket, this)
-
-            outgoing.add(connection)
-            return connection
-
-        } catch (throwable: Throwable) {
-            debug("Connection failed " + remoteAddress + " " + throwable.message)
-            socket?.close()
-        }
-        return null
-    }
 }
 
-
 suspend fun connectDagr(
-    remoteAddress: java.net.InetSocketAddress
+    remoteAddress: java.net.InetSocketAddress,
+    timeout: Int = 5
 ): ClientConnection? {
-    val dagr = Dagr()
-    return dagr.connect(remoteAddress)
+
+    val selectorManager = SelectorManager(Dispatchers.IO)
+    var socket: Socket? = null
+    try {
+        val isa = InetSocketAddress(
+            remoteAddress.hostname, remoteAddress.port
+        )
+
+        socket = aSocket(selectorManager)
+            .tcp().connect(isa) {
+                socketTimeout =
+                    timeout.toDuration(DurationUnit.SECONDS).inWholeMilliseconds
+            }
+
+        return ClientConnection(selectorManager, socket)
+
+
+    } catch (throwable: Throwable) {
+        debug("Connection failed " + remoteAddress + " " + throwable.message)
+        socket?.close()
+        selectorManager.close()
+    }
+    return null
 }
 
 

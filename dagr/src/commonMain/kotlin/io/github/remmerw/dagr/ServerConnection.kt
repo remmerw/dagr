@@ -1,9 +1,9 @@
 package io.github.remmerw.dagr
 
 import io.ktor.network.sockets.Socket
+import io.ktor.network.sockets.isClosed
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
-import io.ktor.network.sockets.port
 import io.ktor.utils.io.cancel
 import io.ktor.utils.io.close
 import io.ktor.utils.io.readLong
@@ -19,7 +19,7 @@ import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 open class ServerConnection(
     private val socket: Socket,
     private val acceptor: Acceptor,
-    private val listener: Listener
+    private val dagr: Dagr
 ) : Writer, Connection {
     @Volatile
     private var lastActive: ValueTimeMark = TimeSource.Monotonic.markNow()
@@ -43,13 +43,12 @@ open class ServerConnection(
 
     @OptIn(ExperimentalAtomicApi::class)
     val isClosed: Boolean
-        get() = closed.load()
+        get() = closed.load() || socket.isClosed || inactive()
 
     suspend fun reading() {
-        lastActive = TimeSource.Monotonic.markNow()
-
         while (!isClosed) {
             try {
+                lastActive = TimeSource.Monotonic.markNow()
                 val request = receiveChannel.readLong()
                 require(request >= 0) { "Invalid read token received" }
 
@@ -64,6 +63,9 @@ open class ServerConnection(
         }
     }
 
+    fun inactive(): Boolean {
+        return lastActive.elapsedNow().inWholeMilliseconds > (dagr.timeout() * 1000)
+    }
 
     @OptIn(ExperimentalAtomicApi::class)
     override fun close() {
@@ -74,7 +76,7 @@ open class ServerConnection(
                 debug(throwable)
             }
             try {
-                listener.close(this)
+                dagr.closed(this)
             } catch (throwable: Throwable) {
                 debug(throwable)
             }
@@ -89,13 +91,5 @@ open class ServerConnection(
                 debug(throwable)
             }
         }
-    }
-
-    override fun localPort(): Int {
-        return socket.localAddress.port()
-    }
-
-    override fun incoming(): Boolean {
-        return true
     }
 }
