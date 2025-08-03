@@ -23,7 +23,7 @@ class ParallelTest {
 
         val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
 
-        val server = newDagr(0, object : Acceptor {
+        val server = newDagr( acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 1)
                 val buffer = Buffer()

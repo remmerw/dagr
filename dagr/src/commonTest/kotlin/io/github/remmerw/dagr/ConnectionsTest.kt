@@ -13,7 +13,7 @@ class ConnectionsTest {
     fun connections(): Unit = runBlocking(Dispatchers.IO) {
 
 
-        val server = newDagr(0, object : Acceptor {
+        val server = newDagr(0, 5, object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
             }
         })

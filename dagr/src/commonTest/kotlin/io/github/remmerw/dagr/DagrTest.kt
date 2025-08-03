@@ -19,7 +19,7 @@ class DagrTest {
 
         val serverData = "Moin".encodeToByteArray()
 
-        val server = newDagr(0, object : Acceptor {
+        val server = newDagr(0, 5, object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
 
 
@@ -57,7 +57,7 @@ class DagrTest {
 
         val serverData = Random.nextBytes(Short.MAX_VALUE.toInt())
 
-        val server = newDagr(0, object : Acceptor {
+        val server = newDagr(acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 0L)
                 val buffer = Buffer()
