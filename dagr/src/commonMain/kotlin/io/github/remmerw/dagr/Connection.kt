@@ -173,7 +173,7 @@ open class Connection(
         )
 
         if (shouldBeAcked) {
-            packetSent(packetNumber, packet)
+            packetSend(packetNumber, packet)
         }
         socket.send(datagram)
     }
@@ -215,7 +215,7 @@ open class Connection(
                         "Invalid length for ack frame"
                     }
                     val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                    processAckFrameReceived(pn)
+                    ackFrameReceived(pn)
                     remotePacketTimeStamp()
                 }
 
@@ -234,6 +234,9 @@ open class Connection(
                         data, Settings.DATAGRAM_MIN_SIZE,
                         Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
                     )
+
+                    // reset sending log
+                    resetSendLog()
 
                     acceptor.request(this, request.readLong())
 

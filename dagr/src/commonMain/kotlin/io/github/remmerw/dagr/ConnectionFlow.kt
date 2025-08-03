@@ -8,7 +8,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 abstract class ConnectionFlow(private val incoming: Boolean) {
 
-    private val packetSentLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
+    private val sendLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
 
     private val largestAcked: AtomicLong = AtomicLong(-1L)
 
@@ -21,7 +21,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
         return incoming
     }
 
-    internal fun processAckFrameReceived(packetNumber: Long) {
+    internal fun ackFrameReceived(packetNumber: Long) {
 
         largestAcked.updateAndGet { oldValue ->
             if (packetNumber > oldValue) {
@@ -31,15 +31,18 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
             }
         }
 
-        packetSentLog.remove(packetNumber)
+        sendLog.remove(packetNumber)
 
+    }
 
+    internal fun resetSendLog() {
+        sendLog.clear()
     }
 
     @OptIn(ExperimentalAtomicApi::class)
     internal open fun terminate() {
         isStopped.store(true)
-        packetSentLog.clear()
+        resetSendLog()
     }
 
     internal abstract fun sendPacket(
@@ -54,9 +57,9 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
             return 0
         }
         var result = 0
-        packetSentLog.keys.forEach { pn ->
-            if (pnTooOld(pn)) {
-                val packet = packetSentLog.remove(pn)
+        sendLog.keys.forEach { pn ->
+            if (packetTooOld(pn)) {
+                val packet = sendLog.remove(pn)
                 if (packet != null) {
                     result++
                     sendPacket(pn, packet, !incoming())
@@ -67,7 +70,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
     }
 
 
-    private fun pnTooOld(pn: Long): Boolean {
+    private fun packetTooOld(pn: Long): Boolean {
         if (pn < largestAcked.get()) {
             debug("Loss too old packet $pn")
             return true
@@ -77,12 +80,12 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
 
 
     @OptIn(ExperimentalAtomicApi::class)
-    internal fun packetSent(packetNumber: Long, packet: ByteArray) {
+    internal fun packetSend(packetNumber: Long, packet: ByteArray) {
         if (isStopped.load()) {
             return
         }
 
-        packetSentLog[packetNumber] = packet
+        sendLog[packetNumber] = packet
 
     }
 
