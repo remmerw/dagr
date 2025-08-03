@@ -158,8 +158,8 @@ suspend fun connectDagr(
 }
 
 
-suspend fun newDagr(port: Int = 0, acceptor: Acceptor): Dagr {
-    val dagr = Dagr()
+suspend fun newDagr(port: Int = 0, timeout: Int = 5, acceptor: Acceptor): Dagr {
+    val dagr = Dagr(timeout)
     dagr.startup(port, acceptor)
     return dagr
 }
