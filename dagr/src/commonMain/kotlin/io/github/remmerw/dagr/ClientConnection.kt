@@ -47,7 +47,6 @@ open class ClientConnection(
                 socket.close()
             } catch (_: Throwable) {
             }
-
         }
     }
 
