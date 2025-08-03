@@ -11,11 +11,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.SocketException
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.random.Random
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -41,20 +39,23 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
         return socket!!.localAddress.port()
     }
 
-    fun punching(remoteAddress: java.net.InetSocketAddress): Boolean {
-        val socket = DatagramSocket()
+    suspend fun punching(remoteAddress: java.net.InetSocketAddress) {
+
         try {
-            val datagram = DatagramPacket(
-                Random.nextBytes(1200),
-                1200, remoteAddress
+            val isa = InetSocketAddress(
+                remoteAddress.hostname, remoteAddress.port
             )
-            socket.send(datagram)
-            return true
-        } catch (throwable: Throwable) {
-            debug("Error Punching " + throwable.message)
-            return false
-        } finally {
-            socket.close()
+
+            aSocket(selectorManager)
+                .tcp().connect(isa) {
+                    socketTimeout =
+                        1.toDuration(DurationUnit.SECONDS).inWholeMilliseconds
+                }.use { socket ->
+                    socket.close()
+                }
+
+        } catch (_: Throwable) {
+            // nothing to do here
         }
     }
 
@@ -80,6 +81,7 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
                 }
             } catch (_: InterruptedException) {
             } catch (_: SocketException) {
+            } catch (_: CancellationException) {
             } catch (throwable: Throwable) {
                 debug(throwable)
                 shutdown()

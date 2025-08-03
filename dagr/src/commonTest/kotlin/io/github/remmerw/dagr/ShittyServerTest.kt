@@ -32,8 +32,8 @@ class ShittyServerTest {
             val sink = Buffer()
             connection.request(0, sink)
             fail("Exception expected")
-        } catch (throwable: Throwable) {
-            println("Expected " + throwable.message)
+        } catch (_: Throwable) {
+            // ignore
         }
 
         connection.close()

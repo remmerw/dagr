@@ -5,7 +5,6 @@ import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
-import kotlin.test.assertTrue
 
 class PunchingTest {
 
@@ -30,8 +29,7 @@ class PunchingTest {
         val clientAddress = InetSocketAddress(
             InetAddress.getLoopbackAddress(), connection.localPort()
         )
-
-        assertTrue(server.punching(clientAddress))
+        server.punching(clientAddress)
 
         connection.close()
         server.shutdown()
