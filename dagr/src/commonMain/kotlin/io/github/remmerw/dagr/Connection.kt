@@ -5,10 +5,9 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.SocketException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.Volatile
-import kotlin.concurrent.atomics.AtomicLong
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.TimeSource
 
 open class Connection(
@@ -19,7 +18,10 @@ open class Connection(
     val listener: Listener
 ) : ConnectionData(incoming), AutoCloseable {
 
-    @OptIn(ExperimentalAtomicApi::class)
+    private val sendLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
+
+    private val largestAcked: AtomicLong = AtomicLong(-1L)
+
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
 
     @Volatile
@@ -29,6 +31,7 @@ open class Connection(
     private var state = State.Created
     private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
     private var remotePacketNumber: Long = Settings.PAKET_OFFSET // no concurrency
+
 
     private fun packetProtector(packetNumber: Long): Boolean {
 
@@ -100,7 +103,6 @@ open class Connection(
         get() = state.isConnected
 
 
-    @OptIn(ExperimentalAtomicApi::class)
     private fun sendAck(packetNumber: Long) {
         val packet = createAckPacket(packetNumber)
         sendPacket(2, packet, false)
@@ -109,6 +111,7 @@ open class Connection(
 
     override fun terminate() {
         super.terminate()
+        resetSendLog()
         state(State.Closed)
         try {
             listener.close(this)
@@ -125,8 +128,6 @@ open class Connection(
         terminate()
     }
 
-
-    @OptIn(ExperimentalAtomicApi::class)
     private fun checkIdle() {
         if (remotePacketTimeStamp.elapsedNow().inWholeMilliseconds >
             Settings.IDLE_TIMEOUT.toLong()
@@ -141,13 +142,11 @@ open class Connection(
         }
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
     private fun remotePacketTimeStamp() {
         remotePacketTimeStamp = TimeSource.Monotonic.markNow()
     }
 
 
-    @OptIn(ExperimentalAtomicApi::class)
     internal fun maintenance(): Int {
         try {
             val lost = detectLostPackets()
@@ -178,11 +177,9 @@ open class Connection(
         socket.send(datagram)
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
     override fun fetchPacketNumber(): Long {
-        return localPacketNumber.incrementAndFetch()
+        return localPacketNumber.incrementAndGet()
     }
-
 
     internal fun processDatagram(
         type: Byte,
@@ -265,5 +262,52 @@ open class Connection(
             debug(throwable)
             terminate()
         }
+    }
+
+
+    internal fun ackFrameReceived(packetNumber: Long) {
+
+        largestAcked.updateAndGet { oldValue ->
+            if (packetNumber > oldValue) {
+                packetNumber
+            } else {
+                oldValue
+            }
+        }
+
+        sendLog.remove(packetNumber)
+
+    }
+
+    internal fun resetSendLog() {
+        sendLog.clear()
+    }
+
+    internal fun detectLostPackets(): Int {
+        var result = 0
+        sendLog.keys.forEach { pn ->
+            if (packetTooOld(pn)) {
+                val packet = sendLog.remove(pn)
+                if (packet != null) {
+                    result++
+                    sendPacket(pn, packet, !incoming())
+                }
+            }
+        }
+        return result
+    }
+
+
+    private fun packetTooOld(pn: Long): Boolean {
+        if (pn < largestAcked.get()) {
+            debug("Loss too old packet $pn")
+            return true
+        }
+        return false
+    }
+
+    internal fun packetSend(packetNumber: Long, packet: ByteArray) {
+        sendLog[packetNumber] = packet
+
     }
 }

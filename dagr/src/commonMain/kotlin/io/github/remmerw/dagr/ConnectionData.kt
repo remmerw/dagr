@@ -6,14 +6,20 @@ import kotlinx.io.readByteArray
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-abstract class ConnectionData(incoming: Boolean) :
-    ConnectionFlow(incoming), Writer {
+abstract class ConnectionData(private val incoming: Boolean) : Writer {
 
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
 
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val pipe = Pipe()
     private val lock = ReentrantLock()
+
+
+    internal abstract fun sendPacket(
+        packetNumber: Long,
+        packet: ByteArray,
+        shouldBeAcked: Boolean
+    )
 
     private fun createRequest(request: Long) {
         val packetNumber = fetchPacketNumber()
@@ -23,6 +29,9 @@ abstract class ConnectionData(incoming: Boolean) :
         )
     }
 
+    fun incoming(): Boolean {
+        return incoming
+    }
 
     override fun writeBuffer(buffer: Buffer) {
         require(buffer.size <= Settings.MAX_SIZE + Int.SIZE_BYTES) {
@@ -61,9 +70,7 @@ abstract class ConnectionData(incoming: Boolean) :
     }
 
 
-    override fun terminate() {
-        super.terminate()
-
+    open fun terminate() {
         try {
             frames.clear()
         } catch (throwable: Throwable) {
