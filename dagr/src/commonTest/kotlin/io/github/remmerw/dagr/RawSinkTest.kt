@@ -1,12 +1,13 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,24 +20,22 @@ class RawSinkTest {
 
     @OptIn(ExperimentalUuidApi::class)
     @Test
-    fun testRawSink() {
+    fun testRawSink(): Unit = runBlocking(Dispatchers.IO) {
 
-        val dataSize = Settings.MAX_SIZE
+        val dataSize = UShort.MAX_VALUE.toInt()
 
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
-                thread {
-                    assertEquals(request, 0L)
+            override suspend fun request(writer: Writer, request: Long) {
 
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
-                }
+                assertEquals(request, 0L)
+
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
+
             }
         }
 
@@ -49,7 +48,7 @@ class RawSinkTest {
         val connection =
             assertNotNull(
                 connectDagr(
-                    remoteAddress, 1
+                    remoteAddress
                 )
             )
 

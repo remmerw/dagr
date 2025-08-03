@@ -1,21 +1,22 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
-import kotlin.test.assertNotNull
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PunchingTest {
 
     @Test
-    fun testPunching() {
+    fun testPunching(): Unit = runBlocking(Dispatchers.IO) {
 
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
+            override suspend fun request(writer: Writer, request: Long) {
+
             }
         }
 
@@ -25,18 +26,13 @@ class PunchingTest {
         )
 
 
-        val connection = assertNotNull(
-            connectDagr(
-                remoteAddress, 1
-            )
-        )
+        val connection = connectDagr(remoteAddress)!!
 
         val clientAddress = InetSocketAddress(
             InetAddress.getLoopbackAddress(), connection.localPort()
         )
-        assertTrue(server.punching(clientAddress))
-        Thread.sleep(1000) // Note: punch try is visible via debug output
 
+        assertTrue(server.punching(clientAddress))
 
         connection.close()
         server.shutdown()

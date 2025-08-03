@@ -1,5 +1,8 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
@@ -7,7 +10,6 @@ import java.net.InetSocketAddress
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -17,14 +19,12 @@ class ParallelTest {
 
     @OptIn(ExperimentalAtomicApi::class)
     @Test
-    fun testParallelDagr() {
+    fun testParallelDagr(): Unit = runBlocking(Dispatchers.IO) {
 
-        val serverData = Random.nextBytes(Settings.MAX_SIZE)
+        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
+            override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 1)
                 val buffer = Buffer()
                 buffer.writeInt(serverData.size)
@@ -39,9 +39,9 @@ class ParallelTest {
             InetAddress.getLoopbackAddress(), server.localPort()
         )
 
-        val connection = connectDagr(remoteAddress, 1)!!
+        val connection = connectDagr(remoteAddress)!!
         val failed = AtomicInt(0)
-        val a = thread {
+        val a = launch {
             repeat(100) {
                 try {
                     val buffer = Buffer()
@@ -54,7 +54,7 @@ class ParallelTest {
             }
         }
 
-        val b = thread {
+        val b = launch {
             repeat(100) {
                 try {
                     val buffer = Buffer()

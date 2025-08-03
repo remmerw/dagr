@@ -1,10 +1,11 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import kotlin.concurrent.thread
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -14,14 +15,12 @@ import kotlin.test.assertNotNull
 class DagrTest {
 
     @Test
-    fun testDagr() {
+    fun testDagr(): Unit = runBlocking(Dispatchers.IO) {
 
         val serverData = "Moin".encodeToByteArray()
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
+            override suspend fun request(writer: Writer, request: Long) {
 
 
                 assertEquals(request, 1)
@@ -40,7 +39,7 @@ class DagrTest {
             InetAddress.getLoopbackAddress(), server.localPort()
         )
 
-        val connection = connectDagr(remoteAddress, 1)!!
+        val connection = connectDagr(remoteAddress)!!
 
 
         val buffer = Buffer()
@@ -53,24 +52,18 @@ class DagrTest {
 
 
     @Test
-    fun testDagrMoreReply() {
+    fun testDagrMoreReply(): Unit = runBlocking(Dispatchers.IO) {
 
 
         val serverData = Random.nextBytes(Short.MAX_VALUE.toInt())
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
-                thread {
-
-                    assertEquals(request, 0L)
-                    val buffer = Buffer()
-                    buffer.writeInt(serverData.size)
-                    buffer.write(serverData)
-                    writer.writeBuffer(buffer)
-
-                }
+            override suspend fun request(writer: Writer, request: Long) {
+                assertEquals(request, 0L)
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
             }
         }
 
@@ -81,7 +74,7 @@ class DagrTest {
 
         val connection =
             assertNotNull(
-                connectDagr(remoteAddress, 1)
+                connectDagr(remoteAddress)
             )
 
         val sink = Buffer()

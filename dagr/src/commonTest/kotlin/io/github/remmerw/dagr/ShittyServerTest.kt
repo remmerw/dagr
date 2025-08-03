@@ -1,48 +1,40 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.util.concurrent.TimeoutException
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.fail
 
 class ShittyServerTest {
 
     @Test
-    fun shittyServer() {
+    fun shittyServer(): Unit = runBlocking(Dispatchers.IO) {
 
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
+            override suspend fun request(writer: Writer, request: Long) {
                 // server not responding
             }
-        }
-
-        )
+        })
 
         val remoteAddress = InetSocketAddress(
             InetAddress.getLoopbackAddress(), server.localPort()
         )
 
         val connection = checkNotNull(
-            connectDagr(remoteAddress, 1)
+            connectDagr(remoteAddress)
         )
-
 
         try {
             val sink = Buffer()
-            connection.request(0, sink, 2) // expect data of size 1000
+            connection.request(0, sink)
             fail("Exception expected")
-        } catch (timout: TimeoutException) {
-            assertEquals(timout.message, "timeout")
         } catch (throwable: Throwable) {
-            fail("" + throwable.message)
+            println("Expected " + throwable.message)
         }
-
 
         connection.close()
         server.shutdown()

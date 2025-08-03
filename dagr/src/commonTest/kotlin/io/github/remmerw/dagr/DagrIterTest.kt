@@ -1,5 +1,7 @@
 package io.github.remmerw.dagr
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import java.net.InetAddress
@@ -14,16 +16,14 @@ class DagrIterTest {
 
 
     @Test
-    fun testDagrIter() {
+    fun testDagrIter(): Unit = runBlocking(Dispatchers.IO) {
 
         val dataSize = Short.MAX_VALUE.toInt()
 
         var serverData: ByteArray? = null
 
         val server = newDagr(0, object : Acceptor {
-            override fun request(
-                writer: Writer, request: Long
-            ) {
+            override suspend fun request(writer: Writer, request: Long) {
 
                 assertEquals(request, 0L)
                 serverData = Random.nextBytes(dataSize)
@@ -44,7 +44,7 @@ class DagrIterTest {
         val connection =
             assertNotNull(
                 connectDagr(
-                    remoteAddress, 1
+                    remoteAddress
                 )
             )
 

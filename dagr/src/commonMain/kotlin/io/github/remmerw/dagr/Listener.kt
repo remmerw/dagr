@@ -2,16 +2,19 @@ package io.github.remmerw.dagr
 
 import kotlinx.io.Buffer
 
+interface Connection : AutoCloseable {
+    fun incoming(): Boolean
+    fun localPort(): Int
+}
 
 interface Listener {
     fun close(connection: Connection)
-    fun connected(connection: Connection)
 }
 
 interface Writer {
-    fun writeBuffer(buffer: Buffer)
+    suspend fun writeBuffer(buffer: Buffer)
 }
 
 interface Acceptor {
-    fun request(writer: Writer, request: Long)
+    suspend fun request(writer: Writer, request: Long)
 }
