@@ -7,7 +7,7 @@
 </div>
 
 ## Dagr
-UDP Client-Server API (Simulates the TCP protocol implemented with UDP)
+TCP Client-Server API 
 
 
 
