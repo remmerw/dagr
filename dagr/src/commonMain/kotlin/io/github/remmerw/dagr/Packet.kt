@@ -19,12 +19,14 @@ internal fun parseLong(data: ByteArray, startIndex: Int): Long {
 
 
 internal fun createAckPacket(
-    packet: Long
+    packet: Long,
+    processed: Long,
 ): ByteArray {
     val buffer = Buffer()
     buffer.writeByte(ACK)
     buffer.writeLong(2)
     buffer.writeLong(packet)
+    buffer.writeLong(processed)
     return buffer.readByteArray()
 }
 

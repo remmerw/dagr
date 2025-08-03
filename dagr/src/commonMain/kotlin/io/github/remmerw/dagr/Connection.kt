@@ -18,8 +18,8 @@ open class Connection(
     private val incoming: Boolean,
     private val socket: DatagramSocket,
     private val remoteAddress: InetSocketAddress,
-    val acceptor: Acceptor,
-    val listener: Listener
+    private val acceptor: Acceptor,
+    private val listener: Listener
 ) : Writer, AutoCloseable {
 
     private val sendLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
@@ -27,65 +27,14 @@ open class Connection(
     private val localPacketNumber: AtomicLong = AtomicLong(Settings.PAKET_OFFSET)
 
     @Volatile
-    private var remotePacketTimeStamp = TimeSource.Monotonic.markNow()
+    private var idleTimeStamp = TimeSource.Monotonic.markNow()
 
     @Volatile
     private var state = State.Created
-    private val missingPackets: MutableSet<Long> = mutableSetOf() // no concurrency
-    private var remotePacketNumber: Long = Settings.PAKET_OFFSET // no concurrency
     private val frames: MutableMap<Long, ByteArray> = mutableMapOf()// no concurrency
     private var processedPacket: Long = Settings.PAKET_OFFSET // no concurrency
     private val pipe = Pipe()
     private val lock = ReentrantLock()
-
-
-    private fun packetProtector(packetNumber: Long): Boolean {
-
-
-        val oldValue = remotePacketNumber
-        if (packetNumber > remotePacketNumber) {
-            // standard use case [everything is fine]
-            remotePacketNumber = packetNumber
-
-            // just check if there is a gap and add them to missing packets
-
-            val diff = packetNumber - oldValue
-            if (diff > 1) {
-                val newEntries = diff.toInt() - 1 // -1 because of current packetNumber
-
-                debug("New missed packets $newEntries")
-
-                repeat(newEntries) { i ->
-                    missingPackets.add(i + 1 + oldValue) // + 1 because zero based
-                }
-
-                // check if missingPackets is bigger then 25 (just close the connection)
-                if (missingPackets.size > Settings.MISSED_PACKETS) {
-                    debug("To many missed packets, just closing")
-                    terminate()
-                    return false
-                }
-            }
-
-            return true
-        } else if (packetNumber > Settings.PAKET_OFFSET) {
-            // check if packet number is in the missing packets
-
-            return if (missingPackets.remove(packetNumber)) {
-                // missing packet detected
-                // ack is already send so everything is fine
-                debug("detect a really missing packet $packetNumber")
-                true
-            } else {
-                // a packet with this number has already been send
-                // so no further actions (indicate by the false)
-                debug("packet $packetNumber has already been processed")
-                false
-            }
-        } else {
-            return true
-        }
-    }
 
 
     fun remoteAddress(): InetSocketAddress {
@@ -109,7 +58,7 @@ open class Connection(
 
 
     private fun sendAck(packetNumber: Long) {
-        val packet = createAckPacket(packetNumber)
+        val packet = createAckPacket(packetNumber, processedPacket)
         sendPacket(2, packet, false)
     }
 
@@ -148,12 +97,12 @@ open class Connection(
     }
 
     private fun checkIdle() {
-        if (remotePacketTimeStamp.elapsedNow().inWholeMilliseconds >
+        if (idleTimeStamp.elapsedNow().inWholeMilliseconds >
             Settings.IDLE_TIMEOUT.toLong()
         ) {
 
             // just tor prevent that another close is scheduled
-            remotePacketTimeStamp = TimeSource.Monotonic.markNow()
+            idleTimeStamp = TimeSource.Monotonic.markNow()
 
             debug("Idle timeout: silently closing connection $remoteAddress")
 
@@ -161,8 +110,8 @@ open class Connection(
         }
     }
 
-    private fun remotePacketTimeStamp() {
-        remotePacketTimeStamp = TimeSource.Monotonic.markNow()
+    private fun idleTimeStamp() {
+        idleTimeStamp = TimeSource.Monotonic.markNow()
     }
 
 
@@ -194,6 +143,7 @@ open class Connection(
             packetSend(packetNumber, packet)
         }
         socket.send(datagram)
+        idleTimeStamp()
     }
 
     fun fetchPacketNumber(): Long {
@@ -209,7 +159,7 @@ open class Connection(
             if (state().isClosed) {
                 return
             }
-
+            idleTimeStamp()
             val packetNumber = parseLong(data, 1)
 
             if (state() == State.Created) {
@@ -222,17 +172,20 @@ open class Connection(
                     require(incoming()) { "only for incoming connections" }
                     require(packetNumber == 1L) { "Invalid packet number Ignore Packet" }
                     sendAck(packetNumber)
-                    remotePacketTimeStamp()
                 }
 
                 ACK -> { // ack frame
                     require(packetNumber == 2L) { "Invalid packet number Ignore Packet" }
-                    require(length == (Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES)) {
+                    require(length == (Settings.DATAGRAM_MIN_SIZE + (2 * Long.SIZE_BYTES))) {
                         "Invalid length for ack frame"
                     }
                     val pn = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
-                    ackFrameReceived(pn)
-                    remotePacketTimeStamp()
+                    val processed = parseLong(
+                        data,
+                        Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
+                    )
+                    ackReceived(pn, processed)
+
                 }
 
                 REQUEST -> {
@@ -240,36 +193,26 @@ open class Connection(
 
                     sendAck(packetNumber)
 
-                    val request = Buffer()
-
                     require(length == Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES) {
                         "invalid size of request"
                     }
 
-                    request.write(
-                        data, Settings.DATAGRAM_MIN_SIZE,
-                        Settings.DATAGRAM_MIN_SIZE + Long.SIZE_BYTES
-                    )
+                    val request = parseLong(data, Settings.DATAGRAM_MIN_SIZE)
 
                     // reset sending log
                     resetSendLog()
+                    acceptor.request(this, request)
 
-                    acceptor.request(this, request.readLong())
-
-                    remotePacketTimeStamp()
 
                 }
 
                 DATA -> { // data frame
                     require(!incoming()) { "Data coming only from outgoing connections" }
                     sendAck(packetNumber)
-                    if (packetProtector(packetNumber)) {
-                        processData(
-                            packetNumber, data,
-                            Settings.DATAGRAM_MIN_SIZE, length
-                        )
-                        remotePacketTimeStamp()
-                    }
+                    processData(
+                        packetNumber, data,
+                        Settings.DATAGRAM_MIN_SIZE, length
+                    )
                 }
 
                 else -> {
@@ -284,7 +227,7 @@ open class Connection(
     }
 
 
-    internal fun ackFrameReceived(packetNumber: Long) {
+    internal fun ackReceived(packetNumber: Long, processed: Long) {
 
         largestAcked.updateAndGet { oldValue ->
             if (packetNumber > oldValue) {
@@ -295,6 +238,14 @@ open class Connection(
         }
 
         sendLog.remove(packetNumber)
+
+        sendLog.keys.forEach { pn ->
+            if (pn >= Settings.PAKET_OFFSET) {
+                if (pn <= processed) {
+                    sendLog.remove(pn)
+                }
+            }
+        }
 
     }
 
