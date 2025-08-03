@@ -1,6 +1,7 @@
 package io.github.remmerw.dagr
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -23,7 +24,7 @@ class TimeoutTest {
         )
 
         val connection = connectDagr(remoteAddress)!!
-
+        delay(20)
 
         assertEquals(server.numIncomingConnections(), 1)
 

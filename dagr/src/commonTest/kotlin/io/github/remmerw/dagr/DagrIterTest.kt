@@ -22,7 +22,7 @@ class DagrIterTest {
 
         var serverData: ByteArray? = null
 
-        val server = newDagr(0, 5,object : Acceptor {
+        val server = newDagr(0, 5, object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
 
                 assertEquals(request, 0L)

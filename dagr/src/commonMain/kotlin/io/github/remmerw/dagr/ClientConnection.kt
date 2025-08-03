@@ -12,6 +12,7 @@ import io.ktor.utils.io.writeLong
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.RawSink
+import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 open class ClientConnection(
@@ -22,6 +23,8 @@ open class ClientConnection(
     private val receiveChannel = socket.openReadChannel()
     private val sendChannel = socket.openWriteChannel(autoFlush = true)
 
+    @OptIn(ExperimentalAtomicApi::class)
+    private val closed = AtomicBoolean(false)
     private val mutex = Mutex()
 
     fun localPort(): Int {
@@ -30,20 +33,21 @@ open class ClientConnection(
 
     @OptIn(ExperimentalAtomicApi::class)
     val isClosed: Boolean
-        get() = socket.isClosed
+        get() = closed.load() || socket.isClosed
 
 
     @OptIn(ExperimentalAtomicApi::class)
     override fun close() {
-        try {
-            socket.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
-        try {
-            selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
+        if (!closed.exchange(true)) {
+            try {
+                selectorManager.close()
+            } catch (_: Throwable) {
+            }
+            try {
+                socket.close()
+            } catch (_: Throwable) {
+            }
+
         }
     }
 

@@ -4,8 +4,6 @@ import io.ktor.network.sockets.Socket
 import io.ktor.network.sockets.isClosed
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
-import io.ktor.utils.io.cancel
-import io.ktor.utils.io.close
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeBuffer
 import kotlinx.coroutines.yield
@@ -35,8 +33,7 @@ open class ServerConnection(
         try {
             sendChannel.writeBuffer(buffer)
             yield()
-        } catch (throwable: Throwable) {
-            println("Connection.writeBuffer " + throwable.message)
+        } catch (_: Throwable) {
             close()
         }
     }
@@ -55,8 +52,7 @@ open class ServerConnection(
                 acceptor.request(this, request)
 
                 yield()
-            } catch (throwable: Throwable) {
-                println("Connection.reading " + throwable.message)
+            } catch (_: Throwable) {
                 close()
                 break
             }
@@ -72,21 +68,10 @@ open class ServerConnection(
         if (!closed.exchange(true)) {
             try {
                 socket.close()
-            } catch (throwable: Throwable) {
-                debug(throwable)
+            } catch (_: Throwable) {
             }
             try {
                 dagr.closed(this)
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
-            try {
-                receiveChannel.cancel()
-            } catch (throwable: Throwable) {
-                debug(throwable)
-            }
-            try {
-                sendChannel.close(Exception("Connection closed"))
             } catch (throwable: Throwable) {
                 debug(throwable)
             }

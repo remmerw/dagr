@@ -19,7 +19,7 @@ import kotlin.random.Random
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-class Dagr(private val timeout: Int = 5) {
+class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
 
     private val selectorManager = SelectorManager(Dispatchers.IO)
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -99,22 +99,21 @@ class Dagr(private val timeout: Int = 5) {
         }
 
         try {
+            scope.cancel()
+        } catch (_: Throwable) {
+        }
+
+        try {
             selectorManager.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
+        } catch (_: Throwable) {
         }
 
         try {
             socket?.close()
-        } catch (throwable: Throwable) {
-            debug(throwable)
+        } catch (_: Throwable) {
         }
 
-        try {
-            scope.cancel()
-        } catch (throwable: Throwable) {
-            debug(throwable)
-        }
+
     }
 
     internal fun timeout(): Int {
@@ -130,7 +129,7 @@ class Dagr(private val timeout: Int = 5) {
 
 suspend fun connectDagr(
     remoteAddress: java.net.InetSocketAddress,
-    timeout: Int = 5
+    timeout: Int = SOCKET_TIMEOUT
 ): ClientConnection? {
 
     val selectorManager = SelectorManager(Dispatchers.IO)
@@ -158,11 +157,13 @@ suspend fun connectDagr(
 }
 
 
-suspend fun newDagr(port: Int = 0, timeout: Int = 5, acceptor: Acceptor): Dagr {
+suspend fun newDagr(port: Int = 0, timeout: Int = SOCKET_TIMEOUT, acceptor: Acceptor): Dagr {
     val dagr = Dagr(timeout)
     dagr.startup(port, acceptor)
     return dagr
 }
+
+const val SOCKET_TIMEOUT = 5
 
 
 fun debug(message: String) {
