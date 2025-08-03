@@ -2,8 +2,6 @@ package io.github.remmerw.dagr
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
 abstract class ConnectionFlow(private val incoming: Boolean) {
@@ -11,11 +9,6 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
     private val sendLog: MutableMap<Long, ByteArray> = ConcurrentHashMap()
 
     private val largestAcked: AtomicLong = AtomicLong(-1L)
-
-
-    @OptIn(ExperimentalAtomicApi::class)
-    private val isStopped = AtomicBoolean(false)
-
 
     fun incoming(): Boolean {
         return incoming
@@ -39,9 +32,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
         sendLog.clear()
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
     internal open fun terminate() {
-        isStopped.store(true)
         resetSendLog()
     }
 
@@ -51,11 +42,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
         shouldBeAcked: Boolean
     )
 
-    @OptIn(ExperimentalAtomicApi::class)
     internal fun detectLostPackets(): Int {
-        if (isStopped.load()) {
-            return 0
-        }
         var result = 0
         sendLog.keys.forEach { pn ->
             if (packetTooOld(pn)) {
@@ -78,13 +65,7 @@ abstract class ConnectionFlow(private val incoming: Boolean) {
         return false
     }
 
-
-    @OptIn(ExperimentalAtomicApi::class)
     internal fun packetSend(packetNumber: Long, packet: ByteArray) {
-        if (isStopped.load()) {
-            return
-        }
-
         sendLog[packetNumber] = packet
 
     }
