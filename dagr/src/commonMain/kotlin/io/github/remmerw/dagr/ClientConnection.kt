@@ -6,7 +6,9 @@ import io.ktor.network.sockets.isClosed
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
 import io.ktor.network.sockets.port
-import io.ktor.utils.io.readBuffer
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.InternalAPI
+import io.ktor.utils.io.core.remaining
 import io.ktor.utils.io.readInt
 import io.ktor.utils.io.writeLong
 import kotlinx.coroutines.sync.Mutex
@@ -55,8 +57,7 @@ open class ClientConnection(
             try {
                 sendChannel.writeLong(request)
                 val count = receiveChannel.readInt()
-                val source = receiveChannel.readBuffer(count)
-                sink.write(source, source.size)
+                receiveChannel.readTo(sink, count.toLong())
                 return count
             } catch (throwable: Throwable) {
                 close()
@@ -65,3 +66,19 @@ open class ClientConnection(
         }
     }
 }
+
+
+@OptIn(InternalAPI::class)
+suspend fun ByteReadChannel.readTo(sink: RawSink, byteCount: Long) {
+
+    var remaining = byteCount
+
+    while (remaining > 0 && !isClosedForRead) {
+        if (readBuffer.exhausted()) awaitContent()
+
+        val size = minOf(remaining, readBuffer.remaining)
+        readBuffer.readTo(sink, size)
+        remaining -= size.toInt()
+    }
+}
+
