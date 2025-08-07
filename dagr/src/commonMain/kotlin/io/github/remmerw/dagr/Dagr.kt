@@ -11,12 +11,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.SocketException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.random.Random
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -40,24 +37,6 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
     // only after startup valid
     fun localPort(): Int {
         return socket!!.localAddress.port()
-    }
-
-    fun punching(remoteAddress: java.net.InetSocketAddress): Boolean {
-        try {
-            val port = localPort()
-            DatagramSocket(port).use { socket ->
-                socket.reuseAddress = true
-                val datagram = DatagramPacket(
-                    Random.nextBytes(1200),
-                    1200, remoteAddress
-                )
-                socket.send(datagram)
-                return true
-            }
-        } catch (throwable: Throwable) {
-            debug("Error Punching " + throwable.message)
-            return false
-        }
     }
 
 
