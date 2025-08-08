@@ -19,17 +19,14 @@ class DagrTest {
 
         val serverData = "Moin".encodeToByteArray()
 
-        val server = newDagr(port = 0, timeout = 5,  acceptor = object : Acceptor {
+        val server = newDagr(port = 0, timeout = 5, acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
 
                 assertEquals(request, 1)
 
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
-
-
+                writer.writeBuffer(buffer, serverData.size)
             }
         })
 
@@ -60,9 +57,8 @@ class DagrTest {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 0L)
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
+                writer.writeBuffer(buffer, serverData.size)
             }
         }
 

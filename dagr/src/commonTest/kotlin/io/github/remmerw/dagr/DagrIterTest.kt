@@ -28,9 +28,8 @@ class DagrIterTest {
                 assertEquals(request, 0L)
                 serverData = Random.nextBytes(dataSize)
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
+                writer.writeBuffer(buffer, dataSize)
 
             }
         }

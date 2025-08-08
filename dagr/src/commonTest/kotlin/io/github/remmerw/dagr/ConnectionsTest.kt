@@ -25,9 +25,8 @@ class ConnectionsTest {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 0L)
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
+                writer.writeBuffer(buffer, dataSize)
             }
         })
 

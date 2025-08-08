@@ -32,9 +32,8 @@ class RawSinkTest {
                 assertEquals(request, 0L)
 
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
+                writer.writeBuffer(buffer, dataSize)
 
             }
         }

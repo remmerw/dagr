@@ -21,16 +21,15 @@ class ParallelTest {
     @Test
     fun testParallelDagr(): Unit = runBlocking(Dispatchers.IO) {
 
-        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
+        val dataSize = UShort.MAX_VALUE.toInt()
+        val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 1)
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
-
+                writer.writeBuffer(buffer, dataSize)
             }
         })
 

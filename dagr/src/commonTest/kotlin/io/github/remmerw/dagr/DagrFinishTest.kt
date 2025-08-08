@@ -19,17 +19,16 @@ class DagrFinishTest {
     @Test
     fun testFinishServer(): Unit = runBlocking(Dispatchers.IO) {
 
-
-        val serverData = Random.nextBytes(UShort.MAX_VALUE.toInt())
+        val dataSize = Short.MAX_VALUE.toInt()
+        val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(0, acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
                 assertEquals(request, 0L)
 
                 val buffer = Buffer()
-                buffer.writeInt(serverData.size)
                 buffer.write(serverData)
-                writer.writeBuffer(buffer)
+                writer.writeBuffer(buffer, dataSize)
             }
         }
 
