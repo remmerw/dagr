@@ -19,9 +19,8 @@ class DagrTest {
 
         val serverData = "Moin".encodeToByteArray()
 
-        val server = newDagr(0, 5, object : Acceptor {
+        val server = newDagr(port = 0, timeout = 5,  acceptor = object : Acceptor {
             override suspend fun request(writer: Writer, request: Long) {
-
 
                 assertEquals(request, 1)
 

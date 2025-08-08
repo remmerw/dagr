@@ -7,7 +7,7 @@ import io.ktor.network.sockets.openWriteChannel
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeBuffer
 import kotlinx.coroutines.yield
-import kotlinx.io.Buffer
+import kotlinx.io.RawSource
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -28,10 +28,10 @@ open class ServerConnection(
     private val sendChannel = socket.openWriteChannel(autoFlush = true)
 
 
-    override suspend fun writeBuffer(buffer: Buffer) {
+    override suspend fun writeBuffer(source: RawSource) {
         lastActive = TimeSource.Monotonic.markNow()
         try {
-            sendChannel.writeBuffer(buffer)
+            sendChannel.writeBuffer(source)
             yield()
         } catch (_: Throwable) {
             close()

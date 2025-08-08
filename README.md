@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             ...
-            implementation("io.github.remmerw:dagr:0.3.2")
+            implementation("io.github.remmerw:dagr:0.3.3")
         }
         ...
     }
@@ -35,36 +35,31 @@ kotlin {
 
         val serverData = "Moin".encodeToByteArray()
 
-        val server = newDagr(0, object : Acceptor {
-            override suspend fun accept(
-                connection: Connection
-            ) {
+        val server = newDagr(port = 0, timeout = 5,  acceptor = object : Acceptor {
+            override suspend fun request(writer: Writer, request: Long) {
+                
+                assertEquals(request, 1)
 
-                try {
-                    while (true) {
-                        val cid = connection.readInt()
-                        assertEquals(cid, 1)
+                val buffer = Buffer()
+                buffer.writeInt(serverData.size)
+                buffer.write(serverData)
+                writer.writeBuffer(buffer)
 
-                        val buffer = Buffer()
-                        buffer.write(serverData)
-                        connection.writeBuffer(buffer)
-                    }
-                } catch (_: Throwable) {
-                } finally {
-                    connection.close()
-                }
+
             }
         })
-        
-        
-        val remoteAddress = server.localAddress()
 
-        val connection = connectDagr(remoteAddress, 1)!!
 
-        connection.writeInt(1)
+        val remoteAddress = InetSocketAddress(
+            InetAddress.getLoopbackAddress(), server.localPort()
+        )
 
-        val data = connection.readByteArray(serverData.size)
-        assertContentEquals(data, serverData)
+        val connection = connectDagr(remoteAddress)!!
+
+
+        val buffer = Buffer()
+        connection.request(1, buffer)
+        assertContentEquals(buffer.readByteArray(), serverData)
 
         connection.close()
         server.shutdown()

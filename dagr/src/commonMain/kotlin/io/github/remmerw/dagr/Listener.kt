@@ -1,11 +1,11 @@
 package io.github.remmerw.dagr
 
-import kotlinx.io.Buffer
+import kotlinx.io.RawSource
 
 interface Connection : AutoCloseable
 
 interface Writer {
-    suspend fun writeBuffer(buffer: Buffer)
+    suspend fun writeBuffer(source: RawSource)
 }
 
 interface Acceptor {
