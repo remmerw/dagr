@@ -29,7 +29,7 @@ open class ServerConnection(
     private val sendChannel = socket.openWriteChannel(autoFlush = true)
 
 
-    override suspend fun writeBuffer(source: RawSource, length:Int) {
+    override suspend fun writeBuffer(source: RawSource, length: Int) {
         lastActive = TimeSource.Monotonic.markNow()
         try {
             sendChannel.writeInt(length)

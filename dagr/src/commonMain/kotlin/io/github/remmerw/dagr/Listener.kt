@@ -5,7 +5,7 @@ import kotlinx.io.RawSource
 interface Connection : AutoCloseable
 
 interface Writer {
-    suspend fun writeBuffer(source: RawSource, length:Int)
+    suspend fun writeBuffer(source: RawSource, length: Int)
 }
 
 interface Acceptor {
