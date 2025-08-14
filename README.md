@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             ...
-            implementation("io.github.remmerw:dagr:0.3.4")
+            implementation("io.github.remmerw:dagr:0.3.5")
         }
         ...
     }
@@ -36,13 +36,13 @@ kotlin {
         val serverData = "Moin".encodeToByteArray()
 
         val server = newDagr(port = 0, timeout = 5, acceptor = object : Acceptor {
-            override suspend fun request(writer: Writer, request: Long) {
+            override suspend fun request(request: Long): Data {
 
                 assertEquals(request, 1)
 
                 val buffer = Buffer()
                 buffer.write(serverData)
-                writer.writeBuffer(buffer, serverData.size)
+                return Data(buffer, serverData.size)
             }
         })
 
