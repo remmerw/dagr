@@ -36,12 +36,12 @@ class ConnectionsTest {
 
 
         val first = connectDagr(remoteAddress)!!
-        delay(20)
+        delay(30)
         assertEquals(server.numIncomingConnections(), 1)
 
 
         val second = connectDagr(remoteAddress)!!
-        delay(20)
+        delay(30)
         assertEquals(server.numIncomingConnections(), 2)
 
         first.close()
