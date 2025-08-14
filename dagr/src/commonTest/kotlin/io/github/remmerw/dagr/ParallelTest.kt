@@ -25,11 +25,11 @@ class ParallelTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(acceptor = object : Acceptor {
-            override suspend fun request(writer: Writer, request: Long) {
+            override suspend fun request(request: Long): Data {
                 assertEquals(request, 1)
                 val buffer = Buffer()
                 buffer.write(serverData)
-                writer.writeBuffer(buffer, dataSize)
+                return Data(buffer, dataSize)
             }
         })
 

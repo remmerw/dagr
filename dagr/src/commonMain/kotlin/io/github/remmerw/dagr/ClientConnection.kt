@@ -5,7 +5,6 @@ import io.ktor.network.sockets.Socket
 import io.ktor.network.sockets.isClosed
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
-import io.ktor.network.sockets.port
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
 import io.ktor.utils.io.core.remaining
@@ -29,9 +28,6 @@ open class ClientConnection(
     private val closed = AtomicBoolean(false)
     private val mutex = Mutex()
 
-    fun localPort(): Int {
-        return socket.localAddress.port()
-    }
 
     @OptIn(ExperimentalAtomicApi::class)
     val isClosed: Boolean

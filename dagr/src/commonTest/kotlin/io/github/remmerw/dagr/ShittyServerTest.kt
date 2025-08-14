@@ -15,8 +15,9 @@ class ShittyServerTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override suspend fun request(writer: Writer, request: Long) {
+            override suspend fun request(request: Long): Data {
                 // server not responding
+                return Data(Buffer(), 0)
             }
         })
 

@@ -3,6 +3,7 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.Buffer
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
@@ -15,7 +16,8 @@ class TimeoutTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override suspend fun request(writer: Writer, request: Long) {
+            override suspend fun request(request: Long): Data {
+                return Data(Buffer(), 0)
             }
         })
 

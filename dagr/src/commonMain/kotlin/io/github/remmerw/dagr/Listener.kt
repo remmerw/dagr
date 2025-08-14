@@ -4,10 +4,8 @@ import kotlinx.io.RawSource
 
 interface Connection : AutoCloseable
 
-interface Writer {
-    suspend fun writeBuffer(source: RawSource, length: Int)
-}
+data class Data(val source: RawSource, val length: Int)
 
 interface Acceptor {
-    suspend fun request(writer: Writer, request: Long)
+    suspend fun request(request: Long): Data
 }

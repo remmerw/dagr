@@ -7,7 +7,6 @@ import io.ktor.network.sockets.openWriteChannel
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeBuffer
 import io.ktor.utils.io.writeInt
-import kotlinx.coroutines.yield
 import kotlinx.io.RawSource
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -19,7 +18,7 @@ open class ServerConnection(
     private val socket: Socket,
     private val acceptor: Acceptor,
     private val dagr: Dagr
-) : Writer, Connection {
+) : Connection {
     @Volatile
     private var lastActive: ValueTimeMark = TimeSource.Monotonic.markNow()
 
@@ -29,12 +28,11 @@ open class ServerConnection(
     private val sendChannel = socket.openWriteChannel(autoFlush = true)
 
 
-    override suspend fun writeBuffer(source: RawSource, length: Int) {
+    private suspend fun writeBuffer(source: RawSource, length: Int) {
         lastActive = TimeSource.Monotonic.markNow()
         try {
             sendChannel.writeInt(length)
             sendChannel.writeBuffer(source)
-            yield()
         } catch (_: Throwable) {
             close()
         }
@@ -51,9 +49,10 @@ open class ServerConnection(
                 val request = receiveChannel.readLong()
                 require(request >= 0) { "Invalid read token received" }
 
-                acceptor.request(this, request)
-
-                yield()
+                val data = acceptor.request(request)
+                data.source.use { source ->
+                    writeBuffer(source, data.length)
+                }
             } catch (_: Throwable) {
                 close()
                 break
