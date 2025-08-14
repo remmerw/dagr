@@ -7,5 +7,5 @@ interface Connection : AutoCloseable
 data class Data(val source: RawSource, val length: Int)
 
 interface Acceptor {
-    suspend fun request(request: Long): Data
+    fun request(request: Long): Data
 }

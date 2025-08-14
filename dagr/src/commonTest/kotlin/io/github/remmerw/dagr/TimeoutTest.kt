@@ -16,7 +16,7 @@ class TimeoutTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override suspend fun request(request: Long): Data {
+            override fun request(request: Long): Data {
                 return Data(Buffer(), 0)
             }
         })
@@ -31,7 +31,7 @@ class TimeoutTest {
         assertEquals(server.numIncomingConnections(), 1)
 
         Thread.sleep((5000 + 1000).toLong())
-        // now it should be no connections
+        // now there should be no connection
 
         assertEquals(server.numIncomingConnections(), 0)
 

@@ -1,14 +1,14 @@
 package io.github.remmerw.dagr
 
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.io.RawSink
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import java.net.Socket
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.withLock
 
 open class ClientConnection(
     private val socket: Socket
@@ -19,7 +19,7 @@ open class ClientConnection(
 
     @OptIn(ExperimentalAtomicApi::class)
     private val closed = AtomicBoolean(false)
-    private val mutex = Mutex()
+    private val lock = ReentrantLock()
 
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -45,8 +45,8 @@ open class ClientConnection(
         }
     }
 
-    suspend fun request(request: Long, sink: RawSink): Int {
-        mutex.withLock {
+    fun request(request: Long, sink: RawSink): Int {
+        lock.withLock {
             try {
                 sendChannel.writeLong(request)
                 sendChannel.flush()

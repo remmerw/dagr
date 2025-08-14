@@ -23,7 +23,7 @@ class DagrFinishTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(0, acceptor = object : Acceptor {
-            override suspend fun request(request: Long): Data {
+            override fun request(request: Long): Data {
                 assertEquals(request, 0L)
 
                 val buffer = Buffer()
