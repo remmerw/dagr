@@ -8,7 +8,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import java.net.SocketException
 import java.nio.channels.ClosedChannelException
 import java.util.concurrent.ConcurrentHashMap
@@ -107,32 +106,28 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
 
 }
 
-suspend fun connectDagr(
+fun connectDagr(
     remoteAddress: java.net.InetSocketAddress,
     timeout: Int = SOCKET_TIMEOUT
 ): ClientConnection? {
 
     val timeoutInMillis = timeout * 1000
-    return withTimeoutOrNull(timeoutInMillis.toLong()) {
 
-        var socket: java.net.Socket? = null
-        try {
-            socket = java.net.Socket()
-            socket.soTimeout = timeoutInMillis
-            //socket.sendBufferSize = BUFFER_SIZE_REQUEST
-            //socket.receiveBufferSize = BUFFER_SIZE_DATA
-            socket.connect(remoteAddress)
+    var socket: java.net.Socket? = null
+    try {
+        socket = java.net.Socket()
+        socket.soTimeout = timeoutInMillis
 
+        socket.connect(remoteAddress, timeoutInMillis)
 
-            return@withTimeoutOrNull ClientConnection(socket)
+        return ClientConnection(socket)
 
-
-        } catch (throwable: Throwable) {
-            debug("Connection failed " + remoteAddress + " " + throwable.message)
-            socket?.close()
-        }
-        return@withTimeoutOrNull null
+    } catch (throwable: Throwable) {
+        debug("Connection failed " + remoteAddress + " " + throwable.message)
+        socket?.close()
     }
+    return null
+
 }
 
 
