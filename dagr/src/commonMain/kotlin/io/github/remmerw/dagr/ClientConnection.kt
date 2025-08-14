@@ -3,9 +3,9 @@ package io.github.remmerw.dagr
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.RawSink
+import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
-import java.io.DataOutputStream
 import java.net.Socket
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -15,7 +15,7 @@ open class ClientConnection(
 ) : Connection {
 
     private val receiveChannel = socket.inputStream.asSource().buffered()
-    private val sendChannel = DataOutputStream(socket.outputStream)
+    private val sendChannel = socket.outputStream.asSink().buffered()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val closed = AtomicBoolean(false)
