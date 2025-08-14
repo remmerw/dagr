@@ -6,7 +6,7 @@ import kotlinx.io.Buffer
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
-import kotlin.test.fail
+import kotlin.test.assertTrue
 
 class ShittyServerTest {
 
@@ -17,6 +17,7 @@ class ShittyServerTest {
         val server = newDagr(acceptor = object : Acceptor {
             override suspend fun request(request: Long): Data {
                 // server not responding
+                Thread.sleep(SOCKET_TIMEOUT.toLong() * 1000)
                 return Data(Buffer(), 0)
             }
         })
@@ -29,14 +30,15 @@ class ShittyServerTest {
             connectDagr(remoteAddress)
         )
 
+        var failed = false
         try {
             val sink = Buffer()
             connection.request(0, sink)
-            fail("Exception expected")
         } catch (_: Throwable) {
             // ignore
+            failed = true
         }
-
+        assertTrue(failed)
         connection.close()
         server.shutdown()
     }
