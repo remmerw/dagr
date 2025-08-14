@@ -11,11 +11,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.SocketException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
 
 class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
 
@@ -116,28 +115,30 @@ suspend fun connectDagr(
     timeout: Int = SOCKET_TIMEOUT
 ): ClientConnection? {
 
-    val selectorManager = SelectorManager(Dispatchers.IO)
-    var socket: Socket? = null
-    try {
-        val isa = InetSocketAddress(
-            remoteAddress.hostname, remoteAddress.port
-        )
+    val timeoutInMillis = timeout * 1000
+    return withTimeoutOrNull(timeoutInMillis.toLong()) {
+        val selectorManager = SelectorManager(Dispatchers.IO)
+        var socket: Socket? = null
+        try {
+            val isa = InetSocketAddress(
+                remoteAddress.hostname, remoteAddress.port
+            )
 
-        socket = aSocket(selectorManager)
-            .tcp().connect(isa) {
-                socketTimeout =
-                    timeout.toDuration(DurationUnit.SECONDS).inWholeMilliseconds
-            }
+            socket = aSocket(selectorManager)
+                .tcp().connect(isa) {
+                    socketTimeout = timeoutInMillis.toLong()
+                }
 
-        return ClientConnection(selectorManager, socket)
+            return@withTimeoutOrNull ClientConnection(selectorManager, socket)
 
 
-    } catch (throwable: Throwable) {
-        debug("Connection failed " + remoteAddress + " " + throwable.message)
-        socket?.close()
-        selectorManager.close()
+        } catch (throwable: Throwable) {
+            debug("Connection failed " + remoteAddress + " " + throwable.message)
+            socket?.close()
+            selectorManager.close()
+        }
+        return@withTimeoutOrNull null
     }
-    return null
 }
 
 
