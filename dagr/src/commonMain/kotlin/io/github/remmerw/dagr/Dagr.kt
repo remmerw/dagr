@@ -10,6 +10,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.SocketException
+import java.nio.channels.ClosedChannelException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -58,6 +59,7 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
 
                 }
             } catch (_: InterruptedException) {
+            } catch (_: ClosedChannelException) {
             } catch (_: SocketException) {
             } catch (_: CancellationException) {
             } catch (throwable: Throwable) {

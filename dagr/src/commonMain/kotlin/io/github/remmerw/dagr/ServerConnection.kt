@@ -24,7 +24,7 @@ open class ServerConnection(
     @OptIn(ExperimentalAtomicApi::class)
     private val closed = AtomicBoolean(false)
     private val receiveChannel = socket.openReadChannel()
-    private val sendChannel = socket.openWriteChannel(autoFlush = true)
+    private val sendChannel = socket.openWriteChannel(autoFlush = false)
 
 
     @OptIn(ExperimentalAtomicApi::class)
@@ -42,6 +42,7 @@ open class ServerConnection(
                 data.source.use { source ->
                     sendChannel.writeInt(data.length)
                     sendChannel.writeBuffer(source)
+                    sendChannel.flush()
                 }
             } catch (_: Throwable) {
                 close()
