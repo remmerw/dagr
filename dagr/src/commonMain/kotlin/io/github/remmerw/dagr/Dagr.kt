@@ -39,9 +39,7 @@ class Dagr(private val timeout: Int = SOCKET_TIMEOUT) {
 
     suspend fun startup(port: Int = 0, acceptor: Acceptor) {
 
-        socket = aSocket(selectorManager).tcp().configure {
-            reuseAddress = true
-        }.bind("::", port)
+        socket = aSocket(selectorManager).tcp().bind("::", port)
 
         scope.launch {
             try {
@@ -121,6 +119,8 @@ suspend fun connectDagr(
         try {
             socket = java.net.Socket()
             socket.soTimeout = timeoutInMillis
+            //socket.sendBufferSize = BUFFER_SIZE_REQUEST
+            //socket.receiveBufferSize = BUFFER_SIZE_DATA
             socket.connect(remoteAddress)
 
 
@@ -143,7 +143,6 @@ suspend fun newDagr(port: Int = 0, timeout: Int = SOCKET_TIMEOUT, acceptor: Acce
 }
 
 const val SOCKET_TIMEOUT = 5
-
 
 fun debug(message: String) {
     if (ERROR) {

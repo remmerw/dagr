@@ -51,7 +51,7 @@ open class ClientConnection(
                 sendChannel.writeLong(request)
                 sendChannel.flush()
                 val count = receiveChannel.readInt()
-                require(count > 0){ "Invalid response $count bytes returned" }
+                require(count > 0) { "Invalid response $count bytes returned" }
                 receiveChannel.readTo(sink, count.toLong())
                 return count
             } catch (throwable: Throwable) {
