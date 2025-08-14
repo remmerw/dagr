@@ -1,12 +1,9 @@
 package io.github.remmerw.dagr
 
 import io.ktor.network.selector.SelectorManager
-import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.ServerSocket
-import io.ktor.network.sockets.Socket
 import io.ktor.network.sockets.aSocket
 import io.ktor.network.sockets.port
-import io.ktor.util.network.hostname
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -117,25 +114,20 @@ suspend fun connectDagr(
 
     val timeoutInMillis = timeout * 1000
     return withTimeoutOrNull(timeoutInMillis.toLong()) {
-        val selectorManager = SelectorManager(Dispatchers.IO)
-        var socket: Socket? = null
+
+        var socket: java.net.Socket? = null
         try {
-            val isa = InetSocketAddress(
-                remoteAddress.hostname, remoteAddress.port
-            )
+            socket = java.net.Socket()
+            socket.soTimeout = timeoutInMillis
+            socket.connect(remoteAddress)
 
-            socket = aSocket(selectorManager)
-                .tcp().connect(isa) {
-                    socketTimeout = timeoutInMillis.toLong()
-                }
 
-            return@withTimeoutOrNull ClientConnection(selectorManager, socket)
+            return@withTimeoutOrNull ClientConnection(socket)
 
 
         } catch (throwable: Throwable) {
             debug("Connection failed " + remoteAddress + " " + throwable.message)
             socket?.close()
-            selectorManager.close()
         }
         return@withTimeoutOrNull null
     }

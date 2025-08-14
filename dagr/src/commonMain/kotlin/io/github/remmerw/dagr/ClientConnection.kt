@@ -1,28 +1,21 @@
 package io.github.remmerw.dagr
 
-import io.ktor.network.selector.SelectorManager
-import io.ktor.network.sockets.Socket
-import io.ktor.network.sockets.isClosed
-import io.ktor.network.sockets.openReadChannel
-import io.ktor.network.sockets.openWriteChannel
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.InternalAPI
-import io.ktor.utils.io.core.remaining
-import io.ktor.utils.io.readInt
-import io.ktor.utils.io.writeLong
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.RawSink
+import kotlinx.io.asSink
+import kotlinx.io.asSource
+import kotlinx.io.buffered
+import java.net.Socket
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 open class ClientConnection(
-    private val selectorManager: SelectorManager,
     private val socket: Socket
 ) : Connection {
 
-    private val receiveChannel = socket.openReadChannel()
-    private val sendChannel = socket.openWriteChannel(autoFlush = true)
+    private val receiveChannel = socket.inputStream.asSource().buffered()
+    private val sendChannel = socket.outputStream.asSink().buffered()
 
     @OptIn(ExperimentalAtomicApi::class)
     private val closed = AtomicBoolean(false)
@@ -38,7 +31,11 @@ open class ClientConnection(
     override fun close() {
         if (!closed.exchange(true)) {
             try {
-                selectorManager.close()
+                receiveChannel.close()
+            } catch (_: Throwable) {
+            }
+            try {
+                sendChannel.close()
             } catch (_: Throwable) {
             }
             try {
@@ -52,6 +49,7 @@ open class ClientConnection(
         mutex.withLock {
             try {
                 sendChannel.writeLong(request)
+                sendChannel.flush()
                 val count = receiveChannel.readInt()
                 receiveChannel.readTo(sink, count.toLong())
                 return count
@@ -62,19 +60,3 @@ open class ClientConnection(
         }
     }
 }
-
-
-@OptIn(InternalAPI::class)
-suspend fun ByteReadChannel.readTo(sink: RawSink, byteCount: Long) {
-
-    var remaining = byteCount
-
-    while (remaining > 0 && !isClosedForRead) {
-        if (readBuffer.exhausted()) awaitContent()
-
-        val size = minOf(remaining, readBuffer.remaining)
-        readBuffer.readTo(sink, size)
-        remaining -= size.toInt()
-    }
-}
-
