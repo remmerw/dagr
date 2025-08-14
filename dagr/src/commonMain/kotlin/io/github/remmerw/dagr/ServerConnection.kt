@@ -7,7 +7,6 @@ import io.ktor.network.sockets.openWriteChannel
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeBuffer
 import io.ktor.utils.io.writeInt
-import kotlinx.io.RawSource
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
