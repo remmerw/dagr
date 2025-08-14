@@ -28,16 +28,6 @@ open class ServerConnection(
     private val sendChannel = socket.openWriteChannel(autoFlush = true)
 
 
-    private suspend fun writeBuffer(source: RawSource, length: Int) {
-        lastActive = TimeSource.Monotonic.markNow()
-        try {
-            sendChannel.writeInt(length)
-            sendChannel.writeBuffer(source)
-        } catch (_: Throwable) {
-            close()
-        }
-    }
-
     @OptIn(ExperimentalAtomicApi::class)
     val isClosed: Boolean
         get() = closed.load() || socket.isClosed || inactive()
@@ -51,7 +41,8 @@ open class ServerConnection(
 
                 val data = acceptor.request(request)
                 data.source.use { source ->
-                    writeBuffer(source, data.length)
+                    sendChannel.writeInt(data.length)
+                    sendChannel.writeBuffer(source)
                 }
             } catch (_: Throwable) {
                 close()
