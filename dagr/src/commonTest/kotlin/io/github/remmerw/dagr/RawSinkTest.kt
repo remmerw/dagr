@@ -27,7 +27,7 @@ class RawSinkTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long, offset: Long): Data {
+            override suspend fun request(request: Long, offset: Long): Data {
 
                 assertEquals(request, 0L)
 

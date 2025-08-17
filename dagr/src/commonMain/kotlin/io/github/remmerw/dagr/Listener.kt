@@ -1,11 +1,11 @@
 package io.github.remmerw.dagr
 
-import kotlinx.io.RawSource
+import kotlinx.io.Source
 
 interface Connection : AutoCloseable
 
-data class Data(val source: RawSource, val length: Long)
+data class Data(val source: Source, val length: Long)
 
 interface Acceptor {
-    fun request(request: Long, offset: Long): Data
+    suspend fun request(request: Long, offset: Long): Data
 }

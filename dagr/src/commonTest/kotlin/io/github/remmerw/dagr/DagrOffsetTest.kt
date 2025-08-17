@@ -19,7 +19,7 @@ class DagrOffsetTest {
         val serverData = "Moin".encodeToByteArray()
 
         val server = newDagr(port = 0, timeout = 5, acceptor = object : Acceptor {
-            override fun request(request: Long, offset: Long): Data {
+            override suspend fun request(request: Long, offset: Long): Data {
 
                 assertEquals(request, 1)
 

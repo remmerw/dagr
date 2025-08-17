@@ -23,7 +23,7 @@ class DagrIterTest {
         var serverData: ByteArray? = null
 
         val server = newDagr(0, 5, object : Acceptor {
-            override fun request(request: Long, offset: Long): Data {
+            override suspend fun request(request: Long, offset: Long): Data {
 
                 assertEquals(request, 0L)
                 serverData = Random.nextBytes(dataSize)

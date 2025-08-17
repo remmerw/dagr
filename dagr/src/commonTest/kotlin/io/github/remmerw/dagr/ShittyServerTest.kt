@@ -15,7 +15,7 @@ class ShittyServerTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long, offset: Long): Data {
+            override suspend fun request(request: Long, offset: Long): Data {
                 // server not responding
                 Thread.sleep(SOCKET_TIMEOUT.toLong() * 1000)
                 return Data(Buffer(), 0)
