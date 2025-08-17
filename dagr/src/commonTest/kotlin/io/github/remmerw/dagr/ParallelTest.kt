@@ -25,7 +25,7 @@ class ParallelTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long, offset:Long): Data {
+            override fun request(request: Long, offset: Long): Data {
                 assertEquals(request, 1)
                 val buffer = Buffer()
                 buffer.write(serverData)
@@ -57,7 +57,7 @@ class ParallelTest {
             repeat(100) {
                 try {
                     val buffer = Buffer()
-                    connection.request(1, 0,buffer)
+                    connection.request(1, 0, buffer)
                     assertContentEquals(buffer.readByteArray(), serverData)
                 } catch (throwable: Throwable) {
                     throwable.printStackTrace()
