@@ -9,6 +9,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.withLock
+import kotlin.math.min
 
 open class ClientConnection(
     private val socket: Socket
@@ -45,15 +46,35 @@ open class ClientConnection(
         }
     }
 
-    fun request(request: Long, offset: Long, sink: RawSink): Long {
+    fun request(request: Long, offset: Long, sink: RawSink, progress: (Float) -> Unit = {}): Long {
         lock.withLock {
             try {
                 sendChannel.writeLong(request)
                 sendChannel.writeLong(offset)
                 sendChannel.flush()
                 val count = receiveChannel.readLong()
+                var totalRead = 0L
+                var remember = 0
+                var rest: Long
+
                 require(count > 0) { "Invalid response $count bytes returned" }
-                receiveChannel.readTo(sink, count)
+                do {
+                    rest = count - totalRead
+                    val read = min(rest, 8192)
+
+                    receiveChannel.readTo(sink, read)
+
+                    totalRead += read
+
+                    if (totalRead > 0) {
+                        val percent = ((totalRead * 100.0f) / count).toInt()
+                        if (percent > remember) {
+                            remember = percent
+                            progress.invoke(percent / 100.0f)
+                        }
+                    }
+
+                } while (rest > 0)
                 return count
             } catch (throwable: Throwable) {
                 close()
