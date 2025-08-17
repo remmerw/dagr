@@ -6,7 +6,7 @@ import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
 import io.ktor.utils.io.readLong
 import io.ktor.utils.io.writeBuffer
-import io.ktor.utils.io.writeInt
+import io.ktor.utils.io.writeLong
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -36,11 +36,13 @@ open class ServerConnection(
             try {
                 lastActive = TimeSource.Monotonic.markNow()
                 val request = receiveChannel.readLong()
-                require(request >= 0) { "Invalid read token received" }
+                require(request >= 0) { "Invalid request received" }
+                val offset = receiveChannel.readLong()
+                require(request >= 0) { "Invalid offset received" }
 
-                val data = acceptor.request(request)
+                val data = acceptor.request(request, offset)
                 data.source.use { source ->
-                    sendChannel.writeInt(data.length)
+                    sendChannel.writeLong(data.length)
                     sendChannel.writeBuffer(source)
                     sendChannel.flush()
                 }

@@ -27,13 +27,13 @@ class RawSinkTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
 
                 assertEquals(request, 0L)
 
                 val buffer = Buffer()
                 buffer.write(serverData)
-                return Data(buffer, dataSize)
+                return Data(buffer, dataSize.toLong())
 
             }
         }
@@ -54,7 +54,7 @@ class RawSinkTest {
 
         val path = Path(SystemTemporaryDirectory, Uuid.random().toHexString())
         SystemFileSystem.sink(path, false).use { sink ->
-            connection.request(0, sink)
+            connection.request(0, 0, sink)
         }
 
         val metadata = SystemFileSystem.metadataOrNull(path)

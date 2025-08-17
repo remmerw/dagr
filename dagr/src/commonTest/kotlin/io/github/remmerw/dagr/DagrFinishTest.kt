@@ -23,12 +23,12 @@ class DagrFinishTest {
         val serverData = Random.nextBytes(dataSize)
 
         val server = newDagr(0, acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
                 assertEquals(request, 0L)
 
                 val buffer = Buffer()
                 buffer.write(serverData)
-                return Data(buffer, dataSize)
+                return Data(buffer, dataSize.toLong())
             }
         }
 
@@ -43,7 +43,7 @@ class DagrFinishTest {
             )
 
         val sink = Buffer()
-        connection.request(0, sink)
+        connection.request(0, 0, sink)
         assertContentEquals(sink.readByteArray(), serverData)
         connection.close()
 

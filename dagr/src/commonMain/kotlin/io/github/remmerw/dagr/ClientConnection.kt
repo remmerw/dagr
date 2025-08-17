@@ -45,14 +45,15 @@ open class ClientConnection(
         }
     }
 
-    fun request(request: Long, sink: RawSink): Int {
+    fun request(request: Long, offset: Long, sink: RawSink): Long {
         lock.withLock {
             try {
                 sendChannel.writeLong(request)
+                sendChannel.writeLong(offset)
                 sendChannel.flush()
-                val count = receiveChannel.readInt()
+                val count = receiveChannel.readLong()
                 require(count > 0) { "Invalid response $count bytes returned" }
-                receiveChannel.readTo(sink, count.toLong())
+                receiveChannel.readTo(sink, count)
                 return count
             } catch (throwable: Throwable) {
                 close()

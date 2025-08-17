@@ -15,7 +15,7 @@ class ShittyServerTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
                 // server not responding
                 Thread.sleep(SOCKET_TIMEOUT.toLong() * 1000)
                 return Data(Buffer(), 0)
@@ -33,7 +33,7 @@ class ShittyServerTest {
         var failed = false
         try {
             val sink = Buffer()
-            connection.request(0, sink)
+            connection.request(0, 0, sink)
         } catch (_: Throwable) {
             // ignore
             failed = true

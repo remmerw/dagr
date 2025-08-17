@@ -18,11 +18,11 @@ class ConnectionsTest {
     @Test
     fun connections(): Unit = runBlocking(Dispatchers.IO) {
 
-        val dataSize = Short.MAX_VALUE.toInt()
-        val serverData = Random.nextBytes(dataSize)
+        val dataSize = Short.MAX_VALUE.toLong()
+        val serverData = Random.nextBytes(dataSize.toInt())
 
         val server = newDagr(0, 5, object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
                 assertEquals(request, 0L)
                 val buffer = Buffer()
                 buffer.write(serverData)
@@ -48,7 +48,7 @@ class ConnectionsTest {
         assertTrue(first.isClosed)
 
         val sink = Buffer()
-        val size = second.request(0, sink)
+        val size = second.request(0, 0, sink)
         assertEquals(size, dataSize)
         assertContentEquals(sink.readByteArray(), serverData)
 

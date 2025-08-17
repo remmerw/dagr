@@ -23,13 +23,13 @@ class DagrIterTest {
         var serverData: ByteArray? = null
 
         val server = newDagr(0, 5, object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
 
                 assertEquals(request, 0L)
                 serverData = Random.nextBytes(dataSize)
                 val buffer = Buffer()
                 buffer.write(serverData)
-                return Data(buffer, dataSize)
+                return Data(buffer, dataSize.toLong())
 
             }
         }
@@ -50,8 +50,8 @@ class DagrIterTest {
 
         repeat(2000) {
             val sink = Buffer()
-            val size = connection.request(0, sink)
-            assertEquals(size, dataSize)
+            val size = connection.request(0, 0, sink)
+            assertEquals(size, dataSize.toLong())
             assertContentEquals(sink.readByteArray(), serverData)
         }
 

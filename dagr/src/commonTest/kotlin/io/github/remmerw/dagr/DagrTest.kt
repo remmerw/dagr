@@ -20,13 +20,13 @@ class DagrTest {
         val serverData = "Moin".encodeToByteArray()
 
         val server = newDagr(port = 0, timeout = 5, acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
 
                 assertEquals(request, 1)
 
                 val buffer = Buffer()
                 buffer.write(serverData)
-                return Data(buffer, serverData.size)
+                return Data(buffer, serverData.size.toLong())
             }
         })
 
@@ -39,7 +39,7 @@ class DagrTest {
 
 
         val buffer = Buffer()
-        connection.request(1, buffer)
+        connection.request(1, 0,buffer)
         assertContentEquals(buffer.readByteArray(), serverData)
 
         connection.close()
@@ -54,11 +54,11 @@ class DagrTest {
         val serverData = Random.nextBytes(Short.MAX_VALUE.toInt())
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
                 assertEquals(request, 0L)
                 val buffer = Buffer()
                 buffer.write(serverData)
-                return Data(buffer, serverData.size)
+                return Data(buffer, serverData.size.toLong())
             }
         }
 
@@ -73,7 +73,7 @@ class DagrTest {
             )
 
         val sink = Buffer()
-        connection.request(0, sink)
+        connection.request(0, 0, sink)
         assertContentEquals(sink.readByteArray(), serverData)
 
 

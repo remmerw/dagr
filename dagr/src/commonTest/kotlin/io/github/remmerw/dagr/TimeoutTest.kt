@@ -16,7 +16,7 @@ class TimeoutTest {
 
 
         val server = newDagr(acceptor = object : Acceptor {
-            override fun request(request: Long): Data {
+            override fun request(request: Long, offset:Long): Data {
                 return Data(Buffer(), 0)
             }
         })
