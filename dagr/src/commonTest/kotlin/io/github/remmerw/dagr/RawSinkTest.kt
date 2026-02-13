@@ -54,9 +54,11 @@ class RawSinkTest {
 
         val path = Path(SystemTemporaryDirectory, Uuid.random().toHexString())
         SystemFileSystem.sink(path, false).use { sink ->
-            connection.request(0, 0, sink) { progress -> {
-                println("Progress $progress")
-            }}
+            connection.request(0, 0, sink) { progress ->
+                run {
+                    println("Progress $progress")
+                }
+            }
         }
 
         val metadata = SystemFileSystem.metadataOrNull(path)
