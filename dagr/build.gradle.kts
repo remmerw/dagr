@@ -11,7 +11,7 @@ version = "0.4.2"
 kotlin {
 
 
-    androidLibrary {
+    android {
         namespace = "io.github.remmerw.dagr"
         compileSdk = 36
         minSdk = 27
