@@ -1,12 +1,12 @@
 [versions]
-agp = "9.1.0"
+agp = "9.1.1"
 kotlin = "2.3.20"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version = "0.9.0" }
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
-ktor-network = { module = "io.ktor:ktor-network", version = "3.4.1" }
+ktor-network = { module = "io.ktor:ktor-network", version = "3.4.2" }
 
 [plugins]
 androidLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
