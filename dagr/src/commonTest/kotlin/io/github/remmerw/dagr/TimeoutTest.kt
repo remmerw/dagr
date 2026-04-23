@@ -8,6 +8,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.milliseconds
 
 class TimeoutTest {
 
@@ -26,7 +27,7 @@ class TimeoutTest {
         )
 
         val connection = connectDagr(remoteAddress)!!
-        delay(20)
+        delay(20.milliseconds)
 
         assertEquals(server.numIncomingConnections(), 1)
 

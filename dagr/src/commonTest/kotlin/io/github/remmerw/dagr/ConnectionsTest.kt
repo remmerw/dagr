@@ -12,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 class ConnectionsTest {
 
@@ -36,12 +37,12 @@ class ConnectionsTest {
 
 
         val first = connectDagr(remoteAddress)!!
-        delay(30)
+        delay(30.milliseconds)
         assertEquals(server.numIncomingConnections(), 1)
 
 
         val second = connectDagr(remoteAddress)!!
-        delay(30)
+        delay(30.milliseconds)
         assertEquals(server.numIncomingConnections(), 2)
 
         first.close()
